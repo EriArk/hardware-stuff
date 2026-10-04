@@ -1,0 +1,7 @@
+{
+  "sampled_wall_triangles": 320,
+  "wall_vertices_centers_and_edge_midpoints": 1280,
+  "maximum_radial_error_vs_exact_capsule_mm": 0.0007335995815838103,
+  "mechanical_min_clearance_CAD_mm": 0.16082666840881465,
+  "method": "Exact distance to capsule-cylinder radius 3.7 mm, including triangle centers and all three edge midpoints."
+}

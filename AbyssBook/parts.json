@@ -1,0 +1,51 @@
+[
+  {
+    "part": "front",
+    "revision": "v66",
+    "quantity": 1,
+    "step": "STEP/parts/t5_reader_case_v66_front.step",
+    "stl": "STL/print-set/t5_reader_case_v66_front_dragon_scales.stl"
+  },
+  {
+    "part": "back",
+    "revision": "v65",
+    "quantity": 1,
+    "step": "STEP/parts/t5_reader_case_v65_back.step",
+    "stl": "STL/print-set/t5_reader_case_v65_back_dragon_scales.stl"
+  },
+  {
+    "part": "up_switch_cover",
+    "revision": "v65",
+    "quantity": 1,
+    "step": "STEP/parts/t5_reader_case_v65_up_switch_cover.step",
+    "stl": "STL/print-set/t5_reader_case_v65_up_switch_cover.stl"
+  },
+  {
+    "part": "down_switch_cover",
+    "revision": "v65",
+    "quantity": 1,
+    "step": "STEP/parts/t5_reader_case_v65_down_switch_cover.step",
+    "stl": "STL/print-set/t5_reader_case_v65_down_switch_cover.stl"
+  },
+  {
+    "part": "ok_switch_cover",
+    "revision": "v65",
+    "quantity": 1,
+    "step": "STEP/parts/t5_reader_case_v65_ok_switch_cover.step",
+    "stl": "STL/print-set/t5_reader_case_v65_ok_switch_cover.stl"
+  },
+  {
+    "part": "power_switch_cover",
+    "revision": "v65",
+    "quantity": 1,
+    "step": "STEP/parts/t5_reader_case_v65_power_switch_cover.step",
+    "stl": "STL/print-set/t5_reader_case_v65_power_switch_cover.stl"
+  },
+  {
+    "part": "sleep_button_cap",
+    "revision": "v66",
+    "quantity": 1,
+    "step": "STEP/parts/t5_reader_case_v66_sleep_button_cap.step",
+    "stl": "STL/print-set/t5_reader_case_v66_sleep_button_cap.stl"
+  }
+]

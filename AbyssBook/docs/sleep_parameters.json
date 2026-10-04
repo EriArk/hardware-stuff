@@ -1,0 +1,42 @@
+{
+  "base": "v65",
+  "only_changed_parts": [
+    "front",
+    "sleep_button_cap"
+  ],
+  "window_mm": [
+    10.6,
+    7.4
+  ],
+  "cap_mm": [
+    8.8,
+    5.6,
+    3.75
+  ],
+  "rest_front_y": 69.55,
+  "nominal_switch_tip_y": 67.35,
+  "cap_rear_y": 65.8,
+  "stroke_mm": 1.8,
+  "additional_straight_travel_check_mm": 0.2,
+  "rest_protrusion_mm": 2.4,
+  "locked_protrusion_mm": 1.4,
+  "fully_pressed_protrusion_mm": 0.6,
+  "socket_upper_clear_mm": [
+    2.6,
+    2.1
+  ],
+  "socket_small_section_depth_mm": 0.5,
+  "socket_nominal_stem_mm": [
+    2.5,
+    2.0
+  ],
+  "grip_rib_interference_per_side_mm": 0.025,
+  "grip_ribs": 4,
+  "socket_lower_guide_relief_mm": [
+    4.8,
+    4.0
+  ],
+  "socket_lower_relief_end_y": 66.85,
+  "no_global_scaling": true,
+  "texture_preserved_from_v65": true
+}

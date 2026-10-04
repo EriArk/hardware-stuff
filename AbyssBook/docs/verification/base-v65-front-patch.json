@@ -1,0 +1,56 @@
+{
+  "source_sha256": "5f15d2c356cbd88396a5a008457914e83eb4434fa64d8139b7651fa5744435e1",
+  "source_full_check_intersecting_faces": 19,
+  "all_source_intersecting_faces_repaired": true,
+  "unchanged_triangles": 7741523,
+  "changed_face_validation": "Each repaired patch checked against every remaining triangle whose bounding box can intersect it, after float32 quantization. Unchanged triangles retain their verified geometry.",
+  "functional_locations_untouched": true,
+  "patches": [
+    {
+      "name": "tip",
+      "changed_faces": 243,
+      "seed_intersections": 7,
+      "boundary_edges_preserved": 67,
+      "changed_vertices": 89,
+      "max_vertex_displacement_mm": 0.02545087427163841,
+      "min_xyz": [
+        -37.59138870239258,
+        33.84223175048828,
+        -0.07196643948554993
+      ],
+      "max_xyz": [
+        -36.873287200927734,
+        34.309268951416016,
+        -5.111645805300213e-06
+      ],
+      "relaxation_fraction": 0.25,
+      "rings": 3,
+      "checked_nearby_faces": 1343,
+      "remaining_intersections": 0
+    },
+    {
+      "name": "groove",
+      "changed_faces": 330,
+      "seed_intersections": 12,
+      "boundary_edges_preserved": 96,
+      "changed_vertices": 119,
+      "max_vertex_displacement_mm": 0.00020816099171043172,
+      "min_xyz": [
+        -51.48504638671875,
+        19.172405242919922,
+        -0.005797375459223986
+      ],
+      "max_xyz": [
+        -49.360321044921875,
+        21.968692779541016,
+        0.38769054412841797
+      ],
+      "relaxation_fraction": 0.001,
+      "rings": 3,
+      "checked_nearby_faces": 2592,
+      "remaining_intersections": 0
+    }
+  ],
+  "self_intersecting_faces_after_repair": 0,
+  "sha256": "fad4bb238bca9e3ec36c87a4b59dd7467ad48326dbbcd0947ae9ad50f2ef2902"
+}

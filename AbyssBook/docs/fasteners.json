@@ -1,0 +1,242 @@
+[
+  {
+    "group": "up",
+    "size": "M2x6",
+    "axis": [
+      0,
+      0,
+      -1
+    ],
+    "center": [
+      -33.711013716151655,
+      -0.8689862838483444,
+      13.15
+    ],
+    "seat": 13.15,
+    "interface": 11.15,
+    "tip": 7.15,
+    "pilot_bottom": 5.65,
+    "engagement": 4.0,
+    "reserve": 1.5
+  },
+  {
+    "group": "up",
+    "size": "M2x6",
+    "axis": [
+      0,
+      0,
+      -1
+    ],
+    "center": [
+      -45.44898628384834,
+      10.868986283848344,
+      13.15
+    ],
+    "seat": 13.15,
+    "interface": 11.15,
+    "tip": 7.15,
+    "pilot_bottom": 5.65,
+    "engagement": 4.0,
+    "reserve": 1.5
+  },
+  {
+    "group": "down",
+    "size": "M2x6",
+    "axis": [
+      0,
+      0,
+      -1
+    ],
+    "center": [
+      -33.711013716151655,
+      -19.368986283848344,
+      13.15
+    ],
+    "seat": 13.15,
+    "interface": 11.15,
+    "tip": 7.15,
+    "pilot_bottom": 5.65,
+    "engagement": 4.0,
+    "reserve": 1.5
+  },
+  {
+    "group": "down",
+    "size": "M2x6",
+    "axis": [
+      0,
+      0,
+      -1
+    ],
+    "center": [
+      -45.44898628384834,
+      -7.631013716151656,
+      13.15
+    ],
+    "seat": 13.15,
+    "interface": 11.15,
+    "tip": 7.15,
+    "pilot_bottom": 5.65,
+    "engagement": 4.0,
+    "reserve": 1.5
+  },
+  {
+    "group": "ok",
+    "size": "M2x6",
+    "axis": [
+      0,
+      0,
+      -1
+    ],
+    "center": [
+      -47.48,
+      -49.1,
+      9.05
+    ],
+    "seat": 9.05,
+    "interface": 6.95,
+    "tip": 3.05,
+    "pilot_bottom": 1.55,
+    "engagement": 3.9,
+    "reserve": 1.5
+  },
+  {
+    "group": "ok",
+    "size": "M2x6",
+    "axis": [
+      0,
+      0,
+      -1
+    ],
+    "center": [
+      -31.68,
+      -64.9,
+      9.05
+    ],
+    "seat": 9.05,
+    "interface": 6.95,
+    "tip": 3.05,
+    "pilot_bottom": 1.55,
+    "engagement": 3.9,
+    "reserve": 1.5
+  },
+  {
+    "group": "sleep",
+    "size": "M2x6",
+    "axis": [
+      0,
+      1,
+      0
+    ],
+    "center": [
+      -46.45,
+      55.25,
+      8.3
+    ],
+    "seat": 55.25,
+    "interface": 57.25,
+    "tip": 61.25,
+    "pilot_bottom": 62.75,
+    "engagement": 4.0,
+    "reserve": 1.5
+  },
+  {
+    "group": "sleep",
+    "size": "M2x6",
+    "axis": [
+      0,
+      1,
+      0
+    ],
+    "center": [
+      -34.45,
+      55.25,
+      8.3
+    ],
+    "seat": 55.25,
+    "interface": 57.25,
+    "tip": 61.25,
+    "pilot_bottom": 62.75,
+    "engagement": 4.0,
+    "reserve": 1.5
+  },
+  {
+    "group": "back",
+    "size": "M2.5x8",
+    "axis": [
+      0,
+      0,
+      -1
+    ],
+    "center": [
+      -46.4,
+      -63.85,
+      19.8
+    ],
+    "seat": 19.8,
+    "interface": 18,
+    "tip": 11.8,
+    "pilot_bottom": 10.3,
+    "engagement": 6.2,
+    "reserve": 1.5
+  },
+  {
+    "group": "back",
+    "size": "M2.5x8",
+    "axis": [
+      0,
+      0,
+      -1
+    ],
+    "center": [
+      -46.4,
+      61.15,
+      19.8
+    ],
+    "seat": 19.8,
+    "interface": 18,
+    "tip": 11.8,
+    "pilot_bottom": 10.3,
+    "engagement": 6.2,
+    "reserve": 1.5
+  },
+  {
+    "group": "back",
+    "size": "M2.5x8",
+    "axis": [
+      0,
+      0,
+      -1
+    ],
+    "center": [
+      38.4,
+      -63.85,
+      19.8
+    ],
+    "seat": 19.8,
+    "interface": 18,
+    "tip": 11.8,
+    "pilot_bottom": 10.3,
+    "engagement": 6.2,
+    "reserve": 1.5
+  },
+  {
+    "group": "back",
+    "size": "M2.5x8",
+    "axis": [
+      0,
+      0,
+      -1
+    ],
+    "center": [
+      38.4,
+      61.15,
+      19.8
+    ],
+    "seat": 19.8,
+    "interface": 18,
+    "tip": 11.8,
+    "pilot_bottom": 10.3,
+    "engagement": 6.2,
+    "reserve": 1.5
+  }
+]

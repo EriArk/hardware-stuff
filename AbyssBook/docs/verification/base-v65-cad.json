@@ -1,0 +1,434 @@
+{
+  "parts": {
+    "front": {
+      "valid": true,
+      "solids": 1,
+      "step_valid": true,
+      "step_solids": 1,
+      "relative_volume_error": 4.124623598737012e-09
+    },
+    "back": {
+      "valid": true,
+      "solids": 1,
+      "step_valid": true,
+      "step_solids": 1,
+      "relative_volume_error": 2.306194862752883e-13,
+      "step_byte_identical_v64": true
+    },
+    "up_switch_cover": {
+      "valid": true,
+      "solids": 1,
+      "step_valid": true,
+      "step_solids": 1,
+      "relative_volume_error": 2.2232751937228142e-14,
+      "step_byte_identical_v64": true
+    },
+    "down_switch_cover": {
+      "valid": true,
+      "solids": 1,
+      "step_valid": true,
+      "step_solids": 1,
+      "relative_volume_error": 1.2638464370508806e-13,
+      "step_byte_identical_v64": true
+    },
+    "ok_switch_cover": {
+      "valid": true,
+      "solids": 1,
+      "step_valid": true,
+      "step_solids": 1,
+      "relative_volume_error": 1.857833640234674e-13,
+      "step_byte_identical_v64": true
+    },
+    "power_switch_cover": {
+      "valid": true,
+      "solids": 1,
+      "step_valid": true,
+      "step_solids": 1,
+      "relative_volume_error": 4.493179482491093e-15,
+      "step_byte_identical_v64": true
+    },
+    "sleep_button_cap": {
+      "valid": true,
+      "solids": 1,
+      "step_valid": true,
+      "step_solids": 1,
+      "relative_volume_error": 3.8262787504245857e-14,
+      "step_byte_identical_v64": true
+    }
+  },
+  "intersections": [],
+  "wrap_probes": [
+    {
+      "name": "upper_right",
+      "t": -0.005,
+      "target_mm": 0.11792049150480358,
+      "measured_mm": 0.12107081161233824,
+      "error_mm": 0.00315032010753466,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_right",
+      "t": 0.010357142857142856,
+      "target_mm": 0.4906347081448022,
+      "measured_mm": 0.4900940902325017,
+      "error_mm": 0.0005406179123004784,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_right",
+      "t": 0.025714285714285714,
+      "target_mm": 0.8295022385671412,
+      "measured_mm": 0.8252796381190435,
+      "error_mm": 0.004222600448097746,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_right",
+      "t": 0.04107142857142857,
+      "target_mm": 0.895,
+      "measured_mm": 0.8943779460724981,
+      "error_mm": 0.0006220539275019199,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_right",
+      "t": 0.05642857142857143,
+      "target_mm": 0.895,
+      "measured_mm": 0.8914933921146833,
+      "error_mm": 0.0035066078853167593,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_right",
+      "t": 0.07178571428571429,
+      "target_mm": 0.895,
+      "measured_mm": 0.8912155311536518,
+      "error_mm": 0.003784468846348199,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_right",
+      "t": 0.08714285714285713,
+      "target_mm": 0.895,
+      "measured_mm": 0.8933125466559897,
+      "error_mm": 0.0016874533440103257,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_right",
+      "t": 0.1025,
+      "target_mm": 0.895,
+      "measured_mm": 0.8931674757260626,
+      "error_mm": 0.0018325242739374303,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_right",
+      "t": 0.11785714285714285,
+      "target_mm": 0.895,
+      "measured_mm": 0.8917098137776547,
+      "error_mm": 0.003290186222345337,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_right",
+      "t": 0.1332142857142857,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949995970138167,
+      "error_mm": 4.029861833121373e-07,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_right",
+      "t": 0.14857142857142858,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949999993678661,
+      "error_mm": 6.321339007797633e-10,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_right",
+      "t": 0.16392857142857142,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949999331488669,
+      "error_mm": 6.685113307369761e-08,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_right",
+      "t": 0.17928571428571427,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949998588902495,
+      "error_mm": 1.4110975055103836e-07,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_right",
+      "t": 0.19464285714285715,
+      "target_mm": 0.895,
+      "measured_mm": 0.894999944204425,
+      "error_mm": 5.579557504908905e-08,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_right",
+      "t": 0.21,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949999871501642,
+      "error_mm": 1.2849835862027703e-08,
+      "on_fillet": false
+    },
+    {
+      "name": "lower_right",
+      "t": -0.005,
+      "target_mm": 0.13244247738780143,
+      "measured_mm": 0.13422749240547094,
+      "error_mm": 0.0017850150176695057,
+      "on_fillet": false
+    },
+    {
+      "name": "lower_right",
+      "t": 0.010357142857142856,
+      "target_mm": 0.4494439453914664,
+      "measured_mm": 0.44957524822437733,
+      "error_mm": 0.00013130283291090672,
+      "on_fillet": false
+    },
+    {
+      "name": "lower_right",
+      "t": 0.025714285714285714,
+      "target_mm": 0.763740501070395,
+      "measured_mm": 0.7603869026071048,
+      "error_mm": 0.003353598463290197,
+      "on_fillet": false
+    },
+    {
+      "name": "lower_right",
+      "t": 0.04107142857142857,
+      "target_mm": 0.895,
+      "measured_mm": 0.8939167684173166,
+      "error_mm": 0.0010832315826834193,
+      "on_fillet": true
+    },
+    {
+      "name": "lower_right",
+      "t": 0.05642857142857143,
+      "target_mm": 0.895,
+      "measured_mm": 0.892604483580987,
+      "error_mm": 0.002395516419013033,
+      "on_fillet": true
+    },
+    {
+      "name": "lower_right",
+      "t": 0.07178571428571429,
+      "target_mm": 0.895,
+      "measured_mm": 0.8920712519516933,
+      "error_mm": 0.002928748048306673,
+      "on_fillet": true
+    },
+    {
+      "name": "lower_right",
+      "t": 0.08714285714285713,
+      "target_mm": 0.895,
+      "measured_mm": 0.8948106858670235,
+      "error_mm": 0.00018931413297651467,
+      "on_fillet": true
+    },
+    {
+      "name": "lower_right",
+      "t": 0.1025,
+      "target_mm": 0.895,
+      "measured_mm": 0.8923173342712123,
+      "error_mm": 0.0026826657287877254,
+      "on_fillet": true
+    },
+    {
+      "name": "lower_right",
+      "t": 0.11785714285714285,
+      "target_mm": 0.895,
+      "measured_mm": 0.8926199083036888,
+      "error_mm": 0.0023800916963112595,
+      "on_fillet": true
+    },
+    {
+      "name": "lower_right",
+      "t": 0.1332142857142857,
+      "target_mm": 0.895,
+      "measured_mm": 0.8943008185492582,
+      "error_mm": 0.0006991814507417704,
+      "on_fillet": true
+    },
+    {
+      "name": "lower_right",
+      "t": 0.14857142857142858,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949999122168306,
+      "error_mm": 8.77831694001685e-08,
+      "on_fillet": false
+    },
+    {
+      "name": "lower_right",
+      "t": 0.16392857142857142,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949999572943939,
+      "error_mm": 4.270560616248531e-08,
+      "on_fillet": false
+    },
+    {
+      "name": "lower_right",
+      "t": 0.17928571428571427,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949999687953243,
+      "error_mm": 3.120467573225483e-08,
+      "on_fillet": false
+    },
+    {
+      "name": "lower_right",
+      "t": 0.19464285714285715,
+      "target_mm": 0.895,
+      "measured_mm": 0.894999850870136,
+      "error_mm": 1.4912986401327544e-07,
+      "on_fillet": false
+    },
+    {
+      "name": "lower_right",
+      "t": 0.21,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949999647803055,
+      "error_mm": 3.5219694494159626e-08,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_left",
+      "t": -0.005,
+      "target_mm": 0.13549548376886522,
+      "measured_mm": 0.13853568819860063,
+      "error_mm": 0.0030402044297354047,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_left",
+      "t": 0.010357142857142856,
+      "target_mm": 0.4408994958708372,
+      "measured_mm": 0.4407872712926446,
+      "error_mm": 0.00011222457819259901,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_left",
+      "t": 0.025714285714285714,
+      "target_mm": 0.7471600819630774,
+      "measured_mm": 0.7451743159978368,
+      "error_mm": 0.0019857659652405824,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_left",
+      "t": 0.04107142857142857,
+      "target_mm": 0.8944888762332585,
+      "measured_mm": 0.8899560019648589,
+      "error_mm": 0.004532874268399545,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_left",
+      "t": 0.05642857142857143,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949124649108793,
+      "error_mm": 8.753508912073826e-05,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_left",
+      "t": 0.07178571428571429,
+      "target_mm": 0.895,
+      "measured_mm": 0.8924728799055088,
+      "error_mm": 0.0025271200944911865,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_left",
+      "t": 0.08714285714285713,
+      "target_mm": 0.895,
+      "measured_mm": 0.8932700981258916,
+      "error_mm": 0.001729901874108375,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_left",
+      "t": 0.1025,
+      "target_mm": 0.895,
+      "measured_mm": 0.8938346887020361,
+      "error_mm": 0.0011653112979639335,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_left",
+      "t": 0.11785714285714285,
+      "target_mm": 0.895,
+      "measured_mm": 0.8930142656979143,
+      "error_mm": 0.0019857343020857066,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_left",
+      "t": 0.1332142857142857,
+      "target_mm": 0.895,
+      "measured_mm": 0.8944973775620249,
+      "error_mm": 0.0005026224379751643,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_left",
+      "t": 0.14857142857142858,
+      "target_mm": 0.895,
+      "measured_mm": 0.8939065737299763,
+      "error_mm": 0.001093426270023734,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_left",
+      "t": 0.16392857142857142,
+      "target_mm": 0.895,
+      "measured_mm": 0.8944492679191396,
+      "error_mm": 0.0005507320808604277,
+      "on_fillet": true
+    },
+    {
+      "name": "upper_left",
+      "t": 0.17928571428571427,
+      "target_mm": 0.895,
+      "measured_mm": 0.8950019509694078,
+      "error_mm": 1.9509694078045925e-06,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_left",
+      "t": 0.19464285714285715,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949947898154489,
+      "error_mm": 5.2101845511298706e-06,
+      "on_fillet": false
+    },
+    {
+      "name": "upper_left",
+      "t": 0.21,
+      "target_mm": 0.895,
+      "measured_mm": 0.8949990905155076,
+      "error_mm": 9.094844923840384e-07,
+      "on_fillet": false
+    }
+  ],
+  "base_removed_mm3": 0.0,
+  "added_inside_component_space_mm3": 0.0,
+  "max_wrap_profile_error_mm": 0.004532874268399545,
+  "checks": {
+    "all_solids_and_step_valid": true,
+    "six_other_parts_unchanged": true,
+    "base_geometry_preserved": true,
+    "no_new_intrusions_into_component_space": true,
+    "no_assembly_intersections": true,
+    "relief_continues_across_fillet": true
+  },
+  "passed": true
+}

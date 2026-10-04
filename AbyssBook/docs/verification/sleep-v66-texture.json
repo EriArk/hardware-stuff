@@ -1,0 +1,27 @@
+{
+  "source_sha256": "fad4bb238bca9e3ec36c87a4b59dd7467ad48326dbbcd0947ae9ad50f2ef2902",
+  "source_self_intersections": 0,
+  "sha256": "bdaca70d1657fbb0f66e8967f6cbbf4f34f9cd08309b94e722911a4a4863acd4",
+  "triangles": 7742096,
+  "moved_vertices": 3421,
+  "changed_triangles": 7228,
+  "unchanged_triangles": 7734868,
+  "max_displacement_mm": 0.400001943153266,
+  "scope_min_xyz": [
+    -46.450010762939456,
+    66.3999915258789,
+    4.599989904632569
+  ],
+  "scope_max_xyz": [
+    -34.44999076293945,
+    67.24850700927735,
+    13.400009618530273
+  ],
+  "minimum_radial_derivative": 0.29411764705882293,
+  "local_intersection_checked_triangles": 14671,
+  "remaining_self_intersections": 0,
+  "hole_wall_points_checked_against_CAD_mesh": 320,
+  "max_hole_wall_distance_to_CAD_mesh_mm": 0.0,
+  "functional_surfaces_outside_sleep_unchanged": true,
+  "texture_method": "Monotonic local radial enlargement of the oval opening; verified v65 dragon-scale mesh otherwise preserved."
+}

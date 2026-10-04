@@ -1,0 +1,88 @@
+{
+  "STL/print-set/t5_reader_case_v66_front_dragon_scales.stl": {
+    "sha256": "bdaca70d1657fbb0f66e8967f6cbbf4f34f9cd08309b94e722911a4a4863acd4",
+    "vertices": 3871024,
+    "triangles": 7742096,
+    "boundary_or_nonmanifold_edges": 0,
+    "connected_regions": 1,
+    "zero_area_triangles": 0,
+    "signed_volume_mm3": 32908.22841484588,
+    "self_intersecting_faces": 0,
+    "self_intersection_validation": "Verified v65 source plus complete local checks after float32 aperture enlargement; see texture_patch_verification.json.",
+    "mesh_removed_volume_mm3": 8.581659539209795,
+    "CAD_removed_volume_mm3": 8.51734457290218
+  },
+  "STL/print-set/t5_reader_case_v65_back_dragon_scales.stl": {
+    "sha256": "09c57baa6b14c77c372e5985265107fc8c9f85fd01f4915f0d616873879eb3dd",
+    "triangles": 4351592,
+    "vertices": 2175790,
+    "boundary_or_nonmanifold_edges": 0,
+    "connected_regions": 1,
+    "zero_area_triangles": 0,
+    "mesh_volume_mm3": 40774.31304913647,
+    "mesh_area_mm2": 31933.842417107586,
+    "signed_volume_mm3": 40774.31304650763,
+    "volume_added_vs_smooth_mm3": 571.7616116912686,
+    "self_intersecting_faces": 0
+  },
+  "STL/print-set/t5_reader_case_v65_up_switch_cover.stl": {
+    "sha256": "539bd234353a83e9b878d045440c74f920f0a9a1c33240c7e5379cfab4b8b1f0",
+    "triangles": 3838,
+    "vertices": 1911,
+    "boundary_or_nonmanifold_edges": 0,
+    "connected_regions": 1,
+    "zero_area_triangles": 0,
+    "mesh_volume_mm3": 664.7422365900106,
+    "mesh_area_mm2": 1185.9374222734912,
+    "cad_volume_mm3": 664.7530159800973,
+    "mesh_relative_volume_error": 1.62156317121409e-05
+  },
+  "STL/print-set/t5_reader_case_v65_down_switch_cover.stl": {
+    "sha256": "eee92ecb8b6b323d5a5efa032422d058c50362dbe89d63337677da757ebd032e",
+    "triangles": 3838,
+    "vertices": 1911,
+    "boundary_or_nonmanifold_edges": 0,
+    "connected_regions": 1,
+    "zero_area_triangles": 0,
+    "mesh_volume_mm3": 664.7422009052513,
+    "mesh_area_mm2": 1185.9373930492222,
+    "cad_volume_mm3": 664.7530159780109,
+    "mesh_relative_volume_error": 1.6269309803367882e-05
+  },
+  "STL/print-set/t5_reader_case_v65_ok_switch_cover.stl": {
+    "sha256": "f16b7f8461324db4854d160d50ff376084a913fd479b814bab6fcd86a954bfa1",
+    "triangles": 3386,
+    "vertices": 1685,
+    "boundary_or_nonmanifold_edges": 0,
+    "connected_regions": 1,
+    "zero_area_triangles": 0,
+    "mesh_volume_mm3": 819.3740429235813,
+    "mesh_area_mm2": 1460.1305779250522,
+    "cad_volume_mm3": 819.377324279926,
+    "mesh_relative_volume_error": 4.004695086704288e-06
+  },
+  "STL/print-set/t5_reader_case_v65_power_switch_cover.stl": {
+    "sha256": "d797652f54afd721e137a4cf2734d81e947e3ab7d12ee7fe0af8b6b737590a0a",
+    "triangles": 3160,
+    "vertices": 1576,
+    "boundary_or_nonmanifold_edges": 0,
+    "connected_regions": 1,
+    "zero_area_triangles": 0,
+    "mesh_volume_mm3": 240.37109600122307,
+    "mesh_area_mm2": 405.60610901283053,
+    "cad_volume_mm3": 240.36986783278311,
+    "mesh_relative_volume_error": 5.109494176722262e-06
+  },
+  "STL/print-set/t5_reader_case_v66_sleep_button_cap.stl": {
+    "sha256": "710da2053cfe8ae9e3324de46c3eb14ed52ee842272aac63dab62a80e3e78062",
+    "vertices": 24384,
+    "triangles": 48764,
+    "boundary_or_nonmanifold_edges": 0,
+    "connected_regions": 1,
+    "zero_area_triangles": 0,
+    "signed_volume_mm3": 132.55451734102354,
+    "self_intersecting_faces": 0,
+    "CAD_volume_mm3": 132.56993716955648,
+    "relative_volume_error": 0.00011631467029526862
+  }
+}
