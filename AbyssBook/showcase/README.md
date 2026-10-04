@@ -6,6 +6,8 @@ AbyssBook is a self-hosted personal-library project concept: a welcoming home fo
 
 This folder contains an **English presentation prototype and 16 screenshots**, prepared for the project website. The interface, sample library, descriptions and reading excerpts are all in English.
 
+Also included: [seven original photographs of the physical e-reader prototype](prototype-photos/README.md), with English captions. These document the maker's real workshop build and are kept separate from the simulated software screens. The photographed device retains its original screen content.
+
 ## Status and intended experience
 
 These are rendered HTML/CSS interface simulations, **not screenshots of a released self-hosted application**. They present the intended experience:
