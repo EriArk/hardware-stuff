@@ -1,0 +1,178 @@
+[
+  {
+    "file": "01-library-desktop.png",
+    "title": "Personal library",
+    "view": "library",
+    "viewport": {
+      "width": 1440,
+      "height": 1420
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "02-book-details.png",
+    "title": "Book details and personal actions",
+    "view": "book",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "03-add-books.png",
+    "title": "Batch import and extracted metadata",
+    "view": "upload",
+    "viewport": {
+      "width": 1440,
+      "height": 1160
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "04-collections.png",
+    "title": "Personal collections",
+    "view": "collections",
+    "viewport": {
+      "width": 1440,
+      "height": 1050
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "05-reader-spread.png",
+    "title": "Two-page reading",
+    "view": "reader",
+    "viewport": {
+      "width": 1440,
+      "height": 1050
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "06-reader-audio.png",
+    "title": "Server narration and paragraph highlighting",
+    "view": "audio",
+    "viewport": {
+      "width": 1440,
+      "height": 1050
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "07-bookmarks.png",
+    "title": "Bookmarks independent of reading position",
+    "view": "bookmarks",
+    "viewport": {
+      "width": 1440,
+      "height": 1050
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "08-device-shelf.png",
+    "title": "Paired e-reader and managed shelf",
+    "view": "devices",
+    "viewport": {
+      "width": 1440,
+      "height": 1120
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "09-household.png",
+    "title": "Personal household accounts",
+    "view": "accounts",
+    "viewport": {
+      "width": 1440,
+      "height": 960
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "10-settings-languages.png",
+    "title": "Language and reading preferences",
+    "view": "settings",
+    "viewport": {
+      "width": 1440,
+      "height": 960
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "11-companion-domain-concept.png",
+    "title": "Companion concept: home hosting and domain",
+    "view": "companion",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "scale": 2,
+    "status": "Companion concept"
+  },
+  {
+    "file": "12-companion-pairing-concept.png",
+    "title": "Companion concept: reader pairing",
+    "view": "pairing",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "scale": 2,
+    "status": "Companion concept"
+  },
+  {
+    "file": "13-library-ipad-portrait.png",
+    "title": "Portrait tablet library",
+    "view": "library",
+    "viewport": {
+      "width": 834,
+      "height": 1194
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "14-library-phone.png",
+    "title": "Phone library",
+    "view": "library",
+    "viewport": {
+      "width": 393,
+      "height": 852
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "15-reader-phone.png",
+    "title": "Phone reading",
+    "view": "reader",
+    "viewport": {
+      "width": 393,
+      "height": 852
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  },
+  {
+    "file": "16-sign-in.png",
+    "title": "Personal account sign-in",
+    "view": "login",
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "scale": 2,
+    "status": "Simulated website UI"
+  }
+]
