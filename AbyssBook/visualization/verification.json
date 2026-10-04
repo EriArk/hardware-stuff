@@ -1,0 +1,91 @@
+{
+  "blend": {
+    "objects": 13,
+    "packed_images": [
+      "back_wash.png",
+      "dragon_scales_normal.png",
+      "front_wash.png",
+      "screen_page.png"
+    ],
+    "parts": [
+      {
+        "name": "Front_v66",
+        "triangles": 1199178,
+        "max_bounds_error_m": 6.234645841263209e-09
+      },
+      {
+        "name": "Back_v65",
+        "triangles": 44018,
+        "max_bounds_error_m": 6.234645841263209e-09
+      },
+      {
+        "name": "Sleep_cap_v66",
+        "triangles": 48764,
+        "max_bounds_error_m": 5.030632022062775e-09
+      },
+      {
+        "name": "Up_switch_holder_v65",
+        "triangles": 3838,
+        "max_bounds_error_m": 1.6987323769868112e-09
+      },
+      {
+        "name": "Down_switch_holder_v65",
+        "triangles": 3838,
+        "max_bounds_error_m": 1.6987323769868112e-09
+      },
+      {
+        "name": "Ok_switch_holder_v65",
+        "triangles": 3386,
+        "max_bounds_error_m": 3.1948089590505546e-09
+      },
+      {
+        "name": "Power_switch_holder_v65",
+        "triangles": 3160,
+        "max_bounds_error_m": 1.0371208197801352e-09
+      },
+      {
+        "name": "Purchased_button_caps",
+        "triangles": 25964,
+        "max_bounds_error_m": 3.433227535598604e-09
+      },
+      {
+        "name": "Display_backing",
+        "triangles": 524,
+        "max_bounds_error_m": 5.2213668805256575e-09
+      },
+      {
+        "name": "Rear_screws",
+        "triangles": 4016,
+        "max_bounds_error_m": 3.731250752814219e-09
+      },
+      {
+        "name": "Logo_inlay",
+        "triangles": 7168,
+        "max_bounds_error_m": 2.0503997770482396e-09
+      },
+      {
+        "name": "Sleep_moon_inlay",
+        "triangles": 1966,
+        "max_bounds_error_m": 1.990795139850121e-09
+      }
+    ],
+    "eink_emission": 0,
+    "passed": true
+  },
+  "glb": {
+    "objects": 13,
+    "triangles": 1345822,
+    "images": [
+      "back_wash",
+      "dragon_scales_normal",
+      "front_wash",
+      "screen_page"
+    ],
+    "screen_texture_size": [
+      1600,
+      2700
+    ],
+    "passed": true
+  },
+  "passed": true
+}

@@ -1,0 +1,254 @@
+[
+  {
+    "name": "Front_v66",
+    "source": "revisions/v66/t5_reader_case_v66_front.stl",
+    "role": "front",
+    "z_offset_mm": 0,
+    "vertices": 625851,
+    "triangles": 1199178,
+    "bounds_mm": [
+      [
+        -53.29499435424805,
+        -69.8499984741211,
+        -0.8949999809265137
+      ],
+      [
+        45.29263687133789,
+        67.1500015258789,
+        18.0
+      ]
+    ],
+    "source_sha256": "8be47f3bd4e3c6d6ab058b4429f7b5cd9507471bf4ec439a6eb50dc965d2d029"
+  },
+  {
+    "name": "Back_v65",
+    "source": "revisions/v65/t5_reader_case_v65_back.stl",
+    "role": "back",
+    "z_offset_mm": 18,
+    "vertices": 31835,
+    "triangles": 44018,
+    "bounds_mm": [
+      [
+        -52.400001525878906,
+        -69.8499984741211,
+        15.899999618530273
+      ],
+      [
+        44.400001525878906,
+        67.1500015258789,
+        23.0
+      ]
+    ],
+    "source_sha256": "0ad9e69960c8482835fec16eb0f399eb73c8b5170df714de4ce45780020188a8"
+  },
+  {
+    "name": "Sleep_cap_v66",
+    "source": "revisions/v66/t5_reader_case_v66_sleep_button_cap.stl",
+    "role": "sage",
+    "z_offset_mm": 0,
+    "vertices": 25312,
+    "triangles": 48764,
+    "bounds_mm": [
+      [
+        -44.84968566894531,
+        65.80000305175781,
+        6.199999809265137
+      ],
+      [
+        -36.05031204223633,
+        69.55000305175781,
+        11.800000190734863
+      ]
+    ],
+    "source_sha256": "710da2053cfe8ae9e3324de46c3eb14ed52ee842272aac63dab62a80e3e78062"
+  },
+  {
+    "name": "Up_switch_holder_v65",
+    "source": "revisions/v65/t5_reader_case_v65_up_switch_cover.stl",
+    "role": "inside",
+    "z_offset_mm": 0,
+    "vertices": 3896,
+    "triangles": 3838,
+    "bounds_mm": [
+      [
+        -49.70000076293945,
+        -3.4689340591430664,
+        6.550000190734863
+      ],
+      [
+        -28.257389068603516,
+        16.32261085510254,
+        13.149999618530273
+      ]
+    ],
+    "source_sha256": "539bd234353a83e9b878d045440c74f920f0a9a1c33240c7e5379cfab4b8b1f0"
+  },
+  {
+    "name": "Down_switch_holder_v65",
+    "source": "revisions/v65/t5_reader_case_v65_down_switch_cover.stl",
+    "role": "inside",
+    "z_offset_mm": 0,
+    "vertices": 3896,
+    "triangles": 3838,
+    "bounds_mm": [
+      [
+        -49.70000076293945,
+        -24.82261085510254,
+        6.550000190734863
+      ],
+      [
+        -28.257389068603516,
+        -5.031065940856934,
+        13.149999618530273
+      ]
+    ],
+    "source_sha256": "eee92ecb8b6b323d5a5efa032422d058c50362dbe89d63337677da757ebd032e"
+  },
+  {
+    "name": "Ok_switch_holder_v65",
+    "source": "revisions/v65/t5_reader_case_v65_ok_switch_cover.stl",
+    "role": "inside",
+    "z_offset_mm": 0,
+    "vertices": 3434,
+    "triangles": 3386,
+    "bounds_mm": [
+      [
+        -49.849998474121094,
+        -67.30000305175781,
+        2.0
+      ],
+      [
+        -29.0,
+        -46.41999816894531,
+        9.050000190734863
+      ]
+    ],
+    "source_sha256": "f16b7f8461324db4854d160d50ff376084a913fd479b814bab6fcd86a954bfa1"
+  },
+  {
+    "name": "Power_switch_holder_v65",
+    "source": "revisions/v65/t5_reader_case_v65_power_switch_cover.stl",
+    "role": "inside",
+    "z_offset_mm": 0,
+    "vertices": 3152,
+    "triangles": 3160,
+    "bounds_mm": [
+      [
+        -48.849998474121094,
+        55.25,
+        4.449999809265137
+      ],
+      [
+        -32.04999923706055,
+        57.25,
+        13.550000190734863
+      ]
+    ],
+    "source_sha256": "d797652f54afd721e137a4cf2734d81e947e3ab7d12ee7fe0af8b6b737590a0a"
+  },
+  {
+    "name": "Purchased_button_caps",
+    "source": "revisions/v65/purchased_caps_appearance_reference.stl",
+    "role": "sage",
+    "z_offset_mm": 0,
+    "vertices": 13370,
+    "triangles": 25964,
+    "bounds_mm": [
+      [
+        -46.72999954223633,
+        -64.14778137207031,
+        -1.7000000476837158
+      ],
+      [
+        -32.43000030517578,
+        11.728123664855957,
+        0.30000001192092896
+      ]
+    ],
+    "source_sha256": "e223110dbc153598054de43e11ae9e7d9148f0ded1f6c299c4bbdaf609f11a53"
+  },
+  {
+    "name": "Display_backing",
+    "source": "revisions/v65/screen_appearance_reference.stl",
+    "role": "screen",
+    "z_offset_mm": 0,
+    "vertices": 528,
+    "triangles": 524,
+    "bounds_mm": [
+      [
+        -24.549999237060547,
+        -50.040000915527344,
+        2.0299999713897705
+      ],
+      [
+        35.54999923706055,
+        55.36000061035156,
+        2.1500000953674316
+      ]
+    ],
+    "source_sha256": "b3e05d23ed412d026fbca78c3171e628a349a24eb05ca98dd8cc34e2ea8e0e7f"
+  },
+  {
+    "name": "Rear_screws",
+    "source": "revisions/v61/rear_screws_reference.stl",
+    "role": "metal",
+    "z_offset_mm": 0,
+    "vertices": 4032,
+    "triangles": 4016,
+    "bounds_mm": [
+      [
+        -48.650001525878906,
+        -66.09930419921875,
+        11.800000190734863
+      ],
+      [
+        40.650001525878906,
+        63.39929962158203,
+        22.299999237060547
+      ]
+    ],
+    "source_sha256": "24ab86d38315672038904ae96af05435bc432e8ed5f306dbcd023184a67f717b"
+  },
+  {
+    "name": "Logo_inlay",
+    "source": "revisions/v65/logo_paint_reference.stl",
+    "role": "forest",
+    "z_offset_mm": 0,
+    "vertices": 8166,
+    "triangles": 7168,
+    "bounds_mm": [
+      [
+        -29.0,
+        -26.5981388092041,
+        19.56001091003418
+      ],
+      [
+        21.0,
+        23.89813804626465,
+        19.565000534057617
+      ]
+    ],
+    "source_sha256": "a871e3aadd9f873c21afed3b43dec52f5db6ec001eaa025c925bc3ab8ea7ba75"
+  },
+  {
+    "name": "Sleep_moon_inlay",
+    "source": "revisions/v65/moon_paint_reference.stl",
+    "role": "forest",
+    "z_offset_mm": 0,
+    "vertices": 1899,
+    "triangles": 1966,
+    "bounds_mm": [
+      [
+        -32.54999542236328,
+        66.8499984741211,
+        7.46666955947876
+      ],
+      [
+        -30.468976974487305,
+        66.85600280761719,
+        10.549994468688965
+      ]
+    ],
+    "source_sha256": "b488783da25ca9564812aadc17c93d2fa7fc8250426c487b323e6353722f973e"
+  }
+]
