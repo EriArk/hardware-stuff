@@ -1,8 +1,8 @@
-# Исходники AbyssBook
+# Исходники OctoFox Book
 
 Основные редактируемые модели — [STEP/parts](../STEP/parts/). Они содержат всю механику и крупный декоративный рельеф. Готовые фактурные STL лежат отдельно в [STL/print-set](../STL/print-set/).
 
-Скрипты используют Python 3.12, CadQuery/OpenCascade, NumPy, SciPy и VTK. Проверенная версия CadQuery — 2.8.0. Запускать из папки `AbyssBook`:
+Скрипты используют Python 3.12, CadQuery/OpenCascade, NumPy, SciPy и VTK. Проверенная версия CadQuery — 2.8.0. Запускать из папки `OctoFox Book`:
 
 ```sh
 python -m venv .venv

@@ -1,6 +1,6 @@
-# AbyssBook — physical prototype
+# OctoFox Book — physical prototype
 
-Seven original photographs supplied by the maker, documenting the hands-on build of the AbyssBook e-reader: the translucent green enclosure, physical controls, USB-C opening and workshop fit checks.
+Seven original photographs supplied by the maker, documenting the hands-on build of the OctoFox Book e-reader: the translucent green enclosure, physical controls, USB-C opening and workshop fit checks.
 
 These are **real prototype photographs**, separate from the simulated website and companion screens in the [software showcase](../README.md). They show work in progress, including an earlier diagnostic screen and the existing Russian-language reader interface. They are not photographs of the proposed English software release, and do not establish a specific enclosure revision or final production finish.
 
@@ -10,7 +10,7 @@ The JPEGs are preserved at their supplied resolution, without cropping, retouchi
 
 ### Front and physical controls
 
-![Assembled AbyssBook prototype held in one hand, with a translucent green enclosure and white controls](camphoto_1594243340.jpeg)
+![Assembled OctoFox Book prototype held in one hand, with a translucent green enclosure and white controls](camphoto_1594243340.jpeg)
 
 ### Translucent rear enclosure
 

@@ -1,8 +1,8 @@
-# AbyssBook — personal library showcase
+# OctoFox Book — personal library showcase
 
 **Your books. Your space. Your server.**
 
-AbyssBook is a self-hosted personal-library project concept: a welcoming home for your own ebooks, designed to run on a private server or a home computer. Bring your books, organize your shelves, read or listen, and take selected titles with you on a paired e-reader.
+OctoFox Book is a self-hosted personal-library project concept: a welcoming home for your own ebooks, designed to run on a private server or a home computer. Bring your books, organize your shelves, read or listen, and take selected titles with you on a paired e-reader.
 
 This folder contains an **English presentation prototype and 16 screenshots**, prepared for the project website. The interface, sample library, descriptions and reading excerpts are all in English.
 
@@ -50,7 +50,7 @@ All PNGs are rendered at **2× pixel density**. Use them with their aspect ratio
 
 ### Preview
 
-![AbyssBook personal library — simulated UI](screenshots/01-library-desktop.png)
+![OctoFox Book personal library — simulated UI](screenshots/01-library-desktop.png)
 
 ![Two-page English reader — simulated UI](screenshots/05-reader-spread.png)
 
@@ -80,4 +80,4 @@ The capture script serves this demo on loopback only, waits for fonts, checks Ja
 - Abstract cover backgrounds are reused from the owner's existing library artwork. Titles and authors are rendered in HTML; these are designed placeholders, not publisher covers.
 - Cormorant Garamond is bundled with its [SIL Open Font License](demo/assets/fonts/OFL-CormorantGaramond.txt).
 - Account names, email addresses, the example domain and all operational states are fictional.
-- Existing hardware manufacturing files elsewhere in `AbyssBook/` are unchanged.
+- Existing hardware manufacturing files elsewhere in `OctoFoxBook/` are unchanged.

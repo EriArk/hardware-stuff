@@ -1,5 +1,5 @@
 # Preserve delivery checksums across Windows/Linux checkouts.
-AbyssBook/** -text whitespace=cr-at-eol
+OctoFoxBook/** -text whitespace=cr-at-eol
 *.step -diff
 *.brep -diff
 *.stl filter=lfs diff=lfs merge=lfs -text
