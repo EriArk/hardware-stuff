@@ -2,3 +2,14 @@
 **/__pycache__/
 *.pyc
 AbyssBook/build/
+OctoFoxBook/build/
+
+# Codex working documentation belongs in the separate codexdocs repository.
+/AGENTS.md
+/CODEX.md
+/.codex/
+/codexdocs/
+/OctoFoxBook/AGENTS.md
+/OctoFoxBook/CODEX.md
+/OctoFoxBook/.codex/
+/OctoFoxBook/codexdocs/
