@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools==78.1.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "octofox-library"
+version = "0.1.0a1"
+description = "Personal web library with reading and server narration"
+requires-python = ">=3.12"
+readme = "README.md"
+dependencies = []
+
+[project.scripts]
+octofox-library = "octofox_library.books_web:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+octofox_library = ["web/*", "web/fonts/*", "web/cover-art/v1/*"]
