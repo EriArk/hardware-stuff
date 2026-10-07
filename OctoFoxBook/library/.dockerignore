@@ -1,4 +1,5 @@
 .env
+companion-setup-key
 data
 .venv
 **/__pycache__

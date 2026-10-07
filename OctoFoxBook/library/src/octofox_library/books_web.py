@@ -50,6 +50,7 @@ from octofox_library.web_uploads import UploadsMixin
 from octofox_library.web_personal_collections import PersonalCollectionsMixin
 from octofox_library.web_errors import WebError
 from octofox_library.web_speech import BookSpeech, SpeechError
+from octofox_library.companion import Companion
 
 LOGGER = logging.getLogger(__name__)
 STATIC = Path(__file__).with_name("web")
@@ -324,6 +325,7 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
             db.execute('PRAGMA optimize')
         self.upload_gate = threading.BoundedSemaphore(1)
         self.speech = BookSpeech(self, os.environ.get("OCTOFOX_SPEECH_SOCKET", ""))
+        self.companion = Companion(self, upstream)
 
     @contextmanager
     def db(self):
@@ -1211,6 +1213,10 @@ class WebHandler(BaseHTTPRequestHandler):
                     raise WebError(400, "Запрос передан не полностью")
         if get and path == "/healthz":
             return self.send(200, b"ok\n", "text/plain")
+        if path.startswith('/companion-api/'):
+            return self.app.companion.route(self, path)
+        if get and path in {'/companion', '/companion/'}:
+            return self.send(200, (STATIC / 'companion.html').read_bytes(), 'text/html; charset=utf-8')
         if path.startswith("/fonts/"):
             if not get or path not in {
                 "/fonts/cormorant-garamond-600-cyrillic-v1.woff2",
@@ -1238,6 +1244,8 @@ class WebHandler(BaseHTTPRequestHandler):
             "/manifest.webmanifest",
             "/icon.svg",
             "/korean-elves.png",
+            "/companion.js",
+            "/companion.css",
         }:
             name = "index.html" if path == "/" else path[1:]
             mime = {

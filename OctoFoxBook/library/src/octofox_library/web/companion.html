@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>OctoFox Companion</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/companion.css">
+  <script defer src="/companion.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/companion"><img src="/icon.svg" width="38" height="38" alt=""><span>OctoFox <b>Companion</b></span></a>
+    <nav aria-label="Основная навигация"><a href="/#personal">Открыть библиотеку <span aria-hidden="true">↗</span></a><button id="logout" class="quiet" hidden>Выйти</button></nav>
+  </header>
+  <main>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <section id="loading" class="loading"><p>Подключаемся к библиотеке…</p></section>
+    <section id="welcome" class="welcome" hidden aria-labelledby="welcome-title">
+      <div class="intro">
+        <p class="eyebrow">ВАША ЛИЧНАЯ БИБЛИОТЕКА</p>
+        <h1 id="welcome-title">Место для<br>ваших историй.</h1>
+        <p class="lead">Создайте аккаунт, добавьте книги и продолжайте читать с того места, где остановились.</p>
+        <div class="book-art" aria-hidden="true"><div class="book-spine">OCTOFOX</div><div class="book-cover"><span>Ваша<br>следующая<br><em>история</em></span><i>✧</i></div><div class="book-edge"></div></div>
+        <p class="caption">Чтение · Коллекции · Озвучка</p>
+      </div>
+      <div class="form-card">
+        <p class="eyebrow" id="form-kicker">ПЕРВЫЙ ЗАПУСК</p>
+        <h2 id="form-title">Настроим библиотеку</h2>
+        <p class="muted" id="form-description">Первый аккаунт станет администратором. Позже вы сможете пригласить других читателей.</p>
+        <form id="identity-form">
+          <div id="setup-fields">
+            <label>Ключ настройки<input name="setupKey" type="password" autocomplete="off" required></label>
+            <details class="key-help"><summary>Где взять ключ?</summary><p>На компьютере с установленной библиотекой, из папки установки выполните:</p><code>docker compose exec library cat /data/companion-setup-key</code><p>Ключ подтверждает, что вы владелец установки. После первого запуска он больше не нужен.</p></details>
+            <label>Ваше имя<input name="name" autocomplete="name" maxlength="254" required></label>
+            <label>Email<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+          </div>
+          <label>Логин<input name="username" autocomplete="username" maxlength="64" required autocapitalize="none" spellcheck="false"></label>
+          <label>Пароль<input name="password" type="password" autocomplete="new-password" required minlength="8"></label>
+          <p id="password-hint" class="hint">От 8 символов. Этот логин и пароль подойдут и для чтения.</p>
+          <button id="identity-submit" type="submit" class="primary">Создать библиотеку <span aria-hidden="true">→</span></button>
+        </form>
+      </div>
+    </section>
+    <section id="dashboard" hidden aria-labelledby="dashboard-title">
+      <div class="dashboard-heading"><div><p class="eyebrow">УПРАВЛЕНИЕ БИБЛИОТЕКОЙ</p><h1 id="dashboard-title">Читатели</h1><p class="muted" id="signed-in"></p></div><button id="add-reader" class="primary">+ Добавить читателя</button></div>
+      <div class="dashboard-grid">
+        <div class="panel"><div class="panel-heading"><h2>Аккаунты</h2><span id="user-count" class="count"></span></div><p class="muted">У каждого — свои книги, коллекции и место в истории.</p><ul id="users" class="users" aria-label="Аккаунты библиотеки"></ul><button id="refresh-users" class="quiet">Обновить список</button></div>
+        <aside class="panel reading-card"><span class="small-star" aria-hidden="true">✧</span><h2>Добавьте первую книгу</h2><p class="muted">Откройте библиотеку под своим аккаунтом и загрузите FB2 или EPUB. Книги появятся в вашей коллекции.</p><a class="text-link" href="/#personal">Перейти к книгам <span aria-hidden="true">→</span></a><hr><details><summary>Завершить подключение</summary><p class="hint">Если аккаунт создался, а доступ к чтению — нет, повторите только этот шаг. Существующие пароли останутся прежними.</p><form id="repair-form"><label>Логин читателя<input name="username" autocomplete="off" maxlength="64" required autocapitalize="none"></label><label>Пароль аккаунта<input name="password" type="password" autocomplete="off" required></label><button class="secondary" type="submit">Подключить библиотеку</button></form></details></aside>
+      </div>
+    </section>
+  </main>
+  <dialog id="reader-dialog" aria-labelledby="reader-title">
+    <div class="dialog-heading"><p class="eyebrow">НОВЫЙ АККАУНТ</p><button id="close-dialog" class="quiet" aria-label="Закрыть">×</button></div>
+    <h2 id="reader-title">Пригласите читателя</h2><p class="muted">Передайте ему логин и пароль лично. Письмо автоматически не отправляется.</p>
+    <p id="create-error" class="notice" role="alert" hidden></p>
+    <form id="reader-form"><label>Имя<input name="name" maxlength="254" autocomplete="off" required></label><label>Email<input name="email" type="email" maxlength="254" autocomplete="off" required></label><label>Логин<input name="username" maxlength="64" autocomplete="off" required autocapitalize="none" spellcheck="false"></label><label>Пароль<input name="password" type="password" minlength="8" autocomplete="new-password" required></label><p class="hint">Читатель сможет загружать и читать свои книги. Управление аккаунтами останется у администратора.</p><button class="primary" type="submit">Создать аккаунт</button></form>
+  </dialog>
+</body>
+</html>
