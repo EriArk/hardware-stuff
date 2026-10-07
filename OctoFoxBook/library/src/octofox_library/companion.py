@@ -8,7 +8,6 @@ import re
 import secrets
 import threading
 import time
-from urllib.parse import urlsplit
 
 from .booklore_api import BookLoreAPI
 from .opds_facade import UpstreamFailure
@@ -147,18 +146,17 @@ class Companion:
             return {'readerReady': False, 'message': 'Аккаунт создан. ' + error.message +
                     ' Используйте «Завершить подключение» с теми же логином и паролем.'}
 
-    def cookie(self, value, age=SESSION_SECONDS):
-        secure = '; Secure' if self.app.origin.startswith('https:') else ''
+    def cookie(self, value, request_origin, age=SESSION_SECONDS):
+        secure = '; Secure' if request_origin.startswith('https:') else ''
         return {'Set-Cookie': f'octofox_admin={value}; HttpOnly; SameSite=Strict; '
                 f'Path=/companion-api; Max-Age={age}{secure}'}
 
     def route(self, handler, path):
         get = handler.command == 'GET'
-        # An explicit configured host also blocks DNS rebinding of a LAN install.
-        if handler.headers.get('Host', '').lower() != urlsplit(self.app.origin).netloc.lower():
-            raise WebError(403, 'Откройте Companion по настроенному адресу библиотеки.')
-        if not get and handler.headers.get('Origin') != self.app.origin:
-            raise WebError(403, 'Недопустимый источник запроса.')
+        current_origin = self.app.network.request_origin(handler.headers, require_origin=not get)
+        if not get and path == '/companion-api/network/confirm':
+            self.app.throttle('network-confirm:' + handler.client_address[0], limit=30)
+            return handler.send(200, self.app.network.confirm(handler.body(), current_origin))
         if get and path == '/companion-api/status':
             return handler.send(200, {'configured': self.api.configured()})
         if not get and path in {'/companion-api/setup', '/companion-api/login'}:
@@ -179,7 +177,7 @@ class Companion:
             else:
                 result = {}
                 key, session, user = self.login(data)
-            return handler.send(200, {'user': user, 'csrf': session.csrf, **result}, headers=self.cookie(key))
+            return handler.send(200, {'user': user, 'csrf': session.csrf, **result}, headers=self.cookie(key, current_origin))
         cookie = SimpleCookie()
         cookie.load(handler.headers.get('Cookie', ''))
         key = cookie.get('octofox_admin')
@@ -196,8 +194,21 @@ class Companion:
         if not get and path == '/companion-api/logout':
             with self.lock:
                 self.sessions.pop(key, None)
-            return handler.send(200, {'ok': True}, headers=self.cookie('', 0))
+            return handler.send(200, {'ok': True}, headers=self.cookie('', current_origin, 0))
         user = self.admin(session)  # Recheck upstream privileges, including after role changes.
+        if path == '/companion-api/network':
+            if get:
+                return handler.send(200, self.app.network.info())
+            return handler.send(200, self.app.network.save(handler.body(), current_origin))
+        if not get and path.startswith('/companion-api/network/'):
+            if path == '/companion-api/network/check-status':
+                self.app.throttle('network-poll:' + str(user['id']), limit=60)
+                return handler.send(200, self.app.network.check_status(handler.body(), user['id']))
+            self.app.throttle('network:' + str(user['id']), limit=12)
+            if path == '/companion-api/network/external-ip':
+                return handler.send(200, self.app.network.discover_ip())
+            if path == '/companion-api/network/check':
+                return handler.send(200, self.app.network.begin_check(handler.body(), user['id']))
         if get and path == '/companion-api/me':
             return handler.send(200, {'user': user, 'csrf': session.csrf})
         if get and path == '/companion-api/users':

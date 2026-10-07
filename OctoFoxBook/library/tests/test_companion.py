@@ -115,7 +115,7 @@ class BookLoreFixture(BaseHTTPRequestHandler):
         return self.send(404, {})
 
 
-class CompanionTests(unittest.TestCase):
+class CompanionHTTPCase(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         upstream = ThreadingHTTPServer(('127.0.0.1', 0), BookLoreFixture)
@@ -149,6 +149,8 @@ class CompanionTests(unittest.TestCase):
         self.csrf = result['csrf']
         return result, headers
 
+
+class CompanionTests(CompanionHTTPCase):
     def test_setup_login_create_reader_and_private_books(self):
         self.assertEqual(self.call('/companion-api/status')[1], {'configured': False})
         result, headers = self.setup_admin()

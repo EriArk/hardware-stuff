@@ -51,6 +51,7 @@ from octofox_library.web_personal_collections import PersonalCollectionsMixin
 from octofox_library.web_errors import WebError
 from octofox_library.web_speech import BookSpeech, SpeechError
 from octofox_library.companion import Companion
+from octofox_library.network import NetworkSettings
 
 LOGGER = logging.getLogger(__name__)
 STATIC = Path(__file__).with_name("web")
@@ -325,6 +326,7 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
             db.execute('PRAGMA optimize')
         self.upload_gate = threading.BoundedSemaphore(1)
         self.speech = BookSpeech(self, os.environ.get("OCTOFOX_SPEECH_SOCKET", ""))
+        self.network = NetworkSettings(self)
         self.companion = Companion(self, upstream)
 
     @contextmanager
@@ -1217,6 +1219,9 @@ class WebHandler(BaseHTTPRequestHandler):
             return self.app.companion.route(self, path)
         if get and path in {'/companion', '/companion/'}:
             return self.send(200, (STATIC / 'companion.html').read_bytes(), 'text/html; charset=utf-8')
+        if get and path == '/connection-check':
+            self.app.network.request_origin(self.headers)
+            return self.send(200, (STATIC / 'connection-check.html').read_bytes(), 'text/html; charset=utf-8')
         if path.startswith("/fonts/"):
             if not get or path not in {
                 "/fonts/cormorant-garamond-600-cyrillic-v1.woff2",
@@ -1246,6 +1251,8 @@ class WebHandler(BaseHTTPRequestHandler):
             "/korean-elves.png",
             "/companion.js",
             "/companion.css",
+            "/companion-network.js",
+            "/connection-check.js",
         }:
             name = "index.html" if path == "/" else path[1:]
             mime = {
@@ -1312,15 +1319,16 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.app.download_gate.release()
         if not get:
             origin = self.headers.get("Origin")
-            if origin and origin != self.app.origin:
-                raise WebError(403, "Недопустимый источник запроса")
+            if origin:
+                self.app.network.request_origin(self.headers, require_origin=True)
         if not get and path == "/reader-api/login":
             self.app.throttle("login:" + self.client_address[0])
             data = self.body()
             token, session = self.app.login(
                 str(data.get("username", "")), str(data.get("password", ""))
             )
-            secure = "; Secure" if self.app.origin.startswith("https:") else ""
+            request_origin = self.app.network.request_origin(self.headers)
+            secure = "; Secure" if request_origin.startswith("https:") else ""
             return self.send(
                 200,
                 {"username": session.owner, "csrf": session.csrf},

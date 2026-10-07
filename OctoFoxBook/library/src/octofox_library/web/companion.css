@@ -556,3 +556,23 @@ dialog::backdrop {
     padding:14px
   }
 }
+
+.section-nav { display:flex; gap:12px; border-bottom:1px solid var(--line); margin-bottom:28px; padding-bottom:10px; }
+.section-nav [aria-current=page] { color:var(--gold); background:#e6bd8310; }
+.connection-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:26px; align-items:start; }
+.connection-stack { display:grid; gap:26px; min-width:0; }
+.connection-grid h3 { font-size:17px; font-weight:550; }
+textarea,select { display:block; width:100%; max-width:100%; min-height:45px; margin-top:7px; padding:12px; color:var(--text); background:#17141a; border:1px solid #534550; border-radius:9px; font:inherit; }
+textarea { resize:vertical; line-height:1.7; }
+.address-value { font-size:15px; overflow-wrap:anywhere; color:var(--gold); }
+.inline-code { display:inline; padding:1px 4px; }
+.cloudflare-guide li { margin:15px 0; color:var(--muted); font-size:13px; }
+.cloudflare-guide ol { padding-left:22px; }
+.cloudflare-guide code { margin:12px 0; }
+.connection-result { max-width:680px; padding-top:60px; }
+.connection-result h1 { font-size:44px; }
+@media(max-width:850px) { .connection-grid { grid-template-columns:1fr; } }
+
+.check-qr { margin: 24px 0; text-align: center; }
+.check-qr img { display: block; width: 296px; max-width: 100%; height: auto; margin: 0 auto 14px; background: #fff; }
+.check-qr figcaption { max-width: 360px; margin-inline: auto; }

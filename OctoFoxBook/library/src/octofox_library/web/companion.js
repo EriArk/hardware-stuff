@@ -4,6 +4,7 @@
   let configured = false;
   let csrf = '';
   let creating = false;
+  const network = window.createCompanionNetwork({api, report});
 
   function notice(message = '', error = false) {
     $('notice').textContent = message;
@@ -28,6 +29,8 @@
 
   function welcome() {
     csrf = '';
+    network.reset();
+    $('companion-nav').hidden = true;
     $('dashboard').hidden = true;
     $('logout').hidden = true;
     $('welcome').hidden = false;
@@ -67,6 +70,8 @@
 
   async function dashboard(data) {
     configured = true; csrf = data.csrf;
+    $('companion-nav').hidden = false;
+    network.hide();
     $('welcome').hidden = true; $('dashboard').hidden = false; $('logout').hidden = false;
     $('signed-in').textContent = 'Вы вошли как ' + (data.user.name || data.user.username);
     await users();
@@ -76,6 +81,9 @@
     notice(error.message || 'Нет соединения. Проверьте состояние перед повтором действия.', true);
     if (error.status === 401) { $('reader-dialog').close(); welcome(); }
   }
+
+  $('network-tab').addEventListener('click', () => network.show());
+  $('readers-tab').addEventListener('click', () => { network.hide(); $('dashboard').hidden = false; });
 
   $('identity-form').addEventListener('submit', async event => {
     event.preventDefault();
