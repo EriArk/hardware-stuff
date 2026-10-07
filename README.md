@@ -1,10 +1,10 @@
 # hardware-stuff
 
-Хардварные проекты AbyssTail. Каждый проект хранится в отдельной папке со своими моделями, инструкциями и исходниками.
+AbyssTail hardware projects. Each project lives in its own folder with its models, instructions, and source files.
 
-| Проект | Описание |
+| Project | Description |
 | --- | --- |
-| [OctoFox Book / OctoFox Library](OctoFoxBook/) | Корпус электронной читалки: STEP, семь деталей для печати, мелкая чешуя, рельефные тентакли и проверенный узел Sleep, окрашенная сборка BLEND/GLB. |
-| [OctoFox Controller](OctoFoxController/) | DIY-контроллер для ритм-игр на Raspberry Pi Pico с аркадными кнопками и джойстиками. Прототипы; документация и чертежи появятся позже. |
+| [OctoFox Book / OctoFox Library](OctoFoxBook/) | E-reader enclosure: STEP model, seven printable parts, fine scales, raised tentacles, a verified Sleep button assembly, and a colored BLEND/GLB assembly. |
+| [OctoFox Controller](OctoFoxController/) | DIY rhythm-game controller built with a Raspberry Pi Pico, arcade buttons, and joysticks. Prototypes; documentation and drawings will follow later. |
 
-Крупные STL, BLEND, GLB и данные сеток NPZ хранятся через Git LFS. После клонирования выполните `git lfs pull`, чтобы получить сами модели.
+Large STL, BLEND, GLB, and NPZ mesh data files are stored with Git LFS. After cloning, run `git lfs pull` to download the actual models.
