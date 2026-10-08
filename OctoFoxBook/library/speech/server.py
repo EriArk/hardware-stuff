@@ -11,6 +11,7 @@ import threading
 import tempfile
 import wave
 import zipfile
+from collections import OrderedDict
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
@@ -18,12 +19,18 @@ import onnxruntime
 from piper import PiperVoice, SynthesisConfig
 from piper.config import PiperConfig
 
-voices = {}
+voices = OrderedDict()
+PIPER_VOICES = {'ruslan': 'ru', 'ljspeech': 'en', 'thorsten': 'de',
+                'siwis': 'fr', 'davefx': 'es', 'faber': 'pt'}
 gate = threading.Lock()
 
 
 def voice_for(language):
     if language not in voices:
+        # Bound resident model memory when a reader switches between languages.
+        piper_models = [key for key in voices if key != 'silero']
+        if len(piper_models) >= 2:
+            del voices[piper_models[0]]
         options = onnxruntime.SessionOptions()
         options.intra_op_num_threads = options.inter_op_num_threads = 1
         voices[language] = PiperVoice(
@@ -31,18 +38,19 @@ def voice_for(language):
                 sess_options=options, providers=['CPUExecutionProvider']),
             config=PiperConfig.from_dict(json.loads(Path('/models/' + language + '.onnx.json').read_text())),
         )
+    voices.move_to_end(language)
     return voices[language]
 
 
 def synthesize(parts, language):
-    if language not in ('ruslan', 'eugene', 'kseniya') or not isinstance(parts, list) or not 1 <= len(parts) <= 32:
+    if language not in (*PIPER_VOICES, 'eugene', 'kseniya') or not isinstance(parts, list) or not 1 <= len(parts) <= 32:
         raise ValueError('Invalid narration request')
     if any(not isinstance(p, dict) or not isinstance(p.get('text'), str) for p in parts):
         raise ValueError('Invalid narration text')
     if not 1 <= sum(len(p['text']) for p in parts) <= 700:
         raise ValueError('Narration text too long')
-    if language == 'ruslan':
-        voice = voice_for('ru')
+    if language in PIPER_VOICES:
+        voice = voice_for(PIPER_VOICES[language])
         rate = voice.config.sample_rate
     else:
         import torch
@@ -63,7 +71,7 @@ def synthesize(parts, language):
         output.setframerate(rate)
         for part in parts:
             start = output.getnframes() / rate
-            if language == 'ruslan':
+            if language in PIPER_VOICES:
                 for chunk in voice.synthesize(part['text'], syn_config=config):
                     output.writeframesraw(chunk.audio_int16_bytes)
             else:

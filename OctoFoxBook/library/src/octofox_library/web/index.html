@@ -19,6 +19,7 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="stylesheet" href="/styles.css?v=41" />
+    <script src="/ui-language.js" defer></script>
     <script src="/voice-reader.js?v=6" defer></script>
   <script src="/server-voice.js?v=5" defer></script>
   <script src="/page-voice.js?v=5" defer></script>
@@ -80,6 +81,7 @@
           ><svg><use href="#i-book" /></svg
         ></span>
         <p class="eyebrow">OctoFox Library</p>
+        <label class="language-choice">Language<select class="ui-language" aria-label="Interface language"><option value="ru">Русский</option><option value="en">English</option></select></label>
         <h1>Твоя следующая<br /><em>история.</em></h1>
         <p class="lead">
           Личная библиотека. На экране телефона<br />и в читалке, которую берёшь
@@ -186,6 +188,7 @@
 
         </nav>
         <div class="drawer-footer">
+          <label class="language-choice">Language<select class="ui-language" aria-label="Interface language"><option value="ru">Русский</option><option value="en">English</option></select></label>
           <span id="accountName"></span
           ><button id="logoutButton" class="text-button">Выйти</button>
         </div>

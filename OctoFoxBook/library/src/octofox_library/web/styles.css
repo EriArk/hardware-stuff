@@ -1550,3 +1550,8 @@ body:has(.reader-screen.night:not([hidden])) { background: #151318; }
   .reader-scroll.reader-spread::after { content: ''; position: absolute; top: 16px; bottom: 16px; left: 50%; width: 1px; background: #8883; pointer-events: none; }
 }
 .reader-turn-sheet { position: absolute; top: 0; height: 100%; z-index: 2; overflow: hidden; pointer-events: none; background: var(--paper); box-shadow: 0 0 24px #0002; backface-visibility: hidden; }
+
+.language-choice { display: flex; gap: 10px; align-items: center; font-size: 12px; color: #bdb4b8; margin: 12px 0; }
+.language-choice select { width: auto; max-width: 160px; min-height: 36px; padding: 6px 10px; }
+.drawer-footer { flex-wrap: wrap; }
+.drawer-footer .language-choice { flex-basis: 100%; }

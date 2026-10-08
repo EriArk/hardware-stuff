@@ -1750,7 +1750,7 @@ function updateVoiceChoices() {
   const voices = backend.voices().sort((a, b) =>
     Number(b.lang.startsWith(backend.lang)) - Number(a.lang.startsWith(backend.lang)) || a.name.localeCompare(b.name));
   $("voiceSelect").innerHTML = (readerVoice.engine === 'server' ? '' : '<option value="">Автоматически</option>') + voices.map(v =>
-    `<option value="${esc(v.voiceURI)}">${esc(readerVoice.engine === 'server' ? v.name.split(' · ')[0] : v.name + ' · ' + v.lang)}</option>`).join("");
+    `<option value="${esc(v.voiceURI)}">${esc(readerVoice.engine === 'server' ? v.name : v.name + ' · ' + v.lang)}</option>`).join("");
   $("voiceSelect").value = voices.some(v => v.voiceURI === backend.voiceURI) ? backend.voiceURI : "";
 }
 function toggleVoice() {
@@ -1938,7 +1938,14 @@ async function openReader() {
     state.reader.bookPages = createReaderBookIndex(state.reader);
     await loadChapter(state.reader.chapter, state.reader.offset, state.reader.anchor);
     configureVoice();
-    api('/speech').then(info => { serverSpeechInfo = info; }).catch(() => {});
+    const openedReader = state.reader;
+    api('/speech').then(info => {
+      serverSpeechInfo = info;
+      if (state.reader === openedReader && readerVoice?.engine === 'server') {
+        readerVoice.updateInfo(info);
+        updateVoiceChoices();
+      }
+    }).catch(() => {});
     await api(`/books/${b.id}/state`, { shelf: "reading" }).catch((e) =>
       toast(e.message),
     );

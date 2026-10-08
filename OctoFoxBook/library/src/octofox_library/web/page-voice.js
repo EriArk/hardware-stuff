@@ -5,9 +5,18 @@
   class PageVoice {
     constructor(api, view, info, env = root) {
       this.api = api; this.view = view; this.env = env; this.engine = 'server';
+      this.info = info;
       this.epoch = 0; this.status = 'idle'; this.entries = new Set();
       this.backend = {available: !!info.available, voiceURI: info.voice || 'eugene', rate: .85,
-        voices: () => (info.voices || []).map(v => ({...v, localService: true}))};
+        voices: () => (this.info.voices || []).map(v => ({...v, localService: true}))};
+    }
+    updateInfo(info) {
+      this.info = info;
+      this.backend.available = !!info.available;
+      // A refreshed voice catalog must not restart playback or change a valid
+      // choice the reader has already made.
+      if (!this.active && !(info.voices || []).some(v => v.voiceURI === this.backend.voiceURI))
+        this.backend.voiceURI = info.voice || info.voices?.[0]?.voiceURI || '';
     }
     get active() { return !['idle', 'ended'].includes(this.status); }
     now() { return (this.env.Date || Date).now(); }

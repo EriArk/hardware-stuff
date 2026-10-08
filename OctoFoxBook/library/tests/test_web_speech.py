@@ -205,15 +205,31 @@ class SpeechTests(unittest.TestCase):
         self.assertEqual(playlist.count(b'#EXT-X-DISCONTINUITY\n'), 1)
         self.assertNotIn(b'#EXT-X-ENDLIST', playlist)
 
-    def test_only_russian_choices_and_strict_input(self):
-        self.assertTrue(all(v['lang'] == 'ru-RU' for v in VOICES))
-        self.assertEqual([v['voiceURI'] for v in VOICES], ['eugene', 'ruslan'])
+    def test_multilingual_choices_and_strict_input(self):
+        self.assertEqual({v['lang'] for v in VOICES}, {'ru-RU', 'en-US', 'de-DE', 'fr-FR', 'es-ES', 'pt-BR'})
+        self.assertEqual([v['voiceURI'] for v in VOICES], ['eugene', 'ruslan', 'ljspeech', 'thorsten', 'siwis', 'davefx', 'faber'])
         for data in ({'voice': 'en'}, {'voice': 'kseniya'}, {'chapter': True}, {'anchor': {'block': -1, 'char': 0}}):
             with self.assertRaises(SpeechError):
                 self.speech.prepare(self.session, '42', {'id': str(uuid.uuid4()), **data})
         self.prepare(voice='ruslan')
         self.assertEqual(BookSpeech(self.app, '/test/socket').preference('alice'), 'ruslan')
         self.assertEqual(self.speech.preference('bob'), 'eugene')
+
+    def test_each_new_voice_keeps_text_anchors_and_has_separate_audio_cache(self):
+        text = 'Café, Straße, coração, mañana. 😀 O мир stays unchanged.'
+        markup = '<p>' + text + '</p>'
+        self.chapters[:] = [{'html': markup}]
+        keys = set()
+        for voice in ('ljspeech', 'thorsten', 'siwis', 'davefx', 'faber'):
+            identity = self.prepare(voice=voice, anchor={'block': 0, 'char': 0},
+                                    end={'block': 0, 'char': len(text.encode('utf-16-le')) // 2})
+            plan = self.speech.streams[identity]['plan']
+            self.assertEqual(' '.join(p['text'] for p in plan[0]['parts']), text)
+            self.assertEqual(plan[0]['language'], voice)
+            keys.add(plan[0]['key'])
+            self.assertEqual(BookSpeech(self.app, '/test/socket').preference('alice'), voice)
+            self.speech.stop('alice', identity)
+        self.assertEqual(len(keys), 5)
 
     def test_retired_voice_preference_falls_back_without_losing_other_preferences(self):
         with patch('octofox_library.web_speech.VOICES', VOICES + [{'voiceURI': 'kseniya'}]):

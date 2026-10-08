@@ -2,6 +2,7 @@
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http');
 const assert = require('node:assert/strict');
 const {execFileSync} = require('node:child_process');
+const {english, readAsset} = require('./localized-assets.cjs');
 const {chromium, webkit} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve('src/octofox_library/web');
 const output = path.resolve(process.env.QA_OUTPUT || 'test-results/companion');
@@ -51,7 +52,7 @@ const server = http.createServer(async (req,res) => {
   const filename = path.resolve(root, relative);
   if (!filename.startsWith(root + path.sep) || !fs.existsSync(filename)) {res.writeHead(404); return res.end();}
   const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css','.woff2':'font/woff2','.svg':'image/svg+xml'}[path.extname(filename)];
-  res.writeHead(200, {'Content-Type':mime || 'application/octet-stream'}); res.end(fs.readFileSync(filename));
+  res.writeHead(200, {'Content-Type':mime || 'application/octet-stream'}); res.end(readAsset(filename));
 });
 
 (async () => {
@@ -89,7 +90,7 @@ const server = http.createServer(async (req,res) => {
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.screenshot({path:path.join(output,'readers-mobile.png'),fullPage:true});
     await page.locator('#logout').click();
-    await page.getByRole('heading',{name:'Войти в Companion'}).waitFor();
+    await page.getByRole('heading',{name:english ? 'Sign in to Companion' : 'Войти в Companion'}).waitFor();
     assert.equal(await page.locator('#setup-fields').isVisible(), false);
     await form.locator('[name="username"]').fill('owner');
     await form.locator('[name="password"]').fill('fixture-password');
@@ -100,7 +101,7 @@ const server = http.createServer(async (req,res) => {
     await page.locator('#primary-origin').filter({hasText:'http://'}).waitFor();
     await page.locator('#additional-origins').fill('http://192.168.1.20:8080\nhttps://books.example.org');
     await page.locator('#network-form button').click();
-    await page.getByText('Адреса сохранены.', {exact:false}).waitFor();
+    await page.getByText(english ? 'Addresses saved.' : 'Адреса сохранены.', {exact:false}).waitFor();
     await page.locator('#external-ip').click();
     await page.locator('#external-ip-result').filter({hasText:'203.0.113.42'}).waitFor();
     await page.locator('.cloudflare-guide summary').click();
@@ -118,18 +119,18 @@ const server = http.createServer(async (req,res) => {
     const opened = page.waitForEvent('popup');
     await page.locator('#open-check').click();
     const checkPage = await opened;
-    await checkPage.getByText('Подключение подтверждено.', {exact:false}).waitFor();
+    await checkPage.getByText(english ? 'Connection confirmed.' : 'Подключение подтверждено.', {exact:false}).waitFor();
     await checkPage.screenshot({path:path.join(output,'connection-confirmed.png'),fullPage:true});
     await checkPage.close();
     await page.locator('#check-refresh').click();
-    await page.locator('#check-status').filter({hasText:'Адрес открыт'}).waitFor();
+    await page.locator('#check-status').filter({hasText:english ? 'Address opened' : 'Адрес открыт'}).waitFor();
     await page.setViewportSize({width:393,height:852});
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'QR mobile overflow');
     await page.screenshot({path:path.join(output,'network-mobile.png'),fullPage:true});
     await page.locator('#check-qr').screenshot({path:path.join(output,'connection-qr-mobile.png')});
     checkLifetime = 1;
     await page.locator('#connection-form button').click();
-    await page.locator('#network-notice').filter({hasText:'Срок QR-кода истёк'}).waitFor();
+    await page.locator('#network-notice').filter({hasText:english ? 'This QR code has expired' : 'Срок QR-кода истёк'}).waitFor();
     assert.equal(await page.locator('#check-link-panel').isVisible(), false);
     assert.equal(await page.locator('#check-qr').getAttribute('src'), null);
     await page.locator('#readers-tab').click();

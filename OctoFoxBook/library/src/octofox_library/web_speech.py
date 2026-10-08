@@ -23,7 +23,12 @@ import wave
 PROFILE = 'narrator-silero-v5.5-piper1.16-hls6-v3'
 LOGGER = logging.getLogger(__name__)
 VOICES = [{'voiceURI': 'eugene', 'name': 'Евгений · Silero', 'lang': 'ru-RU'},
-          {'voiceURI': 'ruslan', 'name': 'Руслан · Piper', 'lang': 'ru-RU'}]
+          {'voiceURI': 'ruslan', 'name': 'Руслан · Piper', 'lang': 'ru-RU'},
+          {'voiceURI': 'ljspeech', 'name': 'English (US) · LJ Speech', 'lang': 'en-US'},
+          {'voiceURI': 'thorsten', 'name': 'Deutsch · Thorsten', 'lang': 'de-DE'},
+          {'voiceURI': 'siwis', 'name': 'Français · SIWIS', 'lang': 'fr-FR'},
+          {'voiceURI': 'davefx', 'name': 'Español · DaveFX', 'lang': 'es-ES'},
+          {'voiceURI': 'faber', 'name': 'Português (Brasil) · Faber', 'lang': 'pt-BR'}]
 CACHE_LIMIT = 512 * 1024 * 1024
 MAX_REPLY = 8 * 1024 * 1024
 
@@ -64,7 +69,9 @@ def utf16(text):
     return len(text.encode('utf-16-le')) // 2
 
 
-def narration_text(text):
+def narration_text(text, voice="eugene"):
+    if voice not in {"eugene", "kseniya", "ruslan"}:
+        return text
     # OCR sometimes mixes Latin lookalikes into Russian words (e.g. "тиxо").
     # Silero SSML rejects these. Do not transliterate English names/whole words,
     # and never modify the displayed text or its original UTF-16 anchors.
@@ -89,7 +96,7 @@ def page_plan(owner, book, chapter, markup, start, end, language):
     if not valid(start) or not valid(end) or (start['block'], start['char']) > (end['block'], end['char']):
         raise SpeechError(400, 'Некорректные границы страницы')
     parts = []
-    for part in chapter_parts(markup, chapter):
+    for part in chapter_parts(markup, chapter, language):
         block = part['anchor']['block']
         if not start['block'] <= block <= end['block']:
             continue
@@ -101,7 +108,7 @@ def page_plan(owner, book, chapter, markup, start, end, language):
         leading = len(raw) - len(raw.lstrip())
         if not raw.strip():
             continue
-        parts.append({**part, 'text': narration_text(re.sub(r'\s+', ' ', raw.strip())),
+        parts.append({**part, 'text': narration_text(re.sub(r'\s+', ' ', raw.strip()), language),
                       'anchor': {'block': block, 'char': lo + utf16(raw[:leading])},
                       'end': {'block': block, 'char': hi}})
     if sum(len(p['text']) for p in parts) > 12000:
@@ -119,7 +126,7 @@ def page_plan(owner, book, chapter, markup, start, end, language):
     return plan
 
 
-def chapter_parts(markup, chapter):
+def chapter_parts(markup, chapter, voice="eugene"):
     parser = TextBlocks()
     parser.feed(markup)
     result = []
@@ -137,7 +144,7 @@ def chapter_parts(markup, chapter):
                 end = start + stops[-1].start() + len(stops[-1][0].rstrip())
             elif end < len(text) and part.rfind(' ') > 0:
                 end = start + part.rfind(' ')
-            result.append({'text': narration_text(re.sub(r'\s+', ' ', text[start:end])),
+            result.append({'text': narration_text(re.sub(r'\s+', ' ', text[start:end]), voice),
                 'anchor': {'block': block, 'char': utf16(text[:start])},
                 'end': {'block': block, 'char': utf16(text[:end])},
                 'paragraph': not text[end:].strip(), 'chapter': chapter})
@@ -149,7 +156,7 @@ def book_plan(owner, book, chapters, language):
     plan = []
     for chapter, value in enumerate(chapters):
         batch, size = [], 0
-        for part in chapter_parts(value['html'], chapter):
+        for part in chapter_parts(value['html'], chapter, language):
             if batch and (size + len(part['text']) > 650 or len(batch) >= 24):
                 plan.append({'chapter': chapter, 'parts': batch})
                 batch, size = [], 0
@@ -190,7 +197,7 @@ def trim_stream_start(plan, first, owner, book, markup, anchor):
             leading = len(text) - len(text.lstrip())
             if not text.strip():
                 continue
-            part = {**part, 'text': narration_text(re.sub(r'\s+', ' ', text[leading:])),
+            part = {**part, 'text': narration_text(re.sub(r'\s+', ' ', text[leading:]), entry['language']),
                     'anchor': {'block': start['block'], 'char': anchor['char'] + utf16(text[:leading])}}
         parts.append(part)
     if not parts:
@@ -320,7 +327,7 @@ class BookSpeech:
         chapter = data.get('chapter', 0)
         voice = data.get('voice', self.preference(session.owner))
         if voice not in {v['voiceURI'] for v in VOICES}:
-            raise SpeechError(400, 'Выберите русский голос из списка')
+            raise SpeechError(400, 'Выберите голос из списка')
         anchor = data.get('anchor') or {'block': 0, 'char': 0}
         end = data.get('end')
         if end is not None and (not isinstance(end, dict) or set(end) != {'block', 'char'} or any(

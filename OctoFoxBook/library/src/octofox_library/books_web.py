@@ -52,6 +52,7 @@ from octofox_library.web_errors import WebError
 from octofox_library.web_speech import BookSpeech, SpeechError
 from octofox_library.companion import Companion
 from octofox_library.network import NetworkSettings
+from octofox_library import localization
 
 LOGGER = logging.getLogger(__name__)
 STATIC = Path(__file__).with_name("web")
@@ -180,11 +181,11 @@ def fb2_chapters(payload: bytes) -> list[dict]:
                 current += chunk
                 if len(current) > 45000:
                     chapters.append(
-                        {"title": title or f"Часть {len(chapters) + 1}", "html": current}
+                        {"title": title or f"Часть {len(chapters) + 1}", "generatedTitle": not bool(title), "html": current}
                     )
                     current = ""
             if current:
-                chapters.append({"title": title or f"Часть {len(chapters) + 1}", "html": current})
+                chapters.append({"title": title or f"Часть {len(chapters) + 1}", "generatedTitle": not bool(title), "html": current})
     if not chapters:
         raise WebError(422, "В книге не найден текст")
     return chapters
@@ -858,7 +859,7 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
             "status": self.index_status.get(session.owner, "ready"),
         }
 
-    def facets(self, owner, query=None):
+    def facets(self, owner, query=None, locale="ru"):
         query = query or {}
         kind = query.get("kind", ["genre"])[0]
         if kind not in {"author", "series", "genre", "tag"}:
@@ -873,7 +874,7 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
         shared = " AND NOT EXISTS (SELECT 1 FROM uploaded_books u WHERE u.owner=book_facets.owner AND u.book=book_facets.book)"
         with self.db() as db:
             groups = [
-                {"value": r[0], "label": categories.get(r[0], r[0]), "count": r[1], "terms": r[2]}
+                {"value": r[0], "label": localization.taxonomy(categories.get(r[0], r[0]), locale), "count": r[1], "terms": r[2]}
                 for r in db.execute(
                     "SELECT group_id,count(DISTINCT book),count(DISTINCT value) FROM book_facets "
                     "WHERE owner=? AND kind=? AND group_id!=''" + shared + " GROUP BY group_id",
@@ -891,7 +892,10 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
             ).fetchall()
         # Normalized contains matching works for Cyrillic, ё and multiple words;
         # directories are paged, never truncated to the first 2,000/5,000 names.
-        category_match = term and term in normalized(categories.get(group, ""))
+        if locale == "en" and kind == "genre":
+            rows = [dict(r, label=localization.taxonomy(r["label"], locale),
+                         search=normalized(localization.taxonomy(r["label"], locale))) for r in rows]
+        category_match = term and term in normalized(localization.taxonomy(categories.get(group, ""), locale))
         items = [
             dict(r) for r in rows if category_match or all(w in r["search"] for w in term.split())
         ]
@@ -916,7 +920,7 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
             "groups": sorted(groups, key=lambda g: normalized(g["label"])),
         }
 
-    def devices(self, owner):
+    def devices(self, owner, locale="ru"):
         with self.db() as db:
             rows = [
                 dict(r)
@@ -925,7 +929,7 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
                     (owner,),
                 )
             ]
-        return rows or [{"id": "default", "name": "Моя читалка", "last_seen": 0}]
+        return rows or [{"id": "default", "name": "My e-reader" if locale == "en" else "Моя читалка", "last_seen": 0}]
 
     def enqueue(self, owner, book_id, device):
         book = self.book(owner, book_id)
@@ -1116,6 +1120,7 @@ class WebHandler(BaseHTTPRequestHandler):
         return self.server.app
 
     def send(self, status, value=b"", content_type="application/json; charset=utf-8", headers=None):
+        value = localization.response(value, localization.language(self.headers))
         data = (
             json.dumps(value, ensure_ascii=False).encode()
             if not isinstance(value, bytes)
@@ -1127,6 +1132,7 @@ class WebHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", (headers or {}).get("Cache-Control", "no-store"))
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "same-origin")
+        self.send_header("Vary", "Cookie, Accept-Language")
         self.send_header(
             "Content-Security-Policy",
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
@@ -1218,10 +1224,10 @@ class WebHandler(BaseHTTPRequestHandler):
         if path.startswith('/companion-api/'):
             return self.app.companion.route(self, path)
         if get and path in {'/companion', '/companion/'}:
-            return self.send(200, (STATIC / 'companion.html').read_bytes(), 'text/html; charset=utf-8')
+            return self.send(200, localization.asset('companion.html', localization.language(self.headers)), 'text/html; charset=utf-8')
         if get and path == '/connection-check':
             self.app.network.request_origin(self.headers)
-            return self.send(200, (STATIC / 'connection-check.html').read_bytes(), 'text/html; charset=utf-8')
+            return self.send(200, localization.asset('connection-check.html', localization.language(self.headers)), 'text/html; charset=utf-8')
         if path.startswith("/fonts/"):
             if not get or path not in {
                 "/fonts/cormorant-garamond-600-cyrillic-v1.woff2",
@@ -1253,6 +1259,7 @@ class WebHandler(BaseHTTPRequestHandler):
             "/companion.css",
             "/companion-network.js",
             "/connection-check.js",
+            "/ui-language.js",
         }:
             name = "index.html" if path == "/" else path[1:]
             mime = {
@@ -1263,7 +1270,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 ".svg": "image/svg+xml",
                 ".png": "image/png",
             }
-            return self.send(200, (STATIC / name).read_bytes(), mime[Path(name).suffix])
+            return self.send(200, localization.asset(name, localization.language(self.headers)), mime[Path(name).suffix])
         if path.startswith("/reader-api/device/"):
             self.app.throttle("device:" + self.client_address[0], limit=120)
             owner = self.app.authenticate(self.headers.get("Authorization", ""))
@@ -1410,7 +1417,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 {
                     "username": session.owner,
                     "csrf": session.csrf,
-                    "devices": self.app.devices(session.owner),
+                    "devices": self.app.devices(session.owner, localization.language(self.headers)),
                 },
             )
         if get and path == "/reader-api/books":
@@ -1422,9 +1429,9 @@ class WebHandler(BaseHTTPRequestHandler):
         if get and path == "/reader-api/catalog-status":
             return self.send(200, self.app.catalog_status(session))
         if get and path == "/reader-api/facets":
-            return self.send(200, self.app.facets(session.owner, query))
+            return self.send(200, self.app.facets(session.owner, query, localization.language(self.headers)))
         if get and path == "/reader-api/devices":
-            return self.send(200, self.app.devices(session.owner))
+            return self.send(200, self.app.devices(session.owner, localization.language(self.headers)))
         if get and path == "/reader-api/queue":
             return self.send(200, self.app.deliveries(session.owner))
         if not get and path == "/reader-api/queue":
@@ -1503,7 +1510,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 raise WebError(404, "Нет обложки")
             return self.send(200, data, content_type)
         if get and action == "read":
-            chapters = self.app.chapters(session, book_id)
+            chapters = localization.chapters(self.app.chapters(session, book_id), localization.language(self.headers))
             if "start" in query:
                 # Reuse the authenticated, sanitized chapter HTML in bounded batches.
                 start = max(0, min(len(chapters), int(query["start"][0])))

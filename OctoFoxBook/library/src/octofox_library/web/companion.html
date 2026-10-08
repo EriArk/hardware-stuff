@@ -7,6 +7,7 @@
   <title>OctoFox Companion</title>
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/companion.css">
+  <script defer src="/ui-language.js"></script>
   <script defer src="/companion-network.js"></script>
   <script defer src="/companion.js"></script>
 </head>
@@ -16,6 +17,7 @@
     <nav aria-label="Основная навигация"><a href="/#personal">Открыть библиотеку <span aria-hidden="true">↗</span></a><button id="logout" class="quiet" hidden>Выйти</button></nav>
   </header>
   <main>
+    <label class="language-choice">Language<select class="ui-language" aria-label="Interface language"><option value="ru">Русский</option><option value="en">English</option></select></label>
     <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
     <nav id="companion-nav" class="section-nav" aria-label="Разделы Companion" hidden>
       <button id="readers-tab" class="quiet" aria-current="page">Читатели</button>

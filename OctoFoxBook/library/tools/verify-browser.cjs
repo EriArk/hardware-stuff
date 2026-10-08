@@ -1,6 +1,7 @@
 // Local fixture only: no live accounts, reading progress or audio jobs are changed.
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http');
 const assert = require('node:assert/strict');
+const {english, readAsset} = require('./localized-assets.cjs');
 const {chromium, webkit} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve('src/octofox_library/web');
 const output = path.resolve(process.env.QA_OUTPUT || 'test-results/browser'+(process.env.TEST_WEBKIT ? '-webkit' : ''));
@@ -28,7 +29,7 @@ const server = http.createServer((req,res) => {
   const file=path.resolve(root,'.'+(url.pathname==='/'?'/index.html':url.pathname));
   if (!file.startsWith(root+path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {res.writeHead(404);res.end();return;}
   res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.html')?'text/html':'application/octet-stream');
-  res.end(fs.readFileSync(file));
+  res.end(readAsset(file));
 });
 (async()=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -123,7 +124,7 @@ const server = http.createServer((req,res) => {
     // true from the previous viewport while the article still has its old width.
     await page.waitForFunction(()=>Math.abs(parseFloat($('readerText').style.width)
       - ($('readerScroll').clientWidth / state.reader.pages.columns - 44)) < 1);
-    await page.waitForFunction(()=>/^Стр\. \d/.test($('readerPage').textContent));
+    await page.waitForFunction(()=>/^(?:Стр\.|Page) \d/.test($('readerPage').textContent));
     await page.screenshot({path:path.join(output,'iphone-reader.png')});
     await page.evaluate(()=>closeReader());
     await page.evaluate(()=>{if($('bookDialog').open)closeBook();});

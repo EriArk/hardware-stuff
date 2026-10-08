@@ -54,6 +54,19 @@ function audioCache(f) {
   };
   return {fetched,created,revoked};
 }
+
+test('late server voice catalog becomes selectable without interrupting current audio',async()=>{
+  const f=fixture();await f.started();
+  const audio=f.voice.audio,epoch=f.voice.epoch;
+  f.voice.updateInfo({available:true,voice:'ljspeech',voices:[
+    {voiceURI:'eugene',lang:'ru-RU'}, {voiceURI:'ljspeech',lang:'en-US'}, {voiceURI:'siwis',lang:'fr-FR'}]});
+  assert.deepEqual(f.voice.backend.voices().map(v=>v.voiceURI),['eugene','ljspeech','siwis']);
+  assert.equal(f.voice.audio,audio);assert.equal(f.voice.epoch,epoch);
+  assert.equal(f.voice.backend.voiceURI,'eugene');assert.equal(f.voice.status,'playing');
+  f.voice.stop();f.voice.setVoice('ljspeech');f.voice.play();await f.tick();
+  assert.equal(f.calls.filter(([url])=>url.endsWith('/speech')).at(-1)[1].voice,'ljspeech');
+  f.voice.stop();
+});
 test('lookahead refills across chapters but never grows beyond current plus three pages',async()=>{
   const f=fixture(true,10);await f.started();
   for(let i=0;i<6;i++){

@@ -84,7 +84,7 @@ class UploadsMixin:
         row = db.execute('SELECT id FROM personal_collections WHERE owner=? AND name_key=?', (owner, key)).fetchone()
         if row:
             return row[0]
-        identity = secrets.token_hex(12)
+        identity = "uploads-" + secrets.token_hex(12)
         db.execute('INSERT INTO personal_collections VALUES (?,?,?,?,?)',
                    (owner, identity, 'Загруженные', key, time.time()))
         return identity

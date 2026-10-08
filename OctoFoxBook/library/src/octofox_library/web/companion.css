@@ -576,3 +576,8 @@ textarea { resize:vertical; line-height:1.7; }
 .check-qr { margin: 24px 0; text-align: center; }
 .check-qr img { display: block; width: 296px; max-width: 100%; height: auto; margin: 0 auto 14px; background: #fff; }
 .check-qr figcaption { max-width: 360px; margin-inline: auto; }
+
+.language-choice { display: flex; gap: 10px; align-items: center; font-size: 12px; color: #bdb4b8; margin: 12px 0; }
+.language-choice select { width: auto; max-width: 160px; min-height: 36px; padding: 6px 10px; }
+.drawer-footer { flex-wrap: wrap; }
+.drawer-footer .language-choice { flex-basis: 100%; }
