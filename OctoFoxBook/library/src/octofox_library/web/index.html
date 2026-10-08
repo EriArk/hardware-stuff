@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#100c10" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta
+      name="description"
+      content="OctoFox Library — личная библиотека, чтение и озвучка книг."
+    />
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/styles.css?v=41" />
+    <script src="/ui-language.js" defer></script>
+    <script src="/voice-reader.js?v=6" defer></script>
+  <script src="/server-voice.js?v=5" defer></script>
+  <script src="/page-voice.js?v=5" defer></script>
+  <script src="/bookmarks.js?v=1" defer></script>
+  <script src="/personal-library.js?v=2" defer></script>
+  <script src="/app.js?v=41" defer></script>
+    <title>OctoFox Library</title>
+  </head>
+  <body>
+    <svg
+      class="svg-sprite"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <defs>
+        <symbol id="i-book" viewBox="0 0 24 24">
+          <path
+            d="M12 5C8 2 4 3 2 4v15c4-2 7-1 10 1 3-2 6-3 10-1V4c-2-1-6-2-10 1Zm0 0v15"
+          />
+        </symbol>
+        <symbol id="i-menu" viewBox="0 0 24 24">
+          <path d="M4 6h16M4 12h11M4 18h16" />
+        </symbol>
+        <symbol id="i-upload" viewBox="0 0 24 24">
+          <path d="M12 16V3m-5 5 5-5 5 5M4 16v5h16v-5" />
+        </symbol>
+        <symbol id="i-bell" viewBox="0 0 24 24">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4M12 2V1" />
+        </symbol>
+        <symbol id="i-close" viewBox="0 0 24 24">
+          <path d="m6 6 12 12M6 18 18 6" />
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24">
+          <circle cx="10.5" cy="10.5" r="6.5" />
+          <path d="m16 16 5 5" />
+        </symbol>
+        <symbol id="i-sliders" viewBox="0 0 24 24">
+          <path d="M4 6h16M4 12h16M4 18h16M8 3v6m8 0v6M9 15v6" />
+        </symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24">
+          <path d="m14 5-7 7 7 7M7 12h14" />
+        </symbol>
+        <symbol id="i-device" viewBox="0 0 24 24">
+          <rect x="5" y="2" width="14" height="20" rx="3" />
+          <path d="M10 18h4M9 6h6M9 9h6" />
+        </symbol>
+        <symbol id="i-heart" viewBox="0 0 24 24">
+          <path d="M12 21 3 12C-2 5 7-2 12 6 17-2 26 5 21 12Z" />
+        </symbol>
+        <symbol id="i-spark" viewBox="0 0 24 24">
+          <path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <section id="loginScreen" class="login-screen" hidden>
+      <div class="login-panel">
+        <span class="brand-mark"
+          ><svg><use href="#i-book" /></svg
+        ></span>
+        <p class="eyebrow">OctoFox Library</p>
+        <label class="language-choice">Language<select class="ui-language" aria-label="Interface language"><option value="ru">Русский</option><option value="en">English</option></select></label>
+        <h1>Твоя следующая<br /><em>история.</em></h1>
+        <p class="lead">
+          Личная библиотека. На экране телефона<br />и в читалке, которую берёшь
+          с собой.
+        </p>
+        <form id="loginForm">
+          <label
+            >Логин<input
+              id="username"
+              name="username"
+              autocomplete="username"
+              required
+              maxlength="64"
+              autocapitalize="none"
+              spellcheck="false"
+          /></label>
+          <label
+            >Пароль<input
+              id="password"
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              maxlength="512"
+          /></label>
+          <p id="loginError" class="error" role="alert"></p>
+          <button class="primary" type="submit">
+            Открыть библиотеку <span>↗</span>
+          </button>
+        </form>
+        <p><a class="text-button" href="/companion">Настроить библиотеку · Companion</a></p>
+      </div>
+    </section>
+
+    <div id="appScreen" hidden>
+      <header class="topbar">
+        <button
+          id="menuButton"
+          class="icon-button"
+          aria-label="Открыть меню"
+          aria-controls="drawer"
+          aria-expanded="false"
+        >
+          <svg><use href="#i-menu" /></svg>
+        </button>
+        <a href="#library" class="wordmark">OCTOFOX <span>LIBRARY</span></a>
+
+        <button
+          id="queueShortcut"
+          class="icon-button"
+          aria-label="Очередь читалки"
+        >
+          <svg><use href="#i-device" /></svg
+          ><span id="queueDot" class="dot" hidden></span>
+        </button>
+      </header>
+      <div id="drawerBackdrop" class="backdrop" hidden></div>
+      <aside id="drawer" class="drawer" aria-label="Разделы библиотеки" inert>
+        <div class="drawer-head">
+          <span class="eyebrow">Твоя библиотека</span
+          ><button id="closeMenu" class="icon-button" aria-label="Закрыть меню">
+            <svg><use href="#i-close" /></svg>
+          </button>
+        </div>
+        <nav id="navigation">
+          <button data-view="personal" class="nav-item">
+            <svg><use href="#i-book" /></svg>Моя библиотека <span>☆</span>
+          </button>
+          <button data-view="reading" class="nav-item">
+            <svg><use href="#i-book" /></svg>Читаю сейчас <span>↗</span>
+          </button>
+          <button data-view="favorite" class="nav-item">
+            <svg><use href="#i-heart" /></svg>Избранное <span>♥</span>
+          </button>
+          <button data-view="library" class="nav-item active">
+            <svg><use href="#i-book" /></svg>Все книги <span>01</span>
+          </button>
+          <button data-view="recent" class="nav-item">
+            <svg><use href="#i-spark" /></svg>Новинки
+            <span>02</span>
+          </button>
+          <button data-view="collections" class="nav-item">
+            <svg><use href="#i-spark" /></svg>Подборки <span>✦</span>
+          </button>
+          <button data-view="genres" class="nav-item">
+            Жанры <span>→</span>
+          </button>
+          <button data-view="tags" class="nav-item">Теги <span>→</span></button>
+          <button data-view="authors" class="nav-item">
+            Авторы <span>А–Я</span>
+          </button>
+          <button data-view="series" class="nav-item">
+            Серии <span>А–Я</span>
+          </button>
+          <button data-view="want" class="nav-item">
+            <svg><use href="#i-spark" /></svg>Хочу прочитать <span>04</span>
+          </button>
+          <button data-view="read" class="nav-item">
+            <svg><use href="#i-book" /></svg>Прочитанные <span>06</span>
+          </button>
+          <button data-view="queue" class="nav-item">
+            <svg><use href="#i-device" /></svg>Моя читалка <span>07</span>
+          </button>
+
+        </nav>
+        <div class="drawer-footer">
+          <label class="language-choice">Language<select class="ui-language" aria-label="Interface language"><option value="ru">Русский</option><option value="en">English</option></select></label>
+          <span id="accountName"></span
+          ><button id="logoutButton" class="text-button">Выйти</button>
+        </div>
+      </aside>
+
+      <main id="collectionsScreen" class="page-shell" hidden>
+        <header class="collections-heading"><h1>Подборки</h1><p>Истории под настроение</p></header>
+        <div id="collectionCards" class="collection-grid"></div>
+        <p id="collectionsStatus" class="status" role="status" aria-live="polite"></p>
+        <button id="collectionsRefresh" class="text-button">Обновить подборки</button>
+      </main>
+      <main id="libraryScreen" class="page-shell">
+        <a id="collectionBack" class="collection-back" href="#collections" hidden>← Подборки</a>
+        <section class="hero">
+          <p id="catalogStatus" role="status" hidden></p>
+          <button id="catalogUpdates" class="secondary" hidden>Обновить список ↻</button>
+          <h1 id="viewTitle">Все книги</h1>
+          <div class="hero-bottom">
+            <p id="viewDescription" hidden>
+              Выбери историю.<br />Читай здесь или отправь в читалку.
+            </p>
+            <span class="book-count"
+              ><b id="bookCount">—</b> <span>книг</span></span
+            >
+          </div>
+        </section>
+        <section class="control-deck" aria-label="Поиск и фильтры">
+          <form id="searchForm" class="search-row">
+            <label class="search-box"
+              ><svg><use href="#i-search" /></svg
+              ><input
+                id="searchInput"
+                type="search"
+                placeholder="Книга, автор или серия"
+                aria-label="Поиск книг"
+                autocomplete="off" /></label
+            ><button
+              id="filterButton"
+              type="button"
+              class="icon-button filter-toggle"
+              aria-label="Фильтры"
+              aria-expanded="false"
+              aria-controls="filters"
+            >
+              <svg><use href="#i-sliders" /></svg><span>Фильтры</span>
+            </button>
+          </form>
+          <div id="filters" class="filters" hidden>
+          <div class="search-options">
+            <label
+              >Искать по<select id="searchScope">
+                <option value="all">Всему каталогу</option>
+                <option value="title">Названию книги</option>
+                <option value="author">Автору</option>
+                <option value="series">Серии</option>
+                <option value="genre">Жанру</option>
+                <option value="tag">Тегу</option>
+              </select></label
+            >
+            <label
+              >Порядок<select id="sortFilter">
+                <option value="recent">Сначала новые</option>
+                <option value="title">Названия · А–Я</option>
+                <option value="title_desc">Названия · Я–А</option>
+                <option value="author">Авторы · А–Я</option>
+                <option value="series">По порядку серии</option>
+              </select></label
+            >
+          </div>
+          <div class="filter-choices">
+            <button class="filter-choice" data-browse="genre">
+              Жанр<span id="genreChoice">Любой →</span>
+            </button>
+            <button class="filter-choice" data-browse="tag">
+              Тег<span id="tagChoice">Любой →</span>
+            </button>
+            <button class="filter-choice" data-browse="author">
+              Автор<span id="authorChoice">Любой →</span>
+            </button>
+            <button class="filter-choice" data-browse="series">
+              Серия<span id="seriesChoice">Любая →</span>
+            </button>
+          </div>
+            <button id="resetFilters" type="button" class="text-button">
+              Сбросить фильтры
+            </button>
+          </div>
+          <div id="activeFilters" class="active-filters"></div>
+        </section>
+        <div class="section-heading">
+          <h2 id="sectionTitle">На книжных полках</h2>
+          <span id="resultCount"></span>
+          <button id="personalSortButton" class="icon-button" hidden aria-label="Сортировка" title="Сортировка" aria-haspopup="dialog" aria-expanded="false" aria-controls="personalSortDialog">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h16M4 12h10M4 19h4M18 10v10m-3-3 3 3 3-3" /></svg>
+          </button>
+        </div>
+        <dialog id="personalSortDialog" class="sort-popover" aria-labelledby="personalSortTitle">
+          <header><h2 id="personalSortTitle">Сортировка</h2><button id="closePersonalSort" class="icon-button" aria-label="Закрыть">×</button></header>
+          <label><input type="radio" name="personalSort" value="recent" />Недавно добавленные</label>
+          <label><input type="radio" name="personalSort" value="title" />Название · А–Я</label>
+          <label><input type="radio" name="personalSort" value="title_desc" />Название · Я–А</label>
+          <label><input type="radio" name="personalSort" value="author" />Автор · А–Я</label>
+          <label><input type="radio" name="personalSort" value="series" />По порядку серии</label>
+        </dialog>
+        <div id="uploadControls" class="upload-controls" hidden>
+          <div class="personal-collection-toolbar">
+            <select id="personalCollection" aria-label="Коллекция в моей библиотеке"><option value="">Все мои книги</option></select>
+            <button id="managePersonalCollections" class="secondary">Коллекции</button>
+            <button id="openUpload" class="icon-button upload-shortcut" aria-label="Загрузить файлы"
+              title="Загрузить файлы" aria-haspopup="dialog" aria-controls="uploadDialog">
+              <svg aria-hidden="true"><use href="#i-upload" /></svg>
+            </button>
+          </div>
+          <input id="uploadFile" type="file" accept=".fb2,.epub,application/x-fictionbook+xml,application/epub+zip" multiple hidden />
+          <button id="cancelBookUpload" class="text-button" hidden>Остановить очередь</button>
+          <span id="uploadStatus" class="status" role="status"></span>
+          <details id="uploadErrors" hidden><summary id="uploadErrorsTitle">Ошибки загрузки</summary><ul id="uploadErrorsList"></ul></details>
+        </div>
+        <dialog id="uploadDialog" class="personal-collections-dialog upload-dialog" aria-labelledby="uploadHeading">
+          <header><h2 id="uploadHeading">Добавить книги</h2>
+            <button id="closeUpload" class="icon-button" aria-label="Закрыть" autofocus>×</button>
+          </header>
+          <p class="fine">Можно выбрать несколько файлов FB2 и EPUB — до 16 МБ каждый.</p>
+          <button id="uploadBookButton" class="primary">Выбрать файлы</button>
+          <details class="fine"><summary>Куда попадут книги</summary>
+            <p>В «Загруженные» и выбранную коллекцию. Новые или более объёмные версии одноимённых файлов заменят старые.</p>
+          </details>
+        </dialog>
+        <dialog id="personalCollectionsDialog" class="personal-collections-dialog" aria-labelledby="personalCollectionsTitle">
+          <header><h2 id="personalCollectionsTitle">Мои коллекции</h2><button id="closePersonalCollections" class="icon-button" aria-label="Закрыть">×</button></header>
+          <form id="personalCollectionForm" class="collection-create"><input id="personalCollectionName" required maxlength="80" placeholder="Название коллекции" aria-label="Название коллекции"><button id="personalCollectionCreate" class="secondary" type="submit">Создать</button></form>
+          <p id="personalCollectionsStatus" class="status" role="status"></p>
+          <div id="personalCollectionsList"></div>
+        </dialog>
+        <div id="bookGrid" class="book-grid"></div>
+        <button id="loadMore" class="secondary load-more" hidden>
+          Ещё книги ↓
+        </button>
+      </main>
+      <main id="browseScreen" class="page-shell" hidden>
+        <div class="browse-heading">
+          <button id="backToBooks" class="text-button">← К книгам</button>
+          <h1 id="browseTitle">Жанры</h1>
+        </div>
+        <nav
+          id="browseKinds"
+          class="browse-shortcuts"
+          aria-label="Раздел поиска"
+        >
+          <button data-kind="genre">Жанры</button
+          ><button data-kind="tag">Теги</button>
+          <button data-kind="author">Авторы</button
+          ><button data-kind="series">Серии</button>
+        </nav>
+        <form id="browseSearchForm" class="search-box">
+          <svg><use href="#i-search" /></svg>
+          <input
+            id="browseSearch"
+            type="search"
+            placeholder="Найти жанр"
+            aria-label="Поиск в разделе"
+            autocomplete="off"
+          />
+        </form>
+        <div class="search-options">
+          <label id="browseGroupLabel"
+            >Категория<select id="browseGroup">
+              <option value="">Все категории</option>
+            </select></label
+          >
+          <label
+            >Порядок<select id="browseSort">
+              <option value="alpha">По алфавиту · А–Я</option>
+              <option value="count">По количеству книг</option>
+            </select></label
+          >
+        </div>
+        <p id="browseHint" class="status"></p>
+        <div id="browseGroups" class="category-grid"></div>
+        <nav
+          id="browseLetters"
+          class="alphabet"
+          aria-label="Начальная буква"
+        ></nav>
+        <button id="chooseGroup" class="secondary" hidden>
+          Все книги категории
+        </button>
+        <div class="section-heading">
+          <h2 id="browseListTitle">Все жанры</h2>
+          <span id="browseCount"></span>
+        </div>
+        <p id="browseStatus" class="status" role="status"></p>
+        <div id="browseResults" class="directory-list"></div>
+        <button id="browseMore" class="secondary load-more" hidden>
+          Показать ещё ↓
+        </button>
+      </main>
+      <main id="queueScreen" class="page-shell" hidden>
+        <section class="section-intro">
+          <p class="eyebrow">Всегда с собой</p>
+          <h1>Моя читалка</h1>
+          <p class="lead">
+            Здесь книги на устройстве и ожидающие изменения. Чтобы загрузить
+            или удалить книги, нажми «Синхронизировать» на главной читалки.
+          </p>
+        </section>
+        <div id="deviceList" class="device-list"></div>
+        <div class="section-heading">
+          <h2>Содержимое читалки</h2>
+          <button id="refreshQueue" class="text-button">Обновить</button>
+        </div>
+        <div id="queueList" class="queue-list"></div>
+      </main>
+      <footer class="site-footer">
+        ABYSSTAIL <span>Хорошие истории остаются с нами.</span>
+      </footer>
+    </div>
+
+
+
+    <dialog id="bookDialog" class="book-dialog">
+      <div class="dialog-top">
+        <span class="eyebrow">Книга</span
+        ><button
+          id="closeBook"
+          class="icon-button"
+          aria-label="Закрыть карточку"
+        >
+          <svg><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <div id="bookDetails"></div>
+    </dialog>
+    <section
+      id="readerScreen"
+      class="reader-screen"
+      hidden
+      aria-label="Чтение книги"
+    >
+      <header class="reader-top">
+        <button
+          id="closeReader"
+          class="icon-button"
+          aria-label="Вернуться к книге"
+        >
+          <svg><use href="#i-arrow" /></svg></button
+          ><span id="readerBookTitle"></span>
+        <label class="icon-button reader-toc" title="Оглавление">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6h12M9 12h12M9 18h12M3 6h1M3 12h1M3 18h1"/></svg>
+          <select id="chapterSelect" aria-label="Оглавление"></select>
+        </label>
+        <button id="bookmarksButton" class="icon-button" aria-label="Закладки" title="Закладки" aria-haspopup="dialog" aria-controls="bookmarksDialog"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg></button>
+        <button id="voicePlay" class="icon-button" aria-label="Слушать" title="Слушать" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m7 3 14 9-14 9z"/></svg>
+        </button>
+        <button id="listenBook" class="icon-button" aria-label="Настройки озвучки" title="Настройки озвучки" aria-haspopup="dialog" aria-controls="voiceControls" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 4 5 9H2v6h3l6 5V4Z M15 8a6 6 0 0 1 0 8 M18 5a10 10 0 0 1 0 14"/></svg>
+        </button><button
+          id="readerSettingsButton"
+          class="icon-button"
+          aria-label="Настройки чтения"
+          aria-expanded="false"
+        >
+          Aa
+        </button>
+        <section id="voiceControls" class="voice-controls" role="dialog" aria-modal="false" aria-labelledby="voicePopoverTitle" hidden>
+          <div class="voice-popover-heading">
+            <strong id="voicePopoverTitle">Озвучка</strong>
+            <button id="closeVoiceControls" class="icon-button" aria-label="Закрыть настройки озвучки" title="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 6 12 12M6 18 18 6"/></svg></button>
+          </div>
+          <label class="voice-source">Озвучка<select id="voiceEngine"><option value="server">Серверная</option><option value="browser">iPhone / устройство</option></select></label>
+          <div class="voice-actions">
+            <label class="voice-speed" for="voiceRate">Скорость <output id="voiceRateValue" for="voiceRate">0,85×</output><input id="voiceRate" type="range" min="0.5" max="2" step="0.05" value="0.85" aria-valuetext="0,85×"></label>
+            <label class="voice-choice">Голос<select id="voiceSelect"><option value="">Автоматически</option></select></label>
+          </div>
+          <p id="voiceStatus" role="status"></p>
+          <p id="voiceHint" class="voice-hint">При блокировке экрана iPhone озвучка может остановиться. Вернитесь сюда и нажмите ▶.</p>
+        </section>
+      </header>
+      <dialog id="bookmarksDialog" class="bookmarks-dialog" aria-labelledby="bookmarksTitle">
+        <header><h2 id="bookmarksTitle">Закладки</h2><button id="closeBookmarks" class="icon-button" aria-label="Закрыть закладки">×</button></header>
+        <form id="bookmarkForm">
+          <label for="bookmarkLabel">Закладка открытой страницы</label>
+          <input id="bookmarkLabel" maxlength="120" required autocomplete="off" aria-label="Название закладки">
+          <button id="addBookmark" type="submit">Добавить закладку</button>
+        </form>
+        <p id="bookmarkStatus" role="status" aria-live="polite"></p>
+        <ul id="bookmarkList"></ul>
+      </dialog>
+      <div id="readerSettings" class="reader-settings" hidden>
+        <label
+          >Размер текста<input
+            id="readerFontSize"
+            type="range"
+            min="16"
+            max="30"
+            value="20"
+        /></label>
+        <label
+          >Между строк<input
+            id="readerLineHeight"
+            type="range"
+            min="1.3"
+            max="2"
+            step="0.1"
+            value="1.7"
+        /></label>
+        <label
+          >Тема<select id="readerTheme">
+            <option value="paper">Бумага</option>
+            <option value="night">Ночь</option>
+          </select></label
+        >
+      </div>
+      <div id="readerScroll" class="reader-scroll">
+        <article id="readerText"></article>
+      </div>
+      <aside id="voicePreparing" class="voice-preparing" role="status" aria-live="polite" aria-atomic="true" hidden>
+        <span class="voice-preparing-spinner" aria-hidden="true"></span>
+        <strong>Аудиокнига подготавливается</strong>
+        <span>Пожалуйста, ожидайте</span>
+      </aside>
+      <footer class="reader-bottom">
+        <button
+          id="previousChapter"
+          class="icon-button"
+          aria-label="Предыдущая страница"
+        >
+          ←</button
+        ><span id="readerPage" class="reader-page" role="status" aria-live="polite"></span><button
+          id="nextChapter"
+          class="icon-button"
+          aria-label="Следующая страница"
+        >
+          →
+        </button>
+      </footer>
+    </section>
+    <div id="toast" class="toast" role="status" hidden></div>
+  </body>
+</html>
