@@ -1,6 +1,8 @@
 # OctoFox Companion
 
-A desktop window for your OctoFox library. It finds a running server on this computer or your local network, then opens the server's own interface inside the app.
+Companion is the administration interface served by the OctoFox book server. This folder contains a portable desktop browser for that interface: it finds a running server on this computer or your local network and displays Companion inside its window.
+
+The desktop browser needs no installer. Installing the book server is a separate operation; Companion itself is included with that server.
 
 ## Open your library
 
@@ -8,9 +10,9 @@ Use the development package for your computer, or build it using the commands be
 
 | Computer | Package |
 | --- | --- |
-| Windows | Setup `.exe`, or the portable `.zip` |
-| macOS (Apple Silicon and Intel) | Universal `.dmg` or `.zip` |
-| Linux x64 | `.AppImage` or `.deb` |
+| Windows | Extract the `.zip` and run `OctoFox Companion.exe` inside the folder |
+| macOS (Apple Silicon and Intel) | Extract the universal `.zip` and open `OctoFox Companion.app` |
+| Linux x64 | Make the `.AppImage` executable and open it |
 
 Launch **OctoFox Companion**. If one library is found, it opens automatically. If several are found, choose one. On later launches the app tries your previous library first.
 
@@ -27,6 +29,8 @@ New installations listen on the local network by default. Existing `.env` files 
 During automatic first setup, the local network is trusted: a Companion app on that network can claim a new server. After setup, normal account authentication is required. Public reverse-proxy requests cannot use the local setup handshake. Once the owner signs in through the app, the detected LAN address is saved when there is room in the address list, so a phone browser can use it too.
 
 Books, accounts, reading progress and narration remain on the server. Closing Companion leaves the server running. Changing an app connection does not change the library's public domain.
+
+Windows users should keep the extracted files together; the executable needs the files next to it. The app stores its remembered server and browser session in the operating system's application-data folder.
 
 These development packages are not code-signed/notarized distribution releases. OS approval prompts may appear when opening them.
 

@@ -46,10 +46,7 @@ jobs:
         with:
           name: OctoFox-Companion-${{ matrix.target }}
           path: |
-            OctoFoxBook/companion/dist/*.exe
             OctoFoxBook/companion/dist/*.zip
-            OctoFoxBook/companion/dist/*.dmg
             OctoFoxBook/companion/dist/*.AppImage
-            OctoFoxBook/companion/dist/*.deb
           if-no-files-found: error
           retention-days: 14

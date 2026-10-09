@@ -31,18 +31,11 @@
     },
     "win": {
       "target": [
-        "nsis",
         "zip"
       ]
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true
-    },
     "mac": {
       "target": [
-        "dmg",
         "zip"
       ],
       "category": "public.app-category.books",
@@ -52,8 +45,7 @@
     },
     "linux": {
       "target": [
-        "AppImage",
-        "deb"
+        "AppImage"
       ],
       "category": "Office",
       "maintainer": "EriArk"
