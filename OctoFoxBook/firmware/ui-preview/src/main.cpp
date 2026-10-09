@@ -39,14 +39,19 @@ bool show(unsigned target, const char* source) {
         memset(frame+offset,r.level,r.count); offset+=r.count;
     }
     if (offset!=kPixels) { fault=true; return false; }
+    uint32_t hash=2166136261u;
+    for (size_t i=0;i<kPixels;++i) hash=(hash^frame[i])*16777619u;
+    if (hash!=kUiHashes[target]) {
+        fault=true; Serial.println("UI ERROR frame-hash-mismatch"); return false;
+    }
     // Clear each comparison so the previous visual style cannot bias the next.
     panel.clear(nullptr,0,EPD_Painter::ClearMode::HARD);
     if (!idle()) return false;
     panel.paint(frame);
     if (!idle()) return false;
     style=target;
-    Serial.printf("UI FRAME style=%u name=%s source=%s total_us=%lu ok=1\n",
-                  style,style?"fantasy":"bookish",source,(unsigned long)(micros()-start));
+    Serial.printf("UI FRAME style=%u name=%s source=%s fnv1a=%lu total_us=%lu ok=1\n",
+                  style,style?"fantasy":"bookish",source,(unsigned long)hash,(unsigned long)(micros()-start));
     return true;
 }
 
@@ -72,7 +77,7 @@ void inputTask(void*) {
 
 void command(const char* input) {
     if (!strcmp(input,"PING") || !strcmp(input,"UI STATUS")) {
-        Serial.printf("UI STATUS version=1 ready=%u fault=%u style=%u changes=%u "
+        Serial.printf("UI STATUS version=2 ready=%u fault=%u style=%u changes=%u "
                       "up=%d down=%d ok=%d storage=untouched wifi=off\n",
                       ready,fault,style,changes,digitalRead(39),digitalRead(48),digitalRead(45));
     } else if (!strcmp(input,"UI NEXT")) {

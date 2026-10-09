@@ -9,13 +9,15 @@
   "frames": [
     {
       "index": 0,
-      "sha256": "de382121995f98a6b69523af8918f50dee2519be53d7ba2a1329003c646e13b2",
-      "runs": 28881
+      "sha256": "8eb0250d8d5e414af405d44a8424e27432d9d47095776a45916a720bbff6e82e",
+      "runs": 29124,
+      "fnv1a": 3626823609
     },
     {
       "index": 1,
-      "sha256": "f5d15a8a6057871b20ada965998de65b58c73525910b9769b7e2a6bec147b5c2",
-      "runs": 35579
+      "sha256": "9ecb1542340db7d74dfc7e8bf5a167d438dab1db3b23114c01f795a8fdb24fa4",
+      "runs": 27689,
+      "fnv1a": 32157907
     }
   ],
   "font_sha256": {

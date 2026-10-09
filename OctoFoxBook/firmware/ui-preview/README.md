@@ -1,8 +1,10 @@
 # AbyssBook visual preview
 
 Two static Home concepts for the non-touch LILYGO 4.7-S3 H716 reader:
-**bookish** and **fantasy**. They share fictional book content and layout so the
-comparison focuses on visual treatment. This is a temporary visual prototype,
+**bookish** and **fantasy**. They share fictional book content. The bookish
+layout uses a light header and side-by-side cover/details; fantasy uses a large
+black masthead, white emblem, centered cover and ornamental frame. Large A/B
+labels distinguish them. This is a temporary visual prototype,
 not the functional reader UI or the agreed final navigation implementation.
 
 On boot the bookish screen appears. **OK, UP or DOWN** switches to the other
@@ -34,5 +36,7 @@ to the panel's native 960×540 layout with the reader's existing rotation.
 
 USB (115200, DTR on / RTS off): `UI STATUS`, `UI NEXT`, `UI SHOW 0`, `UI SHOW 1`.
 Status reports ready/fault, selected style, change count and raw GPIO levels.
+Each decoded frame is checked against its generated FNV-1a checksum; version2
+frame acknowledgements include the checksum sent to the painter.
 Frame acknowledgements establish rendering completion, not optical quality or
 physical button acceptance. Review both screens on the actual panel.

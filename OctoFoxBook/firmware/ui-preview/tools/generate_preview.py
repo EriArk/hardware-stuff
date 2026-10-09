@@ -89,9 +89,47 @@ def book_cover(fonts, kind=0):
     return im
 
 
+def render_fantasy(fonts, logo):
+    p=Page(fonts,True)
+    p.box((0,0,539,185),fill=0)
+    source=Image.open(logo).convert('L')
+    bounds=source.point(lambda v:255 if v<235 else 0).getbbox()
+    seal=ImageOps.contain(ImageOps.invert(source.crop(bounds)),(80*S,90*S),Image.Resampling.LANCZOS)
+    p.image.paste(seal,((540*S-seal.width)//2,25*S))
+    p.text((270,126),'AbyssBook',29,'serif',255,anchor='mt')
+    p.text((270,163),'Л И Ч Н А Я   Б И Б Л И О Т Е К А',10,'sans',170,anchor='mt')
+    p.line([(20,192),(520,192)],0)
+    p.text((270,209),'Главная   ·   Книги   ·   Каталог',18,'serif',0,anchor='mt')
+    p.ornament(244)
+    p.box((26,270,514,688),outline=0)
+    p.box((32,276,508,682),outline=170)
+    for x in (26,514):
+        for y in (270,688):p.diamond(x,y,6)
+    p.text((270,287),'Ваша история продолжается',20,'italic',0,anchor='mt')
+    cover=book_cover(fonts)
+    cover=cover.resize((108*S,166*S),Image.Resampling.LANCZOS)
+    p.image.paste(cover,(216*S,328*S))
+    p.text((270,510),'Море тишины',33,'serif',0,anchor='mt')
+    p.text((270,554),'Елена Север',18,'italic',85,anchor='mt')
+    p.text((270,585),'Глава 8 из 24  ·  Прочитано 34%',16,'sans',85,anchor='mt')
+    p.box((95,620,445,668),fill=0)
+    p.text((270,629),'Продолжить чтение',23,'serif',255,anchor='mt')
+    p.text((270,715),'Недавние истории',24,'serif',0,anchor='mt')
+    for y,title,progress in [(761,'Сад за горизонтом','12%'),(808,'Письма с маяка','67%')]:
+        p.diamond(43,y+14,3)
+        p.text((60,y),title,21,'serif')
+        p.text((496,y+3),progress,17,'sans',85,anchor='rt')
+    p.tentacle();p.tentacle(True);p.ornament(865)
+    p.text((270,884),'OK / UP / DOWN — сменить вариант',17,'sans',0,anchor='mt')
+    p.text((270,920),'B · ФЭНТЕЗИЙНЫЙ',20,'sans',0,anchor='mt')
+    return p.image.resize((540,960),Image.Resampling.LANCZOS).point(lambda v:min(3,(v+42)//85)*85)
+
+
 def render(fonts, logo, fantasy):
+    if fantasy:
+        return render_fantasy(fonts,logo)
     p=Page(fonts,fantasy)
-    face='serif' if fantasy else 'sans'
+    face='sans'
     emblem=Image.open(logo).convert('L')
     mask=emblem.point(lambda v: 255 if v<235 else 0)
     bounds=mask.getbbox()
@@ -101,11 +139,7 @@ def render(fonts, logo, fantasy):
     p.text((86,26),'AbyssBook',27,'serif')
     p.text((87,61),'ВАША ЛИЧНАЯ БИБЛИОТЕКА',10,'sans',85)
     p.text((508,35),'НА УСТРОЙСТВЕ',11,'sans',85,anchor='rt')
-    if fantasy:
-        p.line([(30,87),(510,87)],0)
-        p.diamond(270,87,4)
-    else:
-        p.line([(30,87),(510,87)],170)
+    p.line([(30,87),(510,87)],170)
 
     for x,label in [(30,'Главная'),(145,'Библиотека'),(283,'Каталог'),(390,'Избранное')]:
         p.text((x,107),label,18,face,0 if x==30 else 85)
@@ -113,19 +147,9 @@ def render(fonts, logo, fantasy):
     p.line([(30,147),(510,147)],170)
 
     p.text((30,173),'Продолжим',39,'serif')
-    p.text((30,220),'историю?',39,'italic' if fantasy else 'serif')
-    p.text((32,277),'Тихий вечер. Хорошая книга.',19,'italic' if fantasy else 'sans',85)
-    if fantasy:
-        # Re-read the vector-like source at useful resolution for the larger seal.
-        seal=Image.open(logo).convert('L').crop(bounds)
-        seal=ImageOps.contain(seal,(86*S,96*S),Image.Resampling.LANCZOS)
-        p.image.paste(seal,(408*S,181*S))
-        p.box((27,318,513,584),outline=0)
-        p.box((32,323,508,579),outline=170)
-        for x in [27,513]:
-            for y in [318,584]: p.diamond(x,y,6)
-    else:
-        p.box((28,318,512,584),outline=170,radius=9)
+    p.text((30,220),'историю?',39,'serif')
+    p.text((32,277),'Тихий вечер. Хорошая книга.',19,'sans',85)
+    p.box((28,318,512,584),outline=170,radius=9)
     cover=book_cover(fonts)
     p.image.paste(cover,(42*S,339*S))
     p.text((211,339),'Море',31,'serif')
@@ -134,11 +158,10 @@ def render(fonts, logo, fantasy):
     p.text((213,466),'Глава 8  ·  34%',18,'sans',85)
     p.line([(214,503),(491,503)],170,3)
     p.line([(214,503),(308,503)],0,3)
-    p.box((210,526,494,569),fill=0,radius=0 if fantasy else 5)
+    p.box((210,526,494,569),fill=0,radius=5)
     p.text((235,533),'Продолжить',22,face,255)
     p.line([(465,541),(475,548),(465,555)],255,2)
 
-    if fantasy: p.ornament(611)
     p.text((31,627),'Недавно открывали',25,'serif')
     for y,title,author,progress in [(677,'Сад за горизонтом','Александр Лис','12%'),
                                     (762,'Письма с маяка','Мария Ветрова','67%')]:
@@ -148,12 +171,9 @@ def render(fonts, logo, fantasy):
         p.text((93,y+34),author,17,'sans',85)
         p.text((506,y+37),progress,16,'sans',85,anchor='rt')
         p.line([(30,y+76),(510,y+76)],170)
-    if fantasy:
-        p.tentacle();p.tentacle(True)
-        p.ornament(865)
-    else: p.line([(30,865),(510,865)],170)
+    p.line([(30,865),(510,865)],170)
     p.text((270,884),'OK / UP / DOWN — сменить вариант',17,'sans',0,anchor='mt')
-    p.text((270,923),'02 / ФЭНТЕЗИЙНЫЙ' if fantasy else '01 / КНИЖНЫЙ',13,'sans',85,anchor='mt')
+    p.text((270,920),'A · КНИЖНЫЙ',20,'sans',0,anchor='mt')
     small=p.image.resize((540,960),Image.Resampling.LANCZOS)
     return small.point(lambda v: min(3,(v+42)//85)*85)
 
@@ -179,12 +199,16 @@ def main():
             while n:
                 take=min(n,65535);runs.append((take,value));n-=take
         assert b''.join(bytes([v])*n for n,v in runs)==raw
+        fnv=2166136261
+        for value in raw:
+            fnv=((fnv^value)*16777619)&0xffffffff
         header.append(f'static const UiRun kUi{index}[] = {{')
         header.extend(','.join(f'{{{n},{v}}}' for n,v in runs[i:i+16])+',' for i in range(0,len(runs),16))
         header.append('};')
-        manifest['frames'].append({'index':index,'sha256':hashlib.sha256(raw).hexdigest(),'runs':len(runs)})
+        manifest['frames'].append({'index':index,'sha256':hashlib.sha256(raw).hexdigest(),'runs':len(runs),'fnv1a':fnv})
     header+=['static const UiRun* const kUiFrames[] = {kUi0,kUi1};',
              'static const size_t kUiCounts[] = {sizeof(kUi0)/sizeof(UiRun),sizeof(kUi1)/sizeof(UiRun)};']
+    header.append('static const uint32_t kUiHashes[] = {'+','.join(str(f['fnv1a'])+'u' for f in manifest['frames'])+'};')
     (ROOT/'src/ui_frames.h').write_text('\n'.join(header)+'\n',encoding='utf8')
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n',encoding='utf8')
 
