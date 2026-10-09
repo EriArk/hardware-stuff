@@ -2,6 +2,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   let configured = false;
+  let desktopSetup = false;
   let csrf = '';
   let creating = false;
   const network = window.createCompanionNetwork({api, report});
@@ -36,6 +37,8 @@
     $('dashboard').hidden = true;
     $('logout').hidden = true;
     $('welcome').hidden = false;
+    $('desktop-required').hidden = configured || desktopSetup;
+    $('identity-form').hidden = !configured && !desktopSetup;
     $('setup-fields').hidden = configured;
     for (const input of $('setup-fields').querySelectorAll('input')) input.disabled = configured;
     $('form-kicker').textContent = configured ? 'С ВОЗВРАЩЕНИЕМ' : 'ПЕРВЫЙ ЗАПУСК';
@@ -106,7 +109,7 @@
       else if (result.readerReady) notice('Библиотека готова. Теперь можно добавить книги или пригласить читателя.');
     } catch (error) {
       // A lost response may follow successful setup. Never blindly resubmit it.
-      try { configured = (await api('status')).configured; welcome(); } catch (_) { /* retain the original failure */ }
+      try { ({configured, desktopSetup} = await api('status')); welcome(); } catch (_) { /* retain the original failure */ }
       report(error);
     } finally { button.disabled = false; button.textContent = configured ? 'Войти →' : label; }
   });
@@ -148,7 +151,7 @@
 
   (async () => {
     try {
-      configured = (await api('status')).configured;
+      ({configured, desktopSetup} = await api('status'));
       if (configured) {
         try { await dashboard(await api('me')); return; }
         catch (error) { if (error.status !== 401 && error.status !== 403) throw error; }

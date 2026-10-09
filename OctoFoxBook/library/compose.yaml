@@ -18,10 +18,13 @@ services:
       OCTOFOX_ORIGIN: ${OCTOFOX_ORIGIN:?Run python tools/configure.py first}
       OCTOFOX_BIND: 0.0.0.0
       OCTOFOX_PORT: "8080"
-      OCTOFOX_PUBLISHED_BIND: ${OCTOFOX_BIND_ADDRESS:-127.0.0.1}
+      OCTOFOX_PUBLISHED_BIND: ${OCTOFOX_BIND_ADDRESS:-0.0.0.0}
+      OCTOFOX_DISCOVERY_PORT: "49645"
       OCTOFOX_PUBLISHED_PORT: ${OCTOFOX_PORT:-8080}
       OCTOFOX_SPEECH_SOCKET: /run/speech/speech.sock
-    ports: ["${OCTOFOX_BIND_ADDRESS:-127.0.0.1}:${OCTOFOX_PORT:-8080}:8080"]
+    ports:
+      - "${OCTOFOX_BIND_ADDRESS:-0.0.0.0}:${OCTOFOX_PORT:-8080}:8080"
+      - "${OCTOFOX_BIND_ADDRESS:-0.0.0.0}:${OCTOFOX_DISCOVERY_PORT:-49645}:49645/udp"
     volumes:
       - library-data:/data
       - speech-socket:/run/speech:ro

@@ -101,20 +101,25 @@ class Installation:
         origin = environment['OCTOFOX_ORIGIN']
         admin_port = int(document['services']['booklore']['ports'][0]['published'])
         configuration(origin, bind, port, admin_port)  # Share the existing validation contract.
-        return {'origin': origin, 'bind': bind, 'port': port, 'admin_port': admin_port}
+        udp = next((int(p['published']) for p in document['services']['library'].get('ports', [])
+                    if p.get('protocol') == 'udp'), None)
+        return {'origin': origin, 'bind': bind, 'port': port, 'admin_port': admin_port, 'discovery_port': udp}
 
     def rows(self):
         return json_rows(self.run(['ps', '--all', '--format', 'json'], 'Service status'))
 
     def ports(self, settings, rows):
-        for service, address, port in [('library', settings['bind'], settings['port']),
-                                       ('booklore', '127.0.0.1', settings['admin_port'])]:
+        entries = [('library', settings['bind'], settings['port'], 'tcp'),
+                   ('booklore', '127.0.0.1', settings['admin_port'], 'tcp')]
+        if settings.get('discovery_port'):
+            entries.append(('library', settings['bind'], settings['discovery_port'], 'udp'))
+        for service, address, port, protocol in entries:
             owned = any(row.get('Service') == service and row.get('State') == 'running'
-                        and any(int(p.get('PublishedPort', 0)) == port for p in row.get('Publishers') or [])
+                        and any(int(p.get('PublishedPort', 0)) == port and p.get('Protocol', 'tcp') == protocol for p in row.get('Publishers') or [])
                         for row in rows)
             if owned:
                 continue
-            with socket.socket() as probe:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM if protocol == 'udp' else socket.SOCK_STREAM) as probe:
                 if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
                     probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
                 try:
@@ -151,7 +156,7 @@ class Installation:
         self.guard_project()
         if not path.exists():
             port = args.port if args.port is not None else 8080
-            values = configuration(args.origin or f'http://localhost:{port}', args.bind or '127.0.0.1',
+            values = configuration(args.origin or f'http://localhost:{port}', args.bind or '0.0.0.0',
                                    port, args.admin_port if args.admin_port is not None else 8081)
             write_configuration(path, values)
             print('Created private .env settings. Keep this file with your data backup.')
@@ -168,7 +173,7 @@ class Installation:
         if not self.show_status(self.rows()):
             raise LaunchError('Startup returned, but not all enabled services are healthy. Run status for details.')
         self.links(settings)
-        print('For the first administrator account, run the setup-key command and enter its key in Companion.')
+        print('Open the OctoFox Companion app on this computer or in the same local network. It finds this server and opens owner setup automatically.')
 
 
 def main(argv=None):

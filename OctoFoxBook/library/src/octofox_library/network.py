@@ -67,10 +67,29 @@ class NetworkSettings:
         state = self.snapshot()
         return [state['primaryOrigin'], *state['additionalOrigins']]
 
-    def request_origin(self, headers, require_origin=False):
+    def remember_local(self, current):
+        """An authenticated owner opened the installation through the native app."""
+        from .desktop_discovery import local_address
+        parsed = urlsplit(current)
+        if parsed.scheme != 'http' or not local_address(parsed.hostname or ''):
+            return
+        with self.app.db() as db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT revision,origins FROM network_settings WHERE id=1').fetchone()
+            values = json.loads(row['origins'])
+            allowed = [origin(self.app.origin), *values]
+            if current in allowed or len(values) >= 8 or any(
+                    urlsplit(o).hostname == parsed.hostname and urlsplit(o).scheme != parsed.scheme for o in allowed):
+                return
+            db.execute('UPDATE network_settings SET revision=?,origins=? WHERE id=1',
+                       (row['revision'] + 1, json.dumps([*values, current])))
+
+    def request_origin(self, headers, require_origin=False, trusted_origin=None):
         host = headers.get('Host', '')
         supplied = headers.get('Origin')
         allowed = self.allowed()
+        if trusted_origin:
+            allowed.append(trusted_origin)
         try:
             if supplied:
                 selected = origin(supplied)

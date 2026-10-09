@@ -173,7 +173,7 @@ class CompanionHTTPCase(unittest.TestCase):
 
 class CompanionTests(CompanionHTTPCase):
     def test_setup_login_create_reader_and_private_books(self):
-        self.assertEqual(self.call('/companion-api/status')[1], {'configured': False})
+        self.assertFalse(self.call('/companion-api/status')[1]['configured'])
         result, headers = self.setup_admin()
         self.assertTrue(result['user']['admin'])
         self.assertTrue(self.state['opds_enabled'])

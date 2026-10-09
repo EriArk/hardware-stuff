@@ -52,6 +52,7 @@ from octofox_library.web_errors import WebError
 from octofox_library.web_speech import BookSpeech, SpeechError
 from octofox_library.companion import Companion
 from octofox_library.network import NetworkSettings
+from octofox_library.desktop_discovery import DesktopDiscovery
 from octofox_library import localization
 
 LOGGER = logging.getLogger(__name__)
@@ -328,6 +329,7 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
             db.execute('PRAGMA optimize')
         self.upload_gate = threading.BoundedSemaphore(1)
         self.speech = BookSpeech(self, os.environ.get("OCTOFOX_SPEECH_SOCKET", ""))
+        self.discovery = DesktopDiscovery(self)
         self.network = NetworkSettings(self)
         self.companion = Companion(self, upstream)
 
@@ -1157,6 +1159,10 @@ class WebHandler(BaseHTTPRequestHandler):
         secure = "; Secure" if request_origin.startswith("https:") else ""
         return f"books_session={token}; HttpOnly; SameSite=Lax; Path=/; Max-Age={age}{secure}"
 
+    def request_origin(self, require_origin=False):
+        return self.app.network.request_origin(self.headers, require_origin=require_origin,
+            trusted_origin=self.app.discovery.request_origin(self.headers, self.client_address[0]))
+
     def body(self):
         if "application/json" not in self.headers.get("Content-Type", ""):
             raise WebError(415, "Ожидался JSON")
@@ -1238,7 +1244,7 @@ class WebHandler(BaseHTTPRequestHandler):
         if get and path in {'/companion', '/companion/'}:
             return self.send(200, localization.asset('companion.html', localization.language(self.headers)), 'text/html; charset=utf-8')
         if get and path == '/connection-check':
-            self.app.network.request_origin(self.headers)
+            self.request_origin()
             return self.send(200, localization.asset('connection-check.html', localization.language(self.headers)), 'text/html; charset=utf-8')
         if path.startswith("/fonts/"):
             if not get or path not in {
@@ -1341,14 +1347,14 @@ class WebHandler(BaseHTTPRequestHandler):
         if not get:
             origin = self.headers.get("Origin")
             if origin:
-                self.app.network.request_origin(self.headers, require_origin=True)
+                self.request_origin(require_origin=True)
         if not get and path == "/reader-api/login":
             self.app.throttle("login:" + self.client_address[0])
             data = self.body()
             token, session = self.app.login(
                 str(data.get("username", "")), str(data.get("password", ""))
             )
-            request_origin = self.app.network.request_origin(self.headers)
+            request_origin = self.request_origin()
             secure = "; Secure" if request_origin.startswith("https:") else ""
             return self.send(
                 200,
@@ -1566,6 +1572,7 @@ def main():
         os.environ.get("OCTOFOX_ORIGIN", "http://localhost:8080"),
     )
     app.speech.start()
+    app.discovery.start()
     WebServer(
         (
             os.environ.get("OCTOFOX_BIND", "0.0.0.0"),

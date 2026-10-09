@@ -17,10 +17,9 @@ const server = http.createServer(async (req,res) => {
     const form = JSON.parse(bytes || '{}');
     const route = url.pathname.slice('/companion-api/'.length);
     let data = {}, status = 200;
-    if (route === 'status') data = {configured};
+    if (route === 'status') data = {configured,desktopSetup:true};
     else if (route === 'network/confirm') { confirmedAt = Math.floor(Date.now()/1000); data = {confirmed:true}; }
     else if (route === 'setup' || route === 'login') {
-      if (route === 'setup') assert.equal(req.headers['x-setup-key'], 'fixture-key');
       assert.equal(form.password, 'fixture-password');
       configured = loggedIn = true; data = {csrf:'fixture',user:accounts[0],readerReady:true};
     } else if (!loggedIn) { status = 401; data = {error:'Войдите в Companion.'}; }
@@ -77,7 +76,7 @@ const server = http.createServer(async (req,res) => {
     await page.setViewportSize({width:393,height:852});
     await page.screenshot({path:path.join(output,'setup-mobile.png'),fullPage:true});
     const form = page.locator('#identity-form');
-    for (const [name,value] of Object.entries({setupKey:'fixture-key',name:'Александра',email:'owner@example.org',username:'owner',password:'fixture-password'})) await form.locator(`[name="${name}"]`).fill(value);
+    for (const [name,value] of Object.entries({name:'Александра',email:'owner@example.org',username:'owner',password:'fixture-password'})) await form.locator(`[name="${name}"]`).fill(value);
     await form.locator('button').click();
     await page.locator('#users li').waitFor();
     await page.setViewportSize({width:1280,height:900});

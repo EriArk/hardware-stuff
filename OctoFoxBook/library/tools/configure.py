@@ -38,7 +38,7 @@ def write_configuration(output, values):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--origin", default="http://localhost:8080")
-    parser.add_argument("--bind", default="127.0.0.1")
+    parser.add_argument("--bind", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--admin-port", type=int, default=8081)
     parser.add_argument("--output", type=Path, default=Path(".env"))

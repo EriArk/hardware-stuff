@@ -452,7 +452,10 @@
     "Управлять аккаунтом": "Manage account",
     "Подключаем…": "Connecting…",
     "Загрузи свои книги в формате FB2 или EPUB.": "Upload your own books in FB2 or EPUB format.",
-    "Загрузить книги": "Upload books"
+    "Загрузить книги": "Upload books",
+    "Откройте приложение OctoFox Companion на этом компьютере или в одной сети с сервером. Оно найдёт библиотеку и откроет создание владельца.": "Open the OctoFox Companion app on this computer or on the same network as the server. It will find your library and open owner setup.",
+    "Приложение Companion": "Companion app",
+    "Приложение Companion ↗": "Companion app ↗"
   },
   "messages": {
     "Не удалось определить состояние библиотеки.": "Could not determine the library status.",

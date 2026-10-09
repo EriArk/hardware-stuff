@@ -159,19 +159,21 @@ class Companion:
 
     def route(self, handler, path):
         get = handler.command == 'GET'
-        current_origin = self.app.network.request_origin(handler.headers, require_origin=not get)
+        current_origin = handler.request_origin(require_origin=not get)
         if not get and path == '/companion-api/network/confirm':
             self.app.throttle('network-confirm:' + handler.client_address[0], limit=30)
             return handler.send(200, self.app.network.confirm(handler.body(), current_origin))
         if get and path == '/companion-api/status':
-            return handler.send(200, {'configured': self.api.configured()})
+            return handler.send(200, self.app.discovery.metadata() | {'configured': self.api.configured(),
+                'desktopSetup': bool(self.app.discovery.request_origin(handler.headers, handler.client_address[0]))})
         if not get and path in {'/companion-api/setup', '/companion-api/login'}:
             self.app.throttle('companion-login:' + handler.client_address[0])
             data = handler.body()
             if path.endswith('/setup'):
                 supplied = handler.headers.get('X-Setup-Key', '')
                 expected = self.key_path.read_text(encoding='ascii').strip()
-                if not supplied or not secrets.compare_digest(supplied.encode(), expected.encode()):
+                if not self.app.discovery.request_origin(handler.headers, handler.client_address[0]) and (
+                        not supplied or not secrets.compare_digest(supplied.encode(), expected.encode())):
                     raise WebError(403, 'Неверный ключ первоначальной настройки.')
                 values = credentials(data, new=True)
                 with self.mutations:
@@ -183,6 +185,8 @@ class Companion:
             else:
                 result = {}
                 key, session, user = self.login(data)
+            if self.app.discovery.request_origin(handler.headers, handler.client_address[0]):
+                self.app.network.remember_local(current_origin)
             cookies = [self.cookie(key, current_origin)['Set-Cookie']]
             if result.get('readerReady') is not False:
                 try:

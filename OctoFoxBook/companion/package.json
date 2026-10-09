@@ -1,0 +1,63 @@
+{
+  "name": "octofox-companion",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Find your OctoFox library and open its Companion interface",
+  "author": "EriArk",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/*.test.cjs",
+    "test:app": "node tools/verify-app.cjs",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3",
+    "playwright": "1.62.0"
+  },
+  "build": {
+    "appId": "art.abysstail.octofox.companion",
+    "productName": "OctoFox Companion",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.books",
+      "extendInfo": {
+        "NSLocalNetworkUsageDescription": "Find your OctoFox library on the local network."
+      }
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "maintainer": "EriArk"
+    },
+    "icon": "assets/icon.png"
+  }
+}

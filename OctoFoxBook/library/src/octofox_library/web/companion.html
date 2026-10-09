@@ -38,10 +38,9 @@
         <p class="eyebrow" id="form-kicker">ПЕРВЫЙ ЗАПУСК</p>
         <h2 id="form-title">Настроим библиотеку</h2>
         <p class="muted" id="form-description">Первый аккаунт станет администратором. Позже вы сможете пригласить других читателей.</p>
+        <div id="desktop-required" hidden><p class="muted">Откройте приложение OctoFox Companion на этом компьютере или в одной сети с сервером. Оно найдёт библиотеку и откроет создание владельца.</p><a class="text-link" href="https://github.com/EriArk/hardware-stuff/tree/main/OctoFoxBook/companion">Приложение Companion ↗</a></div>
         <form id="identity-form">
           <div id="setup-fields">
-            <label>Ключ настройки<input name="setupKey" type="password" autocomplete="off" required></label>
-            <details class="key-help"><summary>Где взять ключ?</summary><p>На компьютере с установленной библиотекой, из папки установки выполните:</p><code>python tools/manage.py setup-key</code><p>Ключ подтверждает, что вы владелец установки. После первого запуска он больше не нужен.</p></details>
             <label>Ваше имя<input name="name" autocomplete="name" maxlength="254" required></label>
             <label>Email<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
           </div>
