@@ -35,7 +35,11 @@ uint32_t millis() { return now; }
 void delay(uint32_t ms) { now += ms; }
 void reportWorkProgress() {}
 void setError(char *out, size_t size, const char *error) { snprintf(out, size, "%s", error); }
-namespace AutomaticSync { bool cancelRequested() { return now >= cancelAt; } }
+namespace AutomaticSync {
+bool ownsSession = true;
+bool cancelRequested() { return now >= cancelAt; }
+bool ownsNetworkSession() { return ownsSession; }
+}
 constexpr int WIFI_STA = 1, WL_CONNECTED = 3;
 struct WifiCredential { char ssid[33] = "phone"; char password[65] = "dummy"; };
 struct Configuration { char wifiSsid[33] = "home"; char wifiPassword[65] = "dummy"; };
@@ -77,6 +81,15 @@ void reset() { now = 0; cancelAt = UINT32_MAX; clockWorks = true; WiFi = FakeWif
 int main() {
     NetworkService network;
     NetworkStatus status;
+    AutomaticSync::ownsSession = false;
+    assert(!network.connect(status, ReaderSyncPolicy::kWifiAttemptMs));
+    assert(strcmp(status.error, "sync-only") == 0 && !WiFi.on && WiFi.attempts.empty());
+    // A non-owner must not change the radio underneath an active sync owner.
+    WiFi.on = true;
+    assert(!network.connect(status, ReaderSyncPolicy::kWifiAttemptMs));
+    assert(WiFi.on && WiFi.attempts.empty());
+    AutomaticSync::ownsSession = true;
+    reset();
     WiFi.homeDelay = 8000;
     assert(network.connect(status, ReaderSyncPolicy::kWifiAttemptMs));
     assert(status.credentialSlot == 1 && WiFi.attempts.size() == 1 && now == 8000);
@@ -202,7 +215,7 @@ int main() {
         self.assertEqual(len(calls), 2)
         for call in calls:
             condition = call.split(";", 1)[0]
-            for guard in ("provisioningActive", "bookUpload.active()", "BookPreparation::busy()", "pendingPowerMode"):
+            for guard in ("provisioningActive", "bookUpload.active()", "BookPreparation::busy()", "pendingPowerSleep"):
                 self.assertIn(guard, condition)
         self.assertIn("!ReaderSyncPolicy::isReadOnlyStatus(line)", main)
         self.assertIn("ReaderSyncPolicy::errorLabel(AutomaticSync::error())", source("bookish_adapter.inc"))

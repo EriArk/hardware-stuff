@@ -21,6 +21,8 @@ bool isPaused();
 ReaderSyncPolicy::Error error();
 int httpCode();
 bool cancelRequested();
+// Only the running sync worker may acquire Wi-Fi, including its book/cover I/O.
+bool ownsNetworkSession();
 bool takeLibraryChanged();
 const char *deviceId();
 }

@@ -1,6 +1,6 @@
 # AbyssBook reader firmware
 
-Early **0.21.0-alpha1** firmware for the non-touch LILYGO T5 e-Paper S3
+Early **0.21.0-alpha2** firmware for the non-touch LILYGO T5 e-Paper S3
 (4.7-inch H716 panel, 16 MB flash, 8 MB PSRAM).
 
 The new Home displays real SD-card books, covers and reading progress in the
@@ -18,14 +18,23 @@ replacement for every screen.
 | OK | Open the selection; open the reading menu. |
 | Hold OK | Return one level; focus the tab strip at a section root. |
 | Double OK | Return Home without executing a single-click action first. |
-| Sleep, short press | Light sleep; press again to wake. |
-| Sleep, long press | Deep sleep; press again to wake. |
+| Sleep | Deep sleep; press again to wake. Holding Sleep also enters deep sleep. |
 
 The currently fitted Sleep switch is **momentary**. For a future latching
 switch, compile with `-DABYSS_SLEEP_LATCHING=1`: changing its stable position
 enters deep sleep, and the opposite level wakes it. This optional configuration
 has not been physically accepted yet. UP=GPIO39, DOWN=GPIO48, OK=GPIO45,
 Sleep=GPIO10; switches connect to GND. Do not hold GPIO45 at reset.
+
+There is no light-sleep mode. Manual sleep and the existing 30-minute idle
+timeout both save the reading context and enter deep sleep. Waking restarts
+the processor and restores the context; the wake press is consumed.
+
+Wi-Fi starts only for an explicitly requested synchronization and stops when
+that pass finishes, fails or is cancelled. Boot, wake, browsing and reading
+stay offline. Legacy standalone network diagnostics and remote cover fetches
+cannot enable the radio outside the sync worker (`sync-only`). USB provisioning
+and local book transfer remain available without Wi-Fi.
 
 Home retains a Continue card and up to two recent / newly added rows. Moving
 selection to a newly added book changes the lower section so the focused item
@@ -48,6 +57,14 @@ python -m unittest discover -s tools -p 'test_*.py'
 ```
 
 The platform and both display libraries are pinned in `platformio.ini`.
+The build applies a hash-checked H716 power fix to EPD Painter: after its idle
+timeout, it also disables the peripheral supply shared with the blue LED.
+The supply is restored for display updates, so the LED can still light while
+refreshing. USB charging indicators are hardware-controlled. This change
+requires an on-battery hardware check; a successful build does not prove LED
+state or standby current on a particular board revision.
+The same build hook places the large display buffer in PSRAM directly, keeping
+internal RAM available for synchronization without briefly enabling Wi-Fi at boot.
 The application is `.pio/build/t5_epaper_s3_fast/firmware.bin`. Generated font
 headers are committed; normal builds do not need font conversion.
 

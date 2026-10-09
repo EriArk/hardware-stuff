@@ -248,6 +248,10 @@ bool NetworkService::connect(NetworkStatus &status, uint32_t timeoutMs,
         setError(status.error, sizeof(status.error), "sync-paused");
         return false;
     }
+    if (!AutomaticSync::ownsNetworkSession()) {
+        setError(status.error, sizeof(status.error), "sync-only");
+        return false;
+    }
     char error[64]{};
     if (!loadConfiguration(error, sizeof(error))) {
         setError(status.error, sizeof(status.error), error);

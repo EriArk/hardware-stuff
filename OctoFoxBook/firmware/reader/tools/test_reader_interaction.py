@@ -78,7 +78,12 @@ class ReaderInteractionTests(unittest.TestCase):
         main = source("main.cpp")
         power = main.split("void processPowerAction() {", 1)[1].split("bool uiActionPending()", 1)[0]
         self.assertIn("BookPreparation::busy()", power)
-        self.assertLess(power.index("displayRefresh.flush()"), power.index("esp_light_sleep_start()"))
+        self.assertIn("AutomaticSync::busy()", power)
+        self.assertIn('enterDeepSleep("power-button")', power)
+        self.assertNotIn("esp_light_sleep_start", main)
+        deep = main.split("void enterDeepSleep(const char *reason, uint32_t timerWakeSeconds) {", 1)[1].split("void processPowerAction()", 1)[0]
+        self.assertLess(deep.index("displayRefresh.shutdown()"), deep.index("esp_deep_sleep_start()"))
+        self.assertLess(deep.index("SD.end()"), deep.index("esp_deep_sleep_start()"))
 
     def test_background_preparation_does_not_draw(self):
         prep = source("book_preparation.cpp")

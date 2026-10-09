@@ -55,7 +55,7 @@
 namespace {
 
 constexpr char kFirmwareName[] = "abyss-reader";
-constexpr char kFirmwareVersion[] = "0.21.0-alpha1";
+constexpr char kFirmwareVersion[] = "0.21.0-alpha2";
 constexpr size_t kFramebufferBytes = EPD_WIDTH * EPD_HEIGHT / 2;
 constexpr int32_t kPortraitWidth = EPD_HEIGHT;
 constexpr int32_t kPortraitHeight = EPD_WIDTH;
@@ -480,7 +480,7 @@ struct QueuedInput { const char *button; const char *gesture; uint32_t capturedA
 QueueHandle_t physicalInputs = nullptr;
 TaskHandle_t uiTaskHandle = nullptr;
 TaskHandle_t inputTaskHandle = nullptr;
-uint8_t pendingPowerMode = 0;  // 1=light sleep, 2=deep sleep
+bool pendingPowerSleep = false;
 uint8_t *framebuffer = nullptr;
 bool displayInitialized = false;
 char preparingBookId[33]{};
@@ -6224,7 +6224,7 @@ void processTopLevelActions() {
         }
         if (uiScreen == UiScreen::Home && action == HomeLayout::Action::Sync) {
             if (AutomaticSync::request(provisioningActive || bookUpload.active() ||
-                                        BookPreparation::busy() || pendingPowerMode != 0)) {
+                                        BookPreparation::busy() || pendingPowerSleep)) {
                 busyFrame = 0;
                 busyPainted = false;
                 busyNextFrameAt = 0;
@@ -7137,7 +7137,7 @@ void emitInput(const char *button, const char *gesture, const char *source) {
     Serial.printf("EVENT %s %s source=%s count=%lu\n", button, gesture, source,
                   static_cast<unsigned long>(inputCount));
     if (strcmp(button, "POWER") == 0) {
-        pendingPowerMode = strcmp(gesture, "LONG") == 0 ? 2 : 1;
+        pendingPowerSleep = true;
         AutomaticSync::setPaused(true);
         BookPreparation::cancel();
         return;
@@ -7694,7 +7694,7 @@ void enterDeepSleep(const char *reason, uint32_t timerWakeSeconds) {
     AutomaticSync::setPaused(true);
     if (AutomaticSync::busy() || BookPreparation::busy()) {
         BookPreparation::cancel();
-        pendingPowerMode = 2;
+        pendingPowerSleep = true;
         AutomaticSync::setPaused(true);
         return;
     }
@@ -7732,50 +7732,9 @@ void enterDeepSleep(const char *reason, uint32_t timerWakeSeconds) {
 }
 
 void processPowerAction() {
-    if (pendingPowerMode == 0 || AutomaticSync::busy() || BookPreparation::busy()) return;
-    const uint8_t mode = pendingPowerMode;
-    pendingPowerMode = 0;
-    if (mode == 2) {
-        enterDeepSleep("power-long");
-        return;
-    }
-    auto *savedFrame = static_cast<uint8_t *>(heap_caps_malloc(
-        kFramebufferBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-    if (savedFrame == nullptr) {
-        AutomaticSync::setPaused(false);
-        return;
-    }
-    memcpy(savedFrame, framebuffer, kFramebufferBytes);
-    displayRefresh.setIdleTimeout(1);
-    displaySleepFrame("power-short");
-    networkService.disconnect();
-    // Wait for the sleep cover before the idle worker powers down the panel.
-    if (!displayRefresh.flush()) {
-        heap_caps_free(savedFrame);
-        AutomaticSync::setPaused(false);
-        return;
-    }
-    delay(1200);
-    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
-    gpio_wakeup_enable(static_cast<gpio_num_t>(kPowerPin), GPIO_INTR_LOW_LEVEL);
-    esp_sleep_enable_gpio_wakeup();
-    Serial.println("POWER LIGHT_SLEEP wake=POWER_GPIO10");
-    Serial.flush();
-    esp_light_sleep_start();
-    gpio_wakeup_disable(static_cast<gpio_num_t>(kPowerPin));
-    esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
-    suppressPowerUntilRelease = true;
-    if (physicalInputs) xQueueReset(physicalInputs);
-    displayRefresh.setIdleTimeout(5);
-    memcpy(framebuffer, savedFrame, kFramebufferBytes);
-    heap_caps_free(savedFrame);
-    displayRefresh.requestHardClearBeforeNextRefresh();
-    lastDisplayRefresh = displayRefresh.refresh(framebuffer,
-        uiScreen == UiScreen::Reader ? DisplayRefreshMode::ReaderText : DisplayRefreshMode::QualityFull);
-    hasDisplayRefresh = lastDisplayRefresh.ok;
-    lastActivityAt = millis();
-    AutomaticSync::setPaused(false);
-    Serial.println("POWER LIGHT_WAKE restored=true");
+    if (!pendingPowerSleep || AutomaticSync::busy() || BookPreparation::busy()) return;
+    pendingPowerSleep = false;
+    enterDeepSleep("power-button");
 }
 
 bool uiActionPending() {
@@ -8252,7 +8211,7 @@ void handleSerialCommand(char *line) {
 
     if (strcmp(line, "SYNC NOW") == 0) {
         const bool ok = AutomaticSync::request(provisioningActive || bookUpload.active() ||
-                                              BookPreparation::busy() || pendingPowerMode != 0);
+                                              BookPreparation::busy() || pendingPowerSleep);
         Serial.printf("SYNC REQUEST accepted=%s reason=%s\n", ok ? "true" : "false",
                         ok ? "none" : AutomaticSync::busy() ? "sync-busy"
                         : ReaderSyncPolicy::errorCode(AutomaticSync::error()));
@@ -9181,17 +9140,11 @@ void setup() {
     }
     diagnostics.rtcDetected = probeRtc();
 
-    // Bring the Wi-Fi driver up before EPD_Painter allocates its large fast
-    // buffer.  This intentionally makes EPD_Painter use its documented PSRAM
-    // fallback and leaves internal RAM available for later Wi-Fi sessions.
-    // The radio is turned off again immediately; no network is joined here.
+    // The build places the large EPD buffer in PSRAM directly. Boot/wake must
+    // never start Wi-Fi just to influence the display allocator.
     WiFi.persistent(false);
-    WiFi.mode(WIFI_STA);
-    delay(30);
-    displayInitialized = displayRefresh.begin();
-    WiFi.disconnect(true, false);
     WiFi.mode(WIFI_OFF);
-    delay(10);
+    displayInitialized = displayRefresh.begin();
     measureBattery();
 
     framebuffer = static_cast<uint8_t *>(heap_caps_malloc(
@@ -9298,7 +9251,7 @@ void loop() {
                 restoringSettings = false;
                 if (!prepared) readerSession.active = false;
                 displayReadingSettings(false, "settings-restored");
-            } else if (prepared && pendingPowerMode == 0) {
+            } else if (prepared && !pendingPowerSleep) {
                 completingSettings = true;
                 applyOrderedReaderSetting();
                 completingSettings = false;
@@ -9315,12 +9268,12 @@ void loop() {
             }
         } else {
             bookCardSession.preparing = false;
-            if (prepared && pendingPowerMode == 0) openReaderBook(preparingBookId, "worker-complete");
+            if (prepared && !pendingPowerSleep) openReaderBook(preparingBookId, "worker-complete");
             else if (uiScreen == UiScreen::BookCard) displayBookCard("prepare-failed-or-cancelled");
             else if (uiScreen == UiScreen::Home) displayHome(false, "prepare-failed-or-cancelled");
         }
         preparingBookId[0] = '\0';
-        if (pendingPowerMode == 0 && !BookPreparation::busy()) AutomaticSync::setPaused(false);
+        if (!pendingPowerSleep && !BookPreparation::busy()) AutomaticSync::setPaused(false);
     }
     if (BookPreparation::busy() || AutomaticSync::busy()) {
         // Worker exclusively owns SD parsing/writes; UI still handles cancel,

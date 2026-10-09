@@ -282,6 +282,9 @@ int httpCode() { return lastHttpCode.load(); }
 bool cancelRequested() {
     return (paused.load() || cancelled.load()) && xTaskGetCurrentTaskHandle() == syncTask;
 }
+bool ownsNetworkSession() {
+    return syncTask != nullptr && running.load() && xTaskGetCurrentTaskHandle() == syncTask;
+}
 bool takeLibraryChanged() { return changed.exchange(false); }
 const char *deviceId() { return identity; }
 }
