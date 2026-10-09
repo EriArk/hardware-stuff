@@ -66,8 +66,8 @@ def main() -> int:
             status = step("HOME STATUS", "HOME STATUS")[-1]
             selected = int(re.search(r"selected=(\d+)", status)[1])
             # Select Continue without opening any other book or altering a page.
-            for _ in range(abs(selected - 2)):
-                step("INPUT " + ("UP" if selected > 2 else "DOWN") + " SHORT", "HOME OPEN COMPLETE")
+            for _ in range(abs(selected - 1)):
+                step("INPUT UP SHORT", "HOME OPEN COMPLETE")
             assert "action=continue" in step("HOME STATUS", "HOME STATUS")[-1], "A previously opened book is required"
             opened = step("INPUT CENTER SHORT", "READER OPEN COMPLETE")
             assert "resumed=true" in opened[-1] and "recent_saved=true" in opened[-1]
@@ -95,6 +95,18 @@ def main() -> int:
             # Double OK also wins while focus is on the tabs.
             step("INPUT CENTER LONG", "SECTIONS OPEN COMPLETE")
             step("INPUT CENTER DOUBLE", "HOME OPEN COMPLETE")
+            # Reaching the header by UP must acquire actual tab focus.
+            step("INPUT UP SHORT", "SECTIONS OPEN COMPLETE selected=1")
+            step("INPUT UP SHORT", "SECTIONS OPEN COMPLETE selected=4")
+            step("INPUT DOWN SHORT", "SECTIONS OPEN COMPLETE selected=1")
+            for index, (tab, marker) in enumerate([
+                ("HOME", "HOME OPEN COMPLETE"), ("ON_DEVICE", "LIBRARY OPEN COMPLETE"),
+                ("SEARCH", "SEARCH OPEN COMPLETE"), ("FAVORITES", "FAVORITES OPEN")]):
+                step("INPUT CENTER SHORT", marker)
+                assert f"active={tab}" in step("TAB STATUS", "TAB STATUS")[-1]
+                step("INPUT CENTER LONG", f"SECTIONS OPEN COMPLETE selected={index+1}")
+                step("INPUT DOWN SHORT", f"SECTIONS OPEN COMPLETE selected={(index+1)%4+1}")
+            step("INPUT CENTER SHORT", "HOME OPEN COMPLETE")
         finally:
             resume_sync(connection)
     print("HOME_NAVIGATION_ACCEPTED reading_menu=true tab_focus=true selection_retained=true page_retained=true")

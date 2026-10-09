@@ -1,6 +1,6 @@
 # AbyssBook reader firmware
 
-Early **0.21.0-alpha3** firmware for the non-touch LILYGO T5 e-Paper S3
+Early **0.21.0-alpha4** firmware for the non-touch LILYGO T5 e-Paper S3
 (4.7-inch H716 panel, 16 MB flash, 8 MB PSRAM).
 
 The new Home displays real SD-card books, covers and reading progress in the
@@ -16,7 +16,7 @@ replacement for every screen.
 | --- | --- |
 | UP / DOWN | Move selection; turn pages while reading. Hold to repeat. |
 | OK | Open the selection; open the reading menu. |
-| Hold OK | Return one level; focus the tab strip at a section root. |
+| Hold OK | Focus the tabs from content/reading screens; return one level in editors and dialogs. |
 | Double OK | Return Home, except in text entry: each click enters a character. |
 | Sleep | Deep sleep; press again to wake. Holding Sleep also enters deep sleep. |
 
@@ -41,6 +41,12 @@ Home retains a Continue card and up to two recent / newly added rows. Moving
 selection to a newly added book changes the lower section so the focused item
 always remains visible. Sync and Settings are the bottom actions. Hold OK to choose a tab with
 UP/DOWN and confirm it with OK.
+
+Tabs are a separate top navigation level, not an item in the Home list.
+UP/DOWN cycles through them, including wrapping at either end; short OK opens
+the selected tab. Holding OK while already on the tabs keeps that level.
+Moving UP past the first Home item also focuses the tabs. The current content
+selection is preserved when leaving and reopening a tab.
 
 ## Wi-Fi settings
 

@@ -19,7 +19,6 @@ struct Home {
     size_t rowCount = 0;
     bool added = false;
     bool empty = false;
-    bool sectionsSelected = false;
     bool syncSelected = false;
     bool settingsSelected = false;
     bool syncing = false;

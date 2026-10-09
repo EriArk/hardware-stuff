@@ -113,7 +113,6 @@ bool renderBookishHome(int tabFocus = -1) {
             view.rows[i] = book(homeSession.entries[i + 1], HomeLayout::kFirstBook + i + 1, i + 1);
     }
     view.empty = homeSession.localBookCount == 0;
-    view.sectionsSelected = homeSession.selected == HomeLayout::kSections && tabFocus < 0;
     view.syncSelected = action == HomeLayout::Action::Sync && tabFocus < 0;
     view.settingsSelected = action == HomeLayout::Action::Settings && tabFocus < 0;
     view.syncing = AutomaticSync::busy();

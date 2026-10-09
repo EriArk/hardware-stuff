@@ -22,7 +22,7 @@ void header(Canvas &c, unsigned activeTab, int focus) {
 }
 
 void home(Canvas &c, const Home &v) {
-    header(c, v.activeTab, v.tabFocus >= 0 ? v.tabFocus : v.sectionsSelected ? 0 : -1);
+    header(c, v.activeTab, v.tabFocus);
     c.text(Font::Hero, v.hero ? "Продолжим" : "Ваша личная", 30, 212, 480);
     c.text(Font::Hero, v.hero ? "историю?" : "библиотека", 30, 260, 480);
     c.text(Font::Body, v.hero ? "Тихий вечер. Хорошая книга." :

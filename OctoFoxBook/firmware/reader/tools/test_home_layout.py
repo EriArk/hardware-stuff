@@ -40,7 +40,7 @@ int main() {
     assert(newest(b.data(),3,out,0)==0);
     for(size_t reading=0;reading<=kReadingCapacity;++reading)
       for(size_t added=0;added<=kAddedCapacity;++added) {
-        assert(action(0,reading,added)==Action::Sections);
+        assert(action(0,reading,added)==(reading ? Action::Continue : added ? Action::AddedCard : Action::Sync));
         assert(action(syncSelection(reading,added),reading,added)==Action::Sync);
         const size_t total=actionCount(reading,added);
         assert(initialSelection(reading,added)<total);

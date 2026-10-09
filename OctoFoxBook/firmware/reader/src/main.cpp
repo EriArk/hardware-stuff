@@ -59,7 +59,7 @@
 namespace {
 
 constexpr char kFirmwareName[] = "abyss-reader";
-constexpr char kFirmwareVersion[] = "0.21.0-alpha3";
+constexpr char kFirmwareVersion[] = "0.21.0-alpha4";
 constexpr size_t kFramebufferBytes = EPD_WIDTH * EPD_HEIGHT / 2;
 constexpr int32_t kPortraitWidth = EPD_HEIGHT;
 constexpr int32_t kPortraitHeight = EPD_WIDTH;
@@ -1484,10 +1484,10 @@ bool loadHomeSession() {
     heap_caps_free(allEntries);
 
     homeSession.selected = HomeLayout::initialSelection(homeSession.count, homeSession.addedCount);
-    if (wasLoaded && previousAction == HomeLayout::Action::Sections)
-        homeSession.selected = HomeLayout::kSections;
-    else if (wasLoaded && previousAction == HomeLayout::Action::Sync)
+    if (wasLoaded && previousAction == HomeLayout::Action::Sync)
         homeSession.selected = HomeLayout::syncSelection(homeSession.count, homeSession.addedCount);
+    else if (wasLoaded && previousAction == HomeLayout::Action::Settings)
+        homeSession.selected = HomeLayout::settingsSelection(homeSession.count, homeSession.addedCount);
     if (previousBookId[0] != '\0') {
         bool restored = false;
         for (size_t index = 0; index < homeSession.count; ++index) {
@@ -6103,6 +6103,7 @@ void processDownloadActions() {
 }
 
 void displaySections() {
+    const bool entering = uiScreen != UiScreen::Sections;
     if (uiScreen != UiScreen::Sections) {
         for (size_t i = 0; i < kVisibleTabCount; ++i)
             if (kVisibleTabs[i] == activeTopLevelTab) sectionSelection = i;
@@ -6111,9 +6112,42 @@ void displaySections() {
     if (!renderBookishHome(static_cast<int>(sectionSelection))) return;
     scheduleScreenTransitionCleanup(UiScreen::Sections, "tabs-focus");
     uiScreen = UiScreen::Sections;
-    lastDisplayRefresh = displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
+    lastDisplayRefresh = displayRefresh.refresh(framebuffer,
+        entering ? DisplayRefreshMode::QualityFull : DisplayRefreshMode::FastUi);
     hasDisplayRefresh = lastDisplayRefresh.ok;
     Serial.printf("SECTIONS OPEN COMPLETE selected=%u\n", static_cast<unsigned>(sectionSelection + 1));
+}
+
+// A highlighted tab always owns navigation, never the Home content list.
+bool handleTabNavigation(const char *button, const char *gesture) {
+    const bool ok = strcmp(button, "CENTER") == 0;
+    const bool held = strcmp(gesture, "LONG") == 0;
+    const bool click = strcmp(gesture, "SHORT") == 0;
+    if (uiScreen == UiScreen::Sections) {
+        if (ok && click) displayTopLevelTab(kVisibleTabs[sectionSelection], false, "sections-select");
+        else if (click && (!strcmp(button, "UP") || !strcmp(button, "DOWN"))) {
+            sectionSelection = (sectionSelection + (!strcmp(button, "UP") ? kVisibleTabCount - 1 : 1)) % kVisibleTabCount;
+            noteUiNavigationClick();
+            displaySections();
+        }
+        return true; // Holding OK at the highest level stays there.
+    }
+    if (!ok || !held) return false;
+    switch (uiScreen) {
+        case UiScreen::Home:
+        case UiScreen::LocalLibrary:
+        case UiScreen::TopLevel:
+        case UiScreen::Catalog:
+        case UiScreen::Search:
+        case UiScreen::Favorites:
+        case UiScreen::Reader:
+        case UiScreen::BookCard:
+        case UiScreen::Annotation:
+            displaySections();
+            return true;
+        default:
+            return false; // Editors and subordinate dialogs retain Back.
+    }
 }
 
 void processTopLevelActions() {
@@ -6211,6 +6245,7 @@ void processTopLevelActions() {
             return;
         }
         int32_t target = static_cast<int32_t>(homeSession.selected) + homeDelta;
+        if (target < 0) { displaySections(); return; }
         target = max(0, target);
         target = min(target, static_cast<int32_t>(HomeLayout::actionCount(homeSession.count, homeSession.addedCount) - 1));
         if (static_cast<size_t>(target) == homeSession.selected) {
@@ -6227,10 +6262,6 @@ void processTopLevelActions() {
     if (pendingHomeBookOpen) {
         pendingHomeBookOpen = false;
         const auto action = HomeLayout::action(homeSession.selected, homeSession.count, homeSession.addedCount);
-        if (uiScreen == UiScreen::Home && action == HomeLayout::Action::Sections) {
-            displaySections();
-            return;
-        }
         if (uiScreen == UiScreen::Home && action == HomeLayout::Action::Sync) {
             if (AutomaticSync::request(provisioningActive || bookUpload.active() ||
                                         BookPreparation::busy() || pendingPowerSleep)) {
@@ -7181,26 +7212,7 @@ void emitInput(const char *button, const char *gesture, const char *source) {
         if (strcmp(button, "CENTER") == 0) AutomaticSync::cancel();
         return;
     }
-    if (uiScreen == UiScreen::Sections) {
-        if (strcmp(button, "CENTER") == 0) {
-            if (strcmp(gesture, "LONG") == 0) displayHome(false, "sections-back");
-            else displayTopLevelTab(kVisibleTabs[sectionSelection], false, "sections-select");
-        } else if (strcmp(gesture, "SHORT") == 0) {
-            if (strcmp(button, "UP") == 0 && sectionSelection > 0) --sectionSelection;
-            if (strcmp(button, "DOWN") == 0 && sectionSelection + 1 < kVisibleTabCount) ++sectionSelection;
-            noteUiNavigationClick();
-            displaySections();
-        }
-        return;
-    }
-    if (strcmp(button, "CENTER") == 0 && strcmp(gesture, "LONG") == 0 &&
-        (uiScreen == UiScreen::Home ||
-         (uiScreen == UiScreen::Search && searchSession.phase == SearchPhase::Range) ||
-         (uiScreen == UiScreen::LocalLibrary && localLibrarySession.phase == LocalLibraryPhase::Sections) ||
-         (uiScreen == UiScreen::Favorites && favoritesSession.phase == FavoritesPhase::Folders))) {
-        displaySections();
-        return;
-    }
+    if (handleTabNavigation(button, gesture)) return;
     if (strcmp(button, "CLEAN") == 0) {
         pendingPanelClean = true;
         return;
