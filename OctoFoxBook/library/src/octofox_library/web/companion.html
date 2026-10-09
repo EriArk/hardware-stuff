@@ -11,6 +11,7 @@
   <script defer src="/companion-network.js"></script>
   <script defer src="/companion-guide.js"></script>
   <script defer src="/companion-accounts.js"></script>
+  <script defer src="/companion-backups.js"></script>
   <script defer src="/companion.js"></script>
 </head>
 <body>
@@ -24,6 +25,7 @@
     <nav id="companion-nav" class="section-nav" aria-label="Разделы Companion" hidden>
       <button id="readers-tab" class="quiet" aria-current="page">Читатели</button>
       <button id="network-tab" class="quiet">Подключение</button>
+      <button id="backups-tab" class="quiet">Backups</button>
     </nav>
     <section id="loading" class="loading"><p>Подключаемся к библиотеке…</p></section>
     <section id="welcome" class="welcome" hidden aria-labelledby="welcome-title">
@@ -56,6 +58,19 @@
       <div class="dashboard-grid">
         <div class="panel"><div class="panel-heading"><h2>Аккаунты</h2><span id="user-count" class="count"></span></div><p class="muted">У каждого — свои книги, коллекции и место в истории.</p><ul id="users" class="users" aria-label="Аккаунты библиотеки"></ul><button id="refresh-users" class="quiet">Обновить список</button></div>
         <aside class="panel reading-card"><span class="small-star" aria-hidden="true">✧</span><h2>Добавьте первую книгу</h2><p class="muted">Откройте библиотеку под своим аккаунтом и загрузите FB2 или EPUB. Книги появятся в вашей коллекции.</p><a class="text-link" href="/#personal">Перейти к книгам <span aria-hidden="true">→</span></a><hr><details><summary>Завершить подключение</summary><p class="hint">Если аккаунт создался, а доступ к чтению — нет, повторите только этот шаг. Существующие пароли останутся прежними.</p><form id="repair-form"><label>Логин читателя<input name="username" autocomplete="off" maxlength="64" required autocapitalize="none"></label><label>Пароль аккаунта<input name="password" type="password" autocomplete="off" required></label><button class="secondary" type="submit">Подключить библиотеку</button></form></details></aside>
+      </div>
+    </section>
+    <section id="backups-screen" hidden aria-labelledby="backups-title" lang="en">
+      <div class="dashboard-heading"><div><p class="eyebrow">KEEP YOUR STORIES SAFE</p><h1 id="backups-title">Backups</h1><p class="muted">Your books, accounts and place in every story, together in one archive.</p></div><button id="backup-refresh" class="quiet">Refresh</button></div>
+      <p id="backup-notice" class="notice" role="status" hidden></p>
+      <p id="backup-unavailable" class="notice" hidden>Backups are not enabled in this installation. Start the updated server package to enable this section.</p>
+      <div id="backup-progress" class="panel" role="status" aria-live="polite" hidden><p class="eyebrow">WORKING ON YOUR SERVER</p><h2 id="backup-phase">Preparing…</h2><p class="muted">Reading pauses during backup or restore. This page reconnects automatically. Keep the server running; you can return here if the connection drops.</p></div>
+      <button id="backup-return" class="primary" hidden>Return to sign in</button>
+      <div id="backup-actions" class="connection-grid">
+        <section class="panel"><p class="eyebrow">01 · SAVE A COPY</p><h2>A safe place for your library</h2><p class="muted">Save books, accounts, collections, bookmarks, reading positions and library settings. Reading will pause briefly and everyone will need to sign in again.</p><button id="backup-create" class="primary">Create backup</button><hr><h3>Saved on this server</h3><p class="hint">Download a copy to another device. These ZIP files contain private books and account data; keep them somewhere private.</p><p id="backup-empty" class="muted">No backups yet.</p><ul id="backup-list" class="backup-list" aria-label="Saved backups"></ul></section>
+        <section class="panel"><p class="eyebrow">02 · RESTORE A COPY</p><h2>Pick up where you left off</h2><p class="muted">Choose an OctoFox backup. We check every file before offering to restore it. The current server is kept running during this check.</p><form id="backup-upload-form"><label>Backup ZIP<input id="backup-file" type="file" accept=".zip,application/zip" required></label><p class="hint">Up to 20 GB. Use an archive you created or trust. Local server ports, discovery identity and installation credentials stay with this computer. Audio is generated again when needed.</p><button id="backup-check" class="secondary">Upload and check</button></form>
+          <div id="backup-preview" hidden><hr><h3>Ready for review</h3><p id="backup-preview-text" class="muted"></p><p class="notice">Restoring replaces this server's books, accounts and reading progress. A safety copy of the current server is created first and kept in the backup list. Sign in afterwards with an account from the restored backup.</p><form id="backup-restore-form"><label>Type RESTORE to confirm<input id="backup-confirm" pattern="RESTORE" required autocomplete="off" spellcheck="false"></label><button id="backup-restore" class="primary">Create safety copy and restore</button></form></div>
+        </section>
       </div>
     </section>
     <section id="network-screen" hidden aria-labelledby="network-title">

@@ -13,6 +13,8 @@ services:
     build: .
     image: octofox-library:0.1.0-alpha1
     environment:
+      OCTOFOX_BACKUP_SOCKET: /run/backups/control.sock
+      OCTOFOX_BACKUP_STORE: /backups
       OCTOFOX_DB: /data/library.sqlite3
       OCTOFOX_UPSTREAM: http://booklore:6060/api/v1/opds
       OCTOFOX_ORIGIN: ${OCTOFOX_ORIGIN:?Run python tools/configure.py first}
@@ -27,10 +29,13 @@ services:
       - "${OCTOFOX_BIND_ADDRESS:-0.0.0.0}:${OCTOFOX_DISCOVERY_PORT:-49645}:49645/udp"
     volumes:
       - library-data:/data
+      - backup-control:/run/backups
+      - backup-data:/backups
       - speech-socket:/run/speech:ro
     networks: [library]
     depends_on:
       booklore: {condition: service_healthy}
+      backups: {condition: service_healthy}
     read_only: true
     tmpfs: ["/tmp:rw,noexec,nosuid,size=64m"]
     cap_drop: [ALL]
@@ -97,6 +102,33 @@ services:
       retries: 20
       start_period: 20s
 
+  backups:
+    <<: *service
+    build: .
+    image: octofox-library:0.1.0-alpha1
+    user: "0:0"
+    command: [python, -m, octofox_library.backup_worker]
+    network_mode: none
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - library-data:/data/library
+      - booklore-data:/data/booklore
+      - catalog-books:/data/catalog
+      - backup-data:/backups
+      - backup-control:/run/backups
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=64m"]
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: [CMD, python, -c, "import socket; s=socket.socket(socket.AF_UNIX); s.settimeout(5); s.connect('/run/backups/control.sock'); s.close()"]
+      interval: 20s
+      timeout: 8s
+      retries: 3
+
   speech:
     <<: *service
     profiles: [speech]
@@ -129,3 +161,5 @@ volumes:
   catalog-books:
   database-data:
   speech-socket:
+  backup-data:
+  backup-control:

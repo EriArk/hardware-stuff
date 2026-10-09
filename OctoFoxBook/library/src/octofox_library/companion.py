@@ -10,6 +10,7 @@ import threading
 import time
 
 from .booklore_api import BookLoreAPI
+from .backups import Backups
 from .companion_accounts import AccountControls
 from .opds_facade import UpstreamFailure
 from .web_errors import WebError
@@ -61,6 +62,7 @@ class Companion:
     def __init__(self, app, upstream):
         self.app = app
         self.api = BookLoreAPI(upstream)
+        self.backups = Backups()
         self.lock = threading.RLock()
         self.mutations = threading.Lock()
         self.sessions = OrderedDict()
@@ -163,6 +165,9 @@ class Companion:
         if not get and path == '/companion-api/network/confirm':
             self.app.throttle('network-confirm:' + handler.client_address[0], limit=30)
             return handler.send(200, self.app.network.confirm(handler.body(), current_origin))
+        if not get and path == '/companion-api/backups/progress':
+            self.app.throttle('backup-progress:' + handler.client_address[0], limit=60)
+            return self.backups.progress(handler)
         if get and path == '/companion-api/status':
             return handler.send(200, self.app.discovery.metadata() | {'configured': self.api.configured(),
                 'desktopSetup': bool(self.app.discovery.request_origin(handler.headers, handler.client_address[0]))})
@@ -217,6 +222,8 @@ class Companion:
             return handler.send(200, {'ok': True}, headers={'Set-Cookie': [
                 self.cookie('', current_origin, 0)['Set-Cookie'], handler.reader_cookie('', current_origin, age=0)]})
         user = self.admin(session)  # Recheck upstream privileges, including after role changes.
+        if path == '/companion-api/backups' or path.startswith('/companion-api/backups/'):
+            return self.backups.route(handler, path, user)
         if path == '/companion-api/network':
             if get:
                 return handler.send(200, self.app.network.info())

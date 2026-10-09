@@ -5,6 +5,7 @@
   let desktopSetup = false;
   let csrf = '';
   let creating = false;
+  const backups = window.createCompanionBackups({api, report, csrf: () => csrf});
   const network = window.createCompanionNetwork({api, report});
   const accounts = window.createAccountControls({api, refresh: users, report, signedOut: welcome, notice});
 
@@ -31,6 +32,7 @@
 
   function welcome() {
     accounts.reset();
+    backups.reset();
     csrf = '';
     network.reset();
     $('companion-nav').hidden = true;
@@ -79,6 +81,7 @@
   async function dashboard(data) {
     configured = true; csrf = data.csrf;
     $('companion-nav').hidden = false;
+    backups.hide();
     network.hide();
     $('welcome').hidden = true; $('dashboard').hidden = false; $('logout').hidden = false;
     $('signed-in').textContent = 'Вы вошли как ' + (data.user.name || data.user.username);
@@ -91,8 +94,9 @@
     if (error.status === 401) { $('reader-dialog').close(); welcome(); }
   }
 
-  $('network-tab').addEventListener('click', () => network.show());
-  $('readers-tab').addEventListener('click', () => { network.hide(); $('dashboard').hidden = false; });
+  $('network-tab').addEventListener('click', () => { backups.hide(); network.show(); });
+  $('backups-tab').addEventListener('click', () => { network.hide(); notice(); backups.show(); });
+  $('readers-tab').addEventListener('click', () => { backups.hide(); network.hide(); $('dashboard').hidden = false; });
 
   $('identity-form').addEventListener('submit', async event => {
     event.preventDefault();
@@ -150,6 +154,7 @@
   });
 
   (async () => {
+    if (backups.resume()) { $('loading').hidden = true; return; }
     try {
       ({configured, desktopSetup} = await api('status'));
       if (configured) {

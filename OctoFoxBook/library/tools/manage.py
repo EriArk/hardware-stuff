@@ -12,7 +12,7 @@ import sys
 from configure import configuration, write_configuration
 
 ROOT = Path(__file__).resolve().parents[1]
-SERVICES = ('database', 'booklore', 'library')
+SERVICES = ('database', 'booklore', 'library', 'backups')
 
 
 class LaunchError(Exception):

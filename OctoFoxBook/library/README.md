@@ -6,7 +6,7 @@
 
 ## Ранняя бета
 
-[OctoFox Book 0.2.0-beta.1 — скачать сборки](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.1). Установщик сервера и переносимый браузер Companion доступны отдельно. Проверенные сценарии и ограничения указаны в описании релиза.
+[OctoFox Book 0.2.0-beta.2 — скачать сборки](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.2). Установщик сервера и переносимый браузер Companion доступны отдельно. Проверенные сценарии и ограничения указаны в описании релиза.
 
 ## Установка через мастер
 
@@ -89,9 +89,33 @@ python tools/manage.py start --speech
 
 Доступны семь серверных голосов для шести языков: русский, английский (США), немецкий, французский, испанский (Испания) и португальский (Бразилия). Выбор голоса и скорость доступны в читалке. Выберите голос под язык книги; смена языка интерфейса не меняет язык книги или голос. Модели загружаются из источников разработчиков с проверкой контрольных сумм; в Git они не хранятся. См. [speech/README.md](speech/README.md).
 
+## Backups and restore
+
+The current source includes **Companion → Backups**, currently in English. Included in the `0.2.0-beta.2` server installers. The original `0.2.0-beta.1` packages do not include backups. Build the current server source with `python tools/manage.py start` using the installation's existing project name and `.env`. The portable Companion browser does not need an update.
+
+1. Sign in to Companion as an administrator and open **Backups**.
+2. Choose **Create backup**. The library briefly pauses so account data, books and reading state belong to the same snapshot. Keep the server running. The page reconnects when it returns.
+3. Sign in again and choose **Download ZIP**. Keep a copy on another device; a backup kept only on the server does not protect against losing that server.
+4. To restore, choose the ZIP and **Upload and check**. File checksums and compatibility are checked while the library keeps running.
+5. Review the date and size, type `RESTORE`, and choose **Create safety copy and restore**. This replaces all library users' data. A full safety archive is saved first. Afterward, sign in with an administrator account from the restored backup.
+
+For a new server, install the current matching server version, create a temporary owner through Companion, then restore the backup. The temporary owner is replaced by the restored accounts. The destination keeps its database connection credentials, ports and discovery identity. Saved additional library addresses travel with the backup; review **Connection** after a move. The destination's primary installation address remains available.
+
+Included: uploaded FB2/EPUB content, the shared BookLore catalogue and its files, account/password records, access controls, collections, favorites, bookmarks, reading positions, and library settings. Generated audio is excluded and is recreated on demand. Host `.env`, Cloudflare tunnel credentials, operating-system firewall configuration, downloaded archives and setup/discovery identity are not copied. Keep host configuration separately if you need to reproduce the same network deployment.
+
+Archives are ZIP files with a versioned manifest and SHA-256 for every file; **they are not encrypted**. Only administrators can create, upload, restore, download or delete them. Use archives you made or trust. Maximum archive size is 20 GB, expanded data 200 GB / 200,000 files; up to 64 server copies are retained until you delete them. Unused uploads expire after 24 hours. Restore currently requires matching pinned BookLore and MariaDB images; it is not a version migration tool or an automatic update mechanism.
+
+If a restore fails, the worker attempts to restore the safety copy before reopening the library. The operation journal survives worker restarts. If the page reports **Recovery needed**, retain all volumes and archives, check disk space and Docker, then run `docker compose restart backups` from the installation folder (include the existing `-p PROJECT` if applicable). Do not remove the safety archive. A permanent storage or Docker failure still requires operator repair.
+
+### Backup service access
+
+Compose adds a `backups` maintenance service and the private `backup-data` / `backup-control` volumes. The worker has no network, no published port and a read-only root filesystem. Its private Unix socket accepts fixed operations for the same Compose project; it verifies the data volume identities before stopping services. The web container does not mount the Docker socket.
+
+The worker itself mounts `/var/run/docker.sock`, which grants powerful access to the local Docker daemon. This is required by this implementation to pause/restart the library and BookLore and export/import their account database. Restrict administration and access to the Compose files, volumes and worker image accordingly. This setup assumes the standard local Linux-container Docker socket; rootless/custom socket layouts and Docker Desktop Enhanced Container Isolation need separate configuration/verification. Without the worker (for example a direct Python development run), Companion shows that backups are unavailable.
+
 ## Данные и обновления
 
-Книги пользователей, состояние чтения, база BookLore и аудиокэш находятся в именованных Docker-томах. Удаление книги из личной полки не стирает её позицию чтения. Перед обновлением остановите **эту** установку и сохраните её тома и `.env`. Команда `docker compose down` сохраняет тома; не используйте `down -v`, если данные нужны.
+Книги пользователей, состояние чтения, база BookLore и аудиокэш находятся в именованных Docker-томах. Удаление книги из личной полки не стирает её позицию чтения. Перед обновлением сохраните и скачайте копию через Companion. Для ручного полного снимка томов остановите **эту** установку и сохраните её тома и `.env`. Команда `docker compose down` сохраняет тома; не используйте `down -v`, если данные нужны.
 
 Не подключайте эту раннюю сборку к каталогам данных другой работающей установки. При замене личного файла книги прогресс сохраняется, но изменённое издание может иметь другой текст в той же позиции.
 
