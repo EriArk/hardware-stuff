@@ -1,0 +1,4 @@
+# Preserve upstream license bytes, including their original trailing spaces.
+assets/fonts/**/OFL.txt -whitespace
+tools/fonts/OFL.txt -whitespace
+include/bookish_fonts/*.h linguist-generated=true

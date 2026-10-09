@@ -1,0 +1,4 @@
+platformio==6.1.19
+pyserial==3.5
+freetype-py==2.5.1
+Pillow==12.3.0
