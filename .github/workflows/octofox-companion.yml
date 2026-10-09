@@ -1,9 +1,6 @@
 name: OctoFox Companion
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['OctoFoxBook/companion/**', '.github/workflows/octofox-companion.yml']
 permissions:
   contents: read
 jobs:

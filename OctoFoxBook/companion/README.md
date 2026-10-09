@@ -4,7 +4,7 @@ A desktop window for your OctoFox library. It finds a running server on this com
 
 ## Open your library
 
-Install the build for your computer from the latest successful [Companion build](https://github.com/EriArk/hardware-stuff/actions/workflows/octofox-companion.yml). These early builds are available as GitHub Actions artifacts (GitHub sign-in required):
+Use the development package for your computer, or build it using the commands below. GitHub Actions are disabled for this repository; automatic builds are not running. Package formats:
 
 | Computer | Package |
 | --- | --- |
@@ -42,7 +42,7 @@ npm start
 npm run dist
 ```
 
-`test:app` launches a hidden native window with a disposable local server; it does not use your library accounts. Linux GUI tests need a display, for example `xvfb-run -a npm run test:app`. The GitHub workflow runs the native test and builds packages separately on Windows, macOS and Linux. macOS packages are universal.
+`test:app` launches a hidden native window with a disposable local server; it does not use your library accounts. Linux GUI tests need a display, for example `xvfb-run -a npm run test:app`. Run packaging on the target operating system. For a universal macOS package, use `npm run dist -- --mac --universal`. The checked-in workflow is manual-only and remains inactive while GitHub Actions are disabled.
 
 The server page runs in a sandbox without Node.js or the app's native bridge. Only the bundled connection screen can request discovery. The app probes a bounded set of local IPv4 addresses on one UDP service port; it does not scan Internet hosts or arbitrary ports. Discovery credentials stay in memory, are bound to the direct origin and client address, and expire automatically.
 
