@@ -1,4 +1,5 @@
 #include "provisioning_store.h"
+#include "wifi_credentials.h"
 
 #include <Preferences.h>
 #include <esp_crc.h>
@@ -182,7 +183,7 @@ bool ProvisioningStore::clear(char *error, size_t errorCapacity) {
     const bool fallbackRemoved = !preferences.isKey(kFallbackWifiKey) ||
                                  preferences.remove(kFallbackWifiKey);
     preferences.end();
-    if (!primaryRemoved || !fallbackRemoved) {
+    if (!primaryRemoved || !fallbackRemoved || !WifiCredentials::clear()) {
         setError(error, errorCapacity, "nvs-remove-failed");
         return false;
     }

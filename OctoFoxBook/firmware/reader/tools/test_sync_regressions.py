@@ -145,6 +145,7 @@ std::atomic<ReaderSyncPolicy::Error> lastError{ReaderSyncPolicy::Error::None};
 std::atomic<int> lastHttpCode{0};
 void *syncTask = reinterpret_cast<void *>(1);
 int syncGate = 0, notifications = 0;
+namespace WifiSetup { bool opened = false; bool active() { return opened; } }
 void start() {}
 void portENTER_CRITICAL(int *) {}
 void portEXIT_CRITICAL(int *) {}
@@ -159,6 +160,9 @@ int main() {
     assert(!request(false));
     assert(paused && running && notifications == 1);
     running = false;
+    WifiSetup::opened = true;
+    assert(!request(false) && lastError == Error::Busy && notifications == 1);
+    WifiSetup::opened = false;
     for (int owner = 0; owner < 4; ++owner) { // Provision, upload, preparation, sleep.
         assert(!request(true));
         assert(paused && !running && notifications == 1 && lastError == Error::Busy);

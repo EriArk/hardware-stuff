@@ -1,4 +1,5 @@
 #include "automatic_sync.h"
+#include "wifi_setup.h"
 
 #include <atomic>
 #include <errno.h>
@@ -91,6 +92,7 @@ void worker(void *) {
     for (;;) {
         // No boot scan, timer, retry or wake-triggered Wi-Fi connection.
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        network.invalidateConfiguration(); // Wi-Fi may have changed in Settings.
         setWorkCancelCallback(AutomaticSync::cancelRequested);
         // USB provisioning may have replaced NVS while this task was paused.
         network.invalidateConfiguration();
@@ -241,6 +243,7 @@ void start() {
     Serial.printf("SYNC CONFIG device=%s automatic=false\n", identity);
 }
 bool request(bool exclusiveBusy) {
+    exclusiveBusy = exclusiveBusy || WifiSetup::active();
     start();
     portENTER_CRITICAL(&syncGate);
     const bool allowed = ReaderSyncPolicy::canRequest(syncTask != nullptr, running.load(), exclusiveBusy);

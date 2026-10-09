@@ -1,6 +1,6 @@
 # AbyssBook reader firmware
 
-Early **0.21.0-alpha2** firmware for the non-touch LILYGO T5 e-Paper S3
+Early **0.21.0-alpha3** firmware for the non-touch LILYGO T5 e-Paper S3
 (4.7-inch H716 panel, 16 MB flash, 8 MB PSRAM).
 
 The new Home displays real SD-card books, covers and reading progress in the
@@ -17,7 +17,7 @@ replacement for every screen.
 | UP / DOWN | Move selection; turn pages while reading. Hold to repeat. |
 | OK | Open the selection; open the reading menu. |
 | Hold OK | Return one level; focus the tab strip at a section root. |
-| Double OK | Return Home without executing a single-click action first. |
+| Double OK | Return Home, except in text entry: each click enters a character. |
 | Sleep | Deep sleep; press again to wake. Holding Sleep also enters deep sleep. |
 
 The currently fitted Sleep switch is **momentary**. For a future latching
@@ -30,16 +30,47 @@ There is no light-sleep mode. Manual sleep and the existing 30-minute idle
 timeout both save the reading context and enter deep sleep. Waking restarts
 the processor and restores the context; the wake press is consumed.
 
-Wi-Fi starts only for an explicitly requested synchronization and stops when
-that pass finishes, fails or is cancelled. Boot, wake, browsing and reading
+Wi-Fi starts for an explicitly requested synchronization or a scan/connection
+check in Settings. It stops when that operation finishes, fails or is cancelled.
+Boot, wake, browsing and reading
 stay offline. Legacy standalone network diagnostics and remote cover fetches
 cannot enable the radio outside the sync worker (`sync-only`). USB provisioning
 and local book transfer remain available without Wi-Fi.
 
 Home retains a Continue card and up to two recent / newly added rows. Moving
 selection to a newly added book changes the lower section so the focused item
-always remains visible. Sync is the last action. Hold OK to choose a tab with
+always remains visible. Sync and Settings are the bottom actions. Hold OK to choose a tab with
 UP/DOWN and confirm it with OK.
+
+## Wi-Fi settings
+
+On Home, move down to **Настройки (Settings)**, press OK, then open **Wi-Fi**.
+Choose a nearby 2.4 GHz network, enter its password and select **Подключить
+(Connect)**. The device saves the network only after a successful association
+and IP connection, then turns the radio off. A failed check preserves the
+previous saved network and lets you edit the password. This checks Wi-Fi;
+it does not establish a server/account binding.
+
+UP/DOWN selects a keyboard row; OK enters that row. UP/DOWN then selects a
+character and OK inserts it. Hold OK to return to rows, then hold again to
+return to the network list. Rapid OK presses enter repeated characters while
+editing, without the double-click Home gesture. Lowercase, uppercase, numbers,
+all printable ASCII symbols, space, delete and password visibility are available.
+Passwords accept 8–63 printable ASCII characters or a 64-digit hexadecimal PSK.
+
+The list offers Refresh and Hidden network (manual ASCII SSID, up to 32 bytes).
+Open networks need no password; leave the password blank for a hidden open
+network. WEP and enterprise authentication are explicitly unsupported.
+Exiting Settings or entering deep sleep cancels radio work and clears the draft.
+Scans and connection checks have an 18-second timeout. Saved credentials use
+an independent atomic NVS record, preserving existing server credentials;
+older provisioned Wi-Fi remains readable until a new network is saved.
+
+`SETTINGS OPEN`, `SETTINGS CLOSE` and `WIFI STATUS` are USB diagnostics.
+Other mutating USB commands are blocked while Settings owns the network session.
+The optional `tools/render_wifi_settings.py OUTPUT_DIRECTORY` uses the production
+layout and bundled fonts to create host previews (requires Pillow); these do
+not demonstrate physical E-Ink quality or successful radio association.
 
 Text uses HIGH updates and periodic hard cleanup after 24 page turns; simple
 menus use FAST with cleanup after 12 navigation steps. Cover-bearing Home uses

@@ -44,8 +44,9 @@ int main() {
         assert(action(syncSelection(reading,added),reading,added)==Action::Sync);
         const size_t total=actionCount(reading,added);
         assert(initialSelection(reading,added)<total);
-        assert(syncSelection(reading,added)==total-1);
-        for(size_t i=kFirstBook;i<total-1;++i) {
+        assert(syncSelection(reading,added)==total-2);
+        assert(action(settingsSelection(reading,added),reading,added)==Action::Settings);
+        for(size_t i=kFirstBook;i<total-2;++i) {
             const auto a=action(i,reading,added);
             if(i<kFirstBook+reading) assert(a==(i==kFirstBook ? Action::Continue : Action::ReadingCard));
             else assert(a==Action::AddedCard);

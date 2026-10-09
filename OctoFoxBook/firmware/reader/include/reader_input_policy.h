@@ -18,13 +18,14 @@ struct NavigationRepeat {
 class OkGesture {
 public:
     enum class Event { None, Short, Double, Long };
-    Event update(bool pressed, uint32_t now) {
+    Event update(bool pressed, uint32_t now, bool allowDouble = true) {
         Event result = Event::None;
         if (pending_ && !down_ && now - releasedAt_ > 350) {
             pending_ = false;
             result = Event::Short;
         }
         if (pressed && !down_) {
+            doubleForPress_ = allowDouble;
             second_ = pending_;
             pending_ = false;
             pressedAt_ = now;
@@ -36,7 +37,10 @@ public:
             result = Event::Long;
         }
         if (!pressed && down_ && !longSent_) {
-            if (second_) {
+            if (!doubleForPress_) {
+                result = Event::Short;
+                pending_ = second_ = false;
+            } else if (second_) {
                 result = Event::Double;
                 second_ = false;
             } else {
@@ -49,5 +53,6 @@ public:
     }
 private:
     bool down_ = false, second_ = false, pending_ = false, longSent_ = false;
+    bool doubleForPress_ = true;
     uint32_t pressedAt_ = 0, releasedAt_ = 0;
 };

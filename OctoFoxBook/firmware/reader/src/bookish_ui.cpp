@@ -62,9 +62,12 @@ void home(Canvas &c, const Home &v) {
         if (!b.selected) c.box(30, y + 75, 480, 1, 0, 10, 10);
     }
     c.text(Font::Small, v.notice, 30, 893, 460, 5);
-    c.box(28, 904, 484, 32, 5, v.syncSelected ? 0 : 15, v.syncSelected ? 0 : 15);
-    c.text(Font::Body, v.syncing ? "Отменить синхронизацию" : "Синхронизировать", 42, 926, 450,
+    c.box(28, 904, 310, 32, 5, v.syncSelected ? 0 : 15, v.syncSelected ? 0 : 15);
+    c.text(Font::Body, v.syncing ? "Отменить синхронизацию" : "Синхронизировать", 42, 926, 290,
            v.syncSelected ? 15 : 0, v.syncSelected ? 0 : 15);
+    c.box(354, 904, 158, 32, 5, v.settingsSelected ? 0 : 15, v.settingsSelected ? 0 : 15);
+    c.text(Font::Body, "Настройки", 366, 926, 142,
+           v.settingsSelected ? 15 : 0, v.settingsSelected ? 0 : 15);
     c.text(Font::Small, v.tabFocus >= 0 ? "UP / DOWN — вкладка · OK — открыть" :
            "OK — открыть · удержать — вкладки · 2× OK — домой", 42, 951, 468, 5);
 }

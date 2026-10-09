@@ -10,13 +10,15 @@ constexpr size_t kAddedCapacity = 2;
 constexpr size_t kSections = 0;
 constexpr size_t kFirstBook = 1;
 
-enum class Action { Sections, Sync, Continue, ReadingCard, AddedCard, Invalid };
+enum class Action { Sections, Sync, Settings, Continue, ReadingCard, AddedCard, Invalid };
 inline size_t syncSelection(size_t reading, size_t added) { return kFirstBook + reading + added; }
-inline size_t actionCount(size_t reading, size_t added) { return syncSelection(reading, added) + 1; }
+inline size_t settingsSelection(size_t reading, size_t added) { return syncSelection(reading, added) + 1; }
+inline size_t actionCount(size_t reading, size_t added) { return settingsSelection(reading, added) + 1; }
 inline Action action(size_t selected, size_t reading, size_t added) {
     if (selected >= actionCount(reading, added)) return Action::Invalid;
     if (selected == kSections) return Action::Sections;
     if (selected == syncSelection(reading, added)) return Action::Sync;
+    if (selected == settingsSelection(reading, added)) return Action::Settings;
     if (selected < kFirstBook + reading)
         return selected == kFirstBook ? Action::Continue : Action::ReadingCard;
     return Action::AddedCard;
@@ -28,6 +30,7 @@ inline const char *actionName(Action value) {
     switch (value) {
         case Action::Sections: return "sections";
         case Action::Sync: return "sync";
+        case Action::Settings: return "settings";
         case Action::Continue: return "continue";
         case Action::ReadingCard: return "recent-card";
         case Action::AddedCard: return "added-card";

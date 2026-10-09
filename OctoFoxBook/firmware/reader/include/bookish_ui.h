@@ -21,6 +21,7 @@ struct Home {
     bool empty = false;
     bool sectionsSelected = false;
     bool syncSelected = false;
+    bool settingsSelected = false;
     bool syncing = false;
     const char *notice = "";
     int tabFocus = -1;

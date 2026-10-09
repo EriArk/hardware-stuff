@@ -16,6 +16,7 @@
 #include "book_upload.h"
 #include "cover_cache.h"
 #include "provisioning_store.h"
+#include "wifi_credentials.h"
 
 namespace {
 
@@ -207,6 +208,14 @@ bool NetworkService::loadConfiguration(char *error, size_t errorCapacity) {
     if (!ProvisioningStore::load(configuration_, error, errorCapacity)) {
         return false;
     }
+    WifiCredential wifi{};
+    if (!WifiCredentials::load(wifi)) {
+        setError(error, errorCapacity, "wifi-not-configured");
+        return false;
+    }
+    memcpy(configuration_.wifiSsid, wifi.ssid, sizeof(wifi.ssid));
+    memcpy(configuration_.wifiPassword, wifi.password, sizeof(wifi.password));
+    memset(&wifi, 0, sizeof(wifi));
     configurationLoaded_ = true;
     return true;
 }

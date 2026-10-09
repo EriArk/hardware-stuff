@@ -3,6 +3,10 @@
 #include <SPI.h>
 #include <Wire.h>
 #include <WiFi.h>
+#include <atomic>
+#include "text_keyboard.h"
+#include "wifi_credentials.h"
+#include "wifi_setup.h"
 
 #include <esp_heap_caps.h>
 #include <esp_sleep.h>
@@ -55,7 +59,7 @@
 namespace {
 
 constexpr char kFirmwareName[] = "abyss-reader";
-constexpr char kFirmwareVersion[] = "0.21.0-alpha2";
+constexpr char kFirmwareVersion[] = "0.21.0-alpha3";
 constexpr size_t kFramebufferBytes = EPD_WIDTH * EPD_HEIGHT / 2;
 constexpr int32_t kPortraitWidth = EPD_HEIGHT;
 constexpr int32_t kPortraitHeight = EPD_WIDTH;
@@ -116,6 +120,8 @@ enum class UiScreen : uint8_t {
     OrderedSelector = 16,
     BulkDownloadConfirm = 17,
     Sections = 18,
+    DeviceSettings = 19,
+    Wifi = 20,
 };
 
 enum class TopLevelTab : uint8_t {
@@ -1504,10 +1510,13 @@ bool loadHomeSession() {
 }
 
 #include "bookish_adapter.inc"
+bool displayHome(bool rescan, const char *reason);
+#include "wifi_settings_ui.inc"
 
 bool renderHomeFrame() { return renderBookishHome(); }
 
 bool displayHome(bool rescan, const char *reason) {
+    if (wifiScreen()) closeWifiSettings();
     const uint32_t startedAt = millis();
     if (rescan || !homeSession.loaded) invalidateHomeCovers();
     if ((rescan || !homeSession.loaded) && !loadHomeSession()) {
@@ -6234,6 +6243,10 @@ void processTopLevelActions() {
             }
             return;
         }
+        if (uiScreen == UiScreen::Home && action == HomeLayout::Action::Settings) {
+            openWifiSettings();
+            return;
+        }
         if (uiScreen != UiScreen::Home || action == HomeLayout::Action::Invalid) {
             Serial.println("ERROR HOME_OPEN_BOOK reason=no-selection");
             return;
@@ -7132,18 +7145,25 @@ void emitInput(const char *button, const char *gesture, const char *source) {
         return;
     }
     lastActivityAt = millis();
-    snprintf(lastInput, sizeof(lastInput), "%s %s", button, gesture);
+    if (!wifiTextEntry.load()) snprintf(lastInput, sizeof(lastInput), "%s %s", button, gesture);
     ++inputCount;
-    Serial.printf("EVENT %s %s source=%s count=%lu\n", button, gesture, source,
+    if (!wifiTextEntry.load()) Serial.printf("EVENT %s %s source=%s count=%lu\n", button, gesture, source,
                   static_cast<unsigned long>(inputCount));
     if (strcmp(button, "POWER") == 0) {
+        if (wifiScreen()) closeWifiSettings();
         pendingPowerSleep = true;
         AutomaticSync::setPaused(true);
         BookPreparation::cancel();
         return;
     }
+    if (wifiScreen() && !(strcmp(button, "CENTER") == 0 &&
+        strcmp(gesture, "DOUBLE") == 0 && !wifiTextEntry.load())) {
+        if (strcmp(gesture, "DOUBLE") != 0) inputWifiSettings(button, gesture);
+        return;
+    }
     if (strcmp(gesture, "DOUBLE") == 0 &&
         strcmp(button, "CENTER") == 0) {
+        if (wifiScreen()) closeWifiSettings();
         pendingTopLevelTarget = TopLevelTab::Home;
         pendingTopLevelOpen = true;
         if (BookPreparation::busy()) BookPreparation::cancel();
@@ -7691,6 +7711,7 @@ void printPowerStatus() {
 }
 
 void enterDeepSleep(const char *reason, uint32_t timerWakeSeconds) {
+    if (WifiSetup::active()) closeWifiSettings();
     AutomaticSync::setPaused(true);
     if (AutomaticSync::busy() || BookPreparation::busy()) {
         BookPreparation::cancel();
@@ -8203,6 +8224,25 @@ bool handleFallbackWifiCommand(char *line) {
 }
 
 void handleSerialCommand(char *line) {
+    if (strcmp(line, "SETTINGS OPEN") == 0) { openWifiSettings(); return; }
+    if (WifiSetup::active() && strncmp(line, "INPUT ", 6) != 0 &&
+        strcmp(line, "PING") != 0 && strcmp(line, "SYNC STATUS") != 0 &&
+        strcmp(line, "DIAG") != 0 && strcmp(line, "WIFI STATUS") != 0 &&
+        strcmp(line, "SETTINGS CLOSE") != 0) {
+        memset(line, 0, strlen(line));
+        Serial.println("ERROR WIFI_SETTINGS_ACTIVE close-settings-first=true");
+        return;
+    }
+    if (strcmp(line, "SETTINGS CLOSE") == 0) {
+        if (WifiSetup::active()) { closeWifiSettings(); displayHome(false, "settings-close"); }
+        return;
+    }
+    if (strcmp(line, "WIFI STATUS") == 0) {
+        Serial.printf("WIFI STATUS active=%s state=%u networks=%u radio=%s\n",
+            WifiSetup::active() ? "true" : "false", static_cast<unsigned>(WifiSetup::state()),
+            WifiSetup::count(), WiFi.getMode() == WIFI_OFF ? "off" : "on");
+        return;
+    }
     while (*line == ' ') {
         ++line;
     }
@@ -9063,7 +9103,7 @@ void pollButton(ButtonTracker &button) {
     }
 
     if (&button == &centerButton) {
-        const auto event = button.okGesture.update(button.stableLevel == LOW, now);
+        const auto event = button.okGesture.update(button.stableLevel == LOW, now, !wifiTextEntry.load());
         if (event != OkGesture::Event::None)
             emitInput("CENTER", event == OkGesture::Event::Short ? "SHORT" :
                 event == OkGesture::Event::Double ? "DOUBLE" : "LONG", "gpio");
@@ -9308,6 +9348,7 @@ void loop() {
         if (uiScreen == UiScreen::LocalLibrary && !localLibrarySession.loaded) displayLocalLibrary(true, "auto-download");
     }
     pollBatteryTelemetry();
+    pollWifiSettings();
     processPanelCleanAction();
     processTopLevelActions();
     if (BookPreparation::busy() || AutomaticSync::busy()) { delay(2); return; }

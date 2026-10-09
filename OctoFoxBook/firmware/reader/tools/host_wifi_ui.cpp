@@ -1,0 +1,74 @@
+// Executes the production UI adapter and records Canvas calls for visual review.
+#include "bookish_ui.h"
+#include "text_keyboard.h"
+#include "wifi_credentials.h"
+#include "wifi_setup.h"
+#include <WiFi.h>
+#include <atomic>
+#include <cassert>
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+enum class UiScreen { Home, DeviceSettings, Wifi };
+enum class DisplayRefreshMode { QualityFull, FastUi };
+struct Refresh { bool ok=true; } lastDisplayRefresh;
+struct Display { Refresh refresh(uint8_t *,DisplayRefreshMode) { return {}; } } displayRefresh;
+bool hasDisplayRefresh=false, provisioningActive=false;
+struct Upload { bool active()const{return false;} } bookUpload;
+struct NetworkService { void invalidateConfiguration(){} } networkService;
+namespace AutomaticSync { bool busy(){return false;} }
+namespace BookPreparation { bool busy(){return false;} }
+UiScreen uiScreen=UiScreen::Home;
+uint8_t buffer[1], *framebuffer=buffer;
+constexpr size_t kFramebufferBytes=1;
+constexpr int MALLOC_CAP_SPIRAM=0, MALLOC_CAP_8BIT=0;
+void *heap_caps_malloc(size_t n,int){return malloc(n);}
+void heap_caps_free(void *p){free(p);}
+void scheduleScreenTransitionCleanup(UiScreen,const char *){}
+void noteUiNavigationClick(){}
+struct Logger { template<typename... T> void printf(const char *,T...){} } Serial;
+bool displayHome(bool,const char *){uiScreen=UiScreen::Home;return true;}
+bool ProvisioningStore::load(ProvisioningConfig &,char *,size_t){return false;}
+std::ostringstream drawing;
+class ReaderBookishCanvas : public BookishUI::Canvas {
+public:
+    explicit ReaderBookishCanvas(uint8_t *){drawing.str("");drawing.clear();}
+    void box(int x,int y,int w,int h,int r,uint8_t border,uint8_t fill,int t=1) override {
+        drawing<<"[\"box\","<<x<<','<<y<<','<<w<<','<<h<<','<<r<<','<<int(border)<<','<<int(fill)<<','<<t<<"]\n";
+    }
+    void text(BookishUI::Font font,const char *s,int x,int y,int w,uint8_t ink=0,uint8_t paper=15) override {
+        drawing<<"[\"text\","<<int(font)<<','<<std::quoted(s)<<','<<x<<','<<y<<','<<w<<','<<int(ink)<<','<<int(paper)<<"]\n";
+    }
+    void title(const char *,int,int,int)override{}
+    void cover(const char *,int,int,int,int)override{}
+    void logo(int,int)override{}
+};
+#include "../src/wifi_settings_ui.inc"
+void snapshot(const char *name) { std::cout<<"SCENE "<<name<<'\n'<<drawing.str(); }
+void input(const char *button,const char *gesture="SHORT") { inputWifiSettings(button,gesture); }
+int main() {
+    openWifiSettings();assert(wifiPage==WifiPage::Settings);snapshot("settings");
+    input("CENTER");assert(WiFi.radio==WIFI_STA);snapshot("scan");
+    WiFi.results={{"Home Wi-Fi",-45,WIFI_AUTH_WPA2_PSK},{"Guest Wi-Fi",-67,WIFI_AUTH_OPEN}};
+    WiFi.scanResult=2;pollWifiSettings();assert(WiFi.radio==WIFI_OFF);snapshot("networks");
+    input("CENTER");assert(wifiPage==WifiPage::Password && wifiTextEntry);snapshot("keyboard");
+    input("CENTER");input("CENTER");input("CENTER");
+    assert(!strcmp(wifiKeyboard.value(),"qq"));snapshot("typing");
+    input("CENTER","LONG");assert(!wifiKeyboard.inside);
+    input("CENTER","LONG");assert(!wifiKeyboard.length() && wifiPage==WifiPage::Networks);
+    input("UP");input("CENTER");assert(wifiPage==WifiPage::Name);snapshot("hidden");
+    input("CENTER");input("CENTER");input("CENTER","LONG");input("UP");input("CENTER");
+    assert(wifiPage==WifiPage::Password && !strcmp(wifiDraft.ssid,"q"));
+    // Deterministic test draft, never a real password.
+    wifiKeyboard.reset("sample123",64);wifiKeyboard.row=5;input("CENTER");
+    assert(wifiPage==WifiPage::Connecting);snapshot("connecting");
+    fakeMillis+=18001;pollWifiSettings();assert(wifiPage==WifiPage::Result);snapshot("failure");
+    input("CENTER");assert(wifiPage==WifiPage::Password && !strcmp(wifiKeyboard.value(),"sample123"));
+    input("CENTER");WiFi.connection=WL_CONNECTED;pollWifiSettings();
+    assert(wifiPage==WifiPage::Result && !wifiKeyboard.length() && !wifiDraft.password[0]);snapshot("success");
+    input("CENTER");assert(wifiPage==WifiPage::Settings);input("CENTER","LONG");
+    assert(uiScreen==UiScreen::Home && !WifiSetup::active() && WiFi.radio==WIFI_OFF);
+    std::cout<<"WIFI_UI_OK\n";
+}
