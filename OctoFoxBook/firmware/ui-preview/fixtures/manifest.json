@@ -1,0 +1,27 @@
+{
+  "width": 960,
+  "height": 540,
+  "portrait": [
+    540,
+    960
+  ],
+  "shades": 4,
+  "frames": [
+    {
+      "index": 0,
+      "sha256": "de382121995f98a6b69523af8918f50dee2519be53d7ba2a1329003c646e13b2",
+      "runs": 28881
+    },
+    {
+      "index": 1,
+      "sha256": "f5d15a8a6057871b20ada965998de65b58c73525910b9769b7e2a6bec147b5c2",
+      "runs": 35579
+    }
+  ],
+  "font_sha256": {
+    "sans": "c9b76220a5be42ead4733611e417cd65c5fd8aeaa33eb56576ac378a37d130a1",
+    "serif": "38dffcaf1fac89492f7c56c600a14daf36ae42f7c21985cd4134ae113124a58f",
+    "italic": "d3e4bad27651d120ac8f2cea42cf4b4f077264fb243f66b3caffcfd35465f49b"
+  },
+  "logo_sha256": "bd935d66d62d74f855f9afadb21de26e39011464756a028fba5ced385628cf7e"
+}
