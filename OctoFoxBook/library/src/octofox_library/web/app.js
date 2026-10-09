@@ -37,7 +37,7 @@ const directoryViews = Object.fromEntries(
 const state = {
   csrf: "",
   user: "",
-  view: "library",
+  view: "personal",
   page: 1,
   devices: [],
   book: null,
@@ -148,7 +148,7 @@ async function enter(me) {
   $("appScreen").hidden = false;
   $("password").value = "";
   await navigate(
-    views[location.hash.slice(1)] ? location.hash.slice(1) : "library",
+    views[location.hash.slice(1)] ? location.hash.slice(1) : "personal",
   );
   state.queueTimer = setInterval(() => {
     if (document.hidden) return;
@@ -532,8 +532,9 @@ async function loadCatalog(append = false) {
         state.view === "personal" &&
         !$("searchInput").value.trim() &&
         !Object.keys(state.filters).length
-          ? '<div class="empty-state">Здесь будут твои книги.<br>Открой книгу в каталоге и нажми «В мою библиотеку».<br><a href="#library" class="text-button">Перейти в каталог →</a></div>'
+          ? '<div class="empty-state">Здесь будут твои книги.<br>Загрузи свои книги в формате FB2 или EPUB.<br><button id="emptyUpload" class="primary">Загрузить книги</button><br><a href="#library" class="text-button">Перейти в каталог →</a></div>'
           : '<div class="empty-state">На этой полке пока пусто.<br>Попробуй изменить фильтры или выбрать другую полку.</div>';
+    if ($("emptyUpload")) $("emptyUpload").onclick = () => $("openUpload").click();
   } catch (e) {
     if (request !== state.request) return;
     $("catalogStatus").textContent = e.message;

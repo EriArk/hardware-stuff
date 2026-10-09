@@ -1555,3 +1555,5 @@ body:has(.reader-screen.night:not([hidden])) { background: #151318; }
 .language-choice select { width: auto; max-width: 160px; min-height: 36px; padding: 6px 10px; }
 .drawer-footer { flex-wrap: wrap; }
 .drawer-footer .language-choice { flex-basis: 100%; }
+
+.empty-state .primary { margin: 16px auto 0; }

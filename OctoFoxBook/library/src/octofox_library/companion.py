@@ -10,6 +10,7 @@ import threading
 import time
 
 from .booklore_api import BookLoreAPI
+from .companion_accounts import AccountControls
 from .opds_facade import UpstreamFailure
 from .web_errors import WebError
 
@@ -50,6 +51,7 @@ class AdminSession:
     access: str
     refresh: str
     user_id: int
+    reader_token: str = ''
     csrf: str = field(default_factory=lambda: secrets.token_urlsafe(24))
     expires: float = field(default_factory=lambda: time.time() + SESSION_SECONDS)
     lock: threading.RLock = field(default_factory=threading.RLock)
@@ -62,6 +64,7 @@ class Companion:
         self.lock = threading.RLock()
         self.mutations = threading.Lock()
         self.sessions = OrderedDict()
+        self.accounts = AccountControls(self)
         self.key_path = app.database.parent / 'companion-setup-key'
         try:
             fd = os.open(self.key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -85,12 +88,14 @@ class Companion:
                 session.access, session.refresh = tokens['accessToken'], tokens['refreshToken']
                 user = self.api.request('/api/v1/users/me', token=session.access)
             public = public_user(user)
+            self.accounts.guard(public['username'], reading=False)
             if public['id'] != session.user_id or not public['admin']:
                 raise WebError(403, 'Companion доступен администратору библиотеки.')
             return public
 
     def login(self, data):
         values = credentials(data)
+        self.accounts.guard(values['username'], reading=False)
         tokens = self.api.login(**values)
         user = public_user(self.api.request('/api/v1/users/me', token=tokens['accessToken']))
         if not user['admin']:
@@ -105,6 +110,7 @@ class Companion:
 
     def prepare_reader(self, values, token=None):
         """Finish provisioning as the target user, never under the admin's identity."""
+        self.accounts.guard(values['username'])
         if token is None:
             token = self.api.login(values['username'], values['password'])['accessToken']
         user = public_user(self.api.request('/api/v1/users/me', token=token))
@@ -177,7 +183,15 @@ class Companion:
             else:
                 result = {}
                 key, session, user = self.login(data)
-            return handler.send(200, {'user': user, 'csrf': session.csrf, **result}, headers=self.cookie(key, current_origin))
+            cookies = [self.cookie(key, current_origin)['Set-Cookie']]
+            if result.get('readerReady') is not False:
+                try:
+                    session.reader_token, _ = self.app.login(data['username'], data['password'])
+                    cookies.append(handler.reader_cookie(session.reader_token, current_origin))
+                    result['readerReady'] = True
+                except (WebError, UpstreamFailure):
+                    result.update(readerReady=False, message='Вход в Companion выполнен. Доступ к чтению нужно завершить в разделе подключения аккаунта.')
+            return handler.send(200, {'user': user, 'csrf': session.csrf, **result}, headers={'Set-Cookie': cookies})
         cookie = SimpleCookie()
         cookie.load(handler.headers.get('Cookie', ''))
         key = cookie.get('octofox_admin')
@@ -194,7 +208,10 @@ class Companion:
         if not get and path == '/companion-api/logout':
             with self.lock:
                 self.sessions.pop(key, None)
-            return handler.send(200, {'ok': True}, headers=self.cookie('', current_origin, 0))
+            with self.app.lock:
+                self.app.sessions.pop(session.reader_token, None)
+            return handler.send(200, {'ok': True}, headers={'Set-Cookie': [
+                self.cookie('', current_origin, 0)['Set-Cookie'], handler.reader_cookie('', current_origin, age=0)]})
         user = self.admin(session)  # Recheck upstream privileges, including after role changes.
         if path == '/companion-api/network':
             if get:
@@ -213,7 +230,14 @@ class Companion:
             return handler.send(200, {'user': user, 'csrf': session.csrf})
         if get and path == '/companion-api/users':
             users = self.api.request('/api/v1/users', token=session.access)
-            return handler.send(200, {'users': [public_user(u) for u in users]})
+            return handler.send(200, {'users': [self.accounts.decorate(public_user(u)) for u in users]})
+        action = re.fullmatch(r'/companion-api/users/([1-9][0-9]*)/(profile|password|access)', path)
+        if not get and action:
+            self.app.throttle('account-control:' + str(user['id']), limit=30)
+            result = self.accounts.action(int(action[1]), action[2], handler.body(), session)
+            headers = {'Set-Cookie': [self.cookie('', current_origin, 0)['Set-Cookie'],
+                       handler.reader_cookie('', current_origin, age=0)]} if result.get('signedOut') else None
+            return handler.send(200, result, headers=headers)
         if not get and path == '/companion-api/users':
             values = credentials(handler.body(), new=True)
             with self.mutations:

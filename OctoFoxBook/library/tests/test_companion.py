@@ -42,6 +42,9 @@ class BookLoreFixture(BaseHTTPRequestHandler):
     def do_PUT(self):
         self.handle_api()
 
+    def do_DELETE(self):
+        self.handle_api()
+
     def handle_api(self):
         state = self.server.state
         data = json.loads(self.rfile.read(int(self.headers.get('Content-Length', 0))) or '{}')
@@ -95,18 +98,36 @@ class BookLoreFixture(BaseHTTPRequestHandler):
             return self.send(200, {'opdsServerEnabled': state['opds_enabled']})
         if path == '/api/v2/opds-users':
             if not post:
-                return self.send(200, [{'username': u} for u, (_, owner) in state['opds'].items() if owner == username])
+                return self.send(200, [{'id': i + 1, 'username': u, 'sortOrder': state.get('sorts', {}).get(u, 'RECENT')}
+                                      for i, (u, (_, owner)) in enumerate(state['opds'].items()) if owner == username])
             if state['fail_opds']:
                 state['fail_opds'] = False
                 return self.send(503, {'private': 'never relay me'})
             if data['username'] in state['opds']:
                 return self.send(409, {})
             state['opds'][data['username']] = (data['password'], username)
+            state.setdefault('sorts', {})[data['username']] = data.get('sortOrder', 'RECENT')
+            return self.send(200, {})
+        if path.startswith('/api/v2/opds-users/') and self.command == 'DELETE':
+            identity = int(path.rsplit('/', 1)[1])
+            account = next((u for i, u in enumerate(state['opds']) if i + 1 == identity), None)
+            if not account or state['opds'][account][1] != username:
+                return self.send(403, {})
+            del state['opds'][account]
             return self.send(200, {})
         if not user['permissions']['admin']:
             return self.send(403, {})
         if path == '/api/v1/users':
             return self.send(200, list(state['users'].values()))
+        if path == '/api/v1/users/change-user-password' and self.command == 'PUT':
+            target = next(u for u in state['users'].values() if u['id'] == data['userId'])
+            target['password'] = data['newPassword']
+            return self.send(200, {})
+        if path.startswith('/api/v1/users/') and self.command == 'PUT':
+            target = next(u for u in state['users'].values() if u['id'] == int(path.rsplit('/', 1)[1]))
+            assert set(data) == {'name', 'email'}
+            target.update(data)
+            return self.send(200, target)
         if path == '/api/v1/auth/register':
             if data['username'] in state['users']:
                 return self.send(409, {})
@@ -164,7 +185,9 @@ class CompanionTests(CompanionHTTPCase):
         self.assertEqual(self.state['opds']['reader'][1], 'reader')
         self.assertFalse(self.state['users']['reader']['permissions']['admin'])
         code, result, _ = self.call('/companion-api/users')
-        self.assertEqual(code, 200); self.assertNotIn('password', json.dumps(result))
+        self.assertEqual(code, 200)
+        self.assertTrue(all('password' not in user for user in result['users']))
+        self.assertNotIn(READER['password'], json.dumps(result))
         client = build_opener(HTTPCookieProcessor(CookieJar()))
         code, result, _ = self.call('/reader-api/login', READER, client=client)
         self.assertEqual(code, 200)
@@ -237,6 +260,8 @@ class CompanionTests(CompanionHTTPCase):
             self.assertIn(self.call(path)[0], (401, 404))
 
     def test_upstream_redirect_is_rejected_without_forwarding_credentials(self):
+        # The API redirect fixture is unrelated to background OPDS indexing.
+        self.app.ensure_index = lambda *args, **kwargs: None
         self.setup_admin()
         self.state['redirect'] = self.base + '/companion-api/status'
         api = self.app.companion.api

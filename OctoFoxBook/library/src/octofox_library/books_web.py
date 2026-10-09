@@ -213,6 +213,7 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
         # simultaneous logins launch competing full-catalog refreshes.
         self.index_gate = threading.BoundedSemaphore(1)
         self.auth_cache: OrderedDict[str, tuple[str, float]] = OrderedDict()
+        self.credential_epochs: dict[str, int] = {}
         self.attempts: dict[str, list[float]] = {}
         self.read_cache: OrderedDict[tuple[str, str], list[dict]] = OrderedDict()
         self.read_gate = threading.Lock()
@@ -352,12 +353,17 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
         except (ValueError, UnicodeError) as error:
             raise WebError(401, "Неверный логин или пароль библиотеки") from error
         key = hashlib.sha256(authorization.encode()).hexdigest()
+        self.companion.accounts.guard(owner)
         with self.lock:
+            epoch = self.credential_epochs.get(owner.casefold(), 0)
             cached = self.auth_cache.get(key)
             if cached and cached[1] > time.time():
                 return cached[0]
         self.client.fetch_xml("", (), authorization)
+        self.companion.accounts.guard(owner)
         with self.lock:
+            if epoch != self.credential_epochs.get(owner.casefold(), 0):
+                raise WebError(401, "Войдите в библиотеку")
             self.auth_cache[key] = (owner, time.time() + 60)
             while len(self.auth_cache) > 64:
                 self.auth_cache.popitem(last=False)
@@ -1141,9 +1147,15 @@ class WebHandler(BaseHTTPRequestHandler):
         )
         for key, val in (headers or {}).items():
             if key.lower() != "cache-control":
-                self.send_header(key, val)
+                for item in val if isinstance(val, list) else [val]:
+                    self.send_header(key, item)
         self.end_headers()
         self.wfile.write(data)
+
+    @staticmethod
+    def reader_cookie(token, request_origin, age=SESSION_SECONDS):
+        secure = "; Secure" if request_origin.startswith("https:") else ""
+        return f"books_session={token}; HttpOnly; SameSite=Lax; Path=/; Max-Age={age}{secure}"
 
     def body(self):
         if "application/json" not in self.headers.get("Content-Type", ""):
@@ -1259,6 +1271,7 @@ class WebHandler(BaseHTTPRequestHandler):
             "/companion.css",
             "/companion-network.js",
             "/companion-guide.js",
+            "/companion-accounts.js",
             "/connection-check.js",
             "/ui-language.js",
         }:

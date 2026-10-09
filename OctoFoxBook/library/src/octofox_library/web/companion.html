@@ -10,6 +10,7 @@
   <script defer src="/ui-language.js"></script>
   <script defer src="/companion-network.js"></script>
   <script defer src="/companion-guide.js"></script>
+  <script defer src="/companion-accounts.js"></script>
   <script defer src="/companion.js"></script>
 </head>
 <body>
@@ -40,7 +41,7 @@
         <form id="identity-form">
           <div id="setup-fields">
             <label>Ключ настройки<input name="setupKey" type="password" autocomplete="off" required></label>
-            <details class="key-help"><summary>Где взять ключ?</summary><p>На компьютере с установленной библиотекой, из папки установки выполните:</p><code>docker compose exec library cat /data/companion-setup-key</code><p>Ключ подтверждает, что вы владелец установки. После первого запуска он больше не нужен.</p></details>
+            <details class="key-help"><summary>Где взять ключ?</summary><p>На компьютере с установленной библиотекой, из папки установки выполните:</p><code>python tools/manage.py setup-key</code><p>Ключ подтверждает, что вы владелец установки. После первого запуска он больше не нужен.</p></details>
             <label>Ваше имя<input name="name" autocomplete="name" maxlength="254" required></label>
             <label>Email<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
           </div>
@@ -114,6 +115,16 @@
     <h2 id="reader-title">Пригласите читателя</h2><p class="muted">Передайте ему логин и пароль лично. Письмо автоматически не отправляется.</p>
     <p id="create-error" class="notice" role="alert" hidden></p>
     <form id="reader-form"><label>Имя<input name="name" maxlength="254" autocomplete="off" required></label><label>Email<input name="email" type="email" maxlength="254" autocomplete="off" required></label><label>Логин<input name="username" maxlength="64" autocomplete="off" required autocapitalize="none" spellcheck="false"></label><label>Пароль<input name="password" type="password" minlength="8" autocomplete="new-password" required></label><p class="hint">Читатель сможет загружать и читать свои книги. Управление аккаунтами останется у администратора.</p><button class="primary" type="submit">Создать аккаунт</button></form>
+  </dialog>
+  <dialog id="account-dialog" aria-labelledby="account-title">
+    <div class="dialog-heading"><p class="eyebrow">АККАУНТ</p><button id="close-account-dialog" class="quiet" aria-label="Закрыть">×</button></div>
+    <h2 id="account-title"></h2><p id="account-username" class="muted"></p><p id="account-state" class="hint"></p>
+    <p id="account-error" class="notice" role="status" hidden></p>
+    <form id="account-profile"><label>Имя<input name="name" required maxlength="254" autocomplete="off"></label><label>Email<input name="email" type="email" required maxlength="254" autocomplete="off"></label><button class="primary" type="submit">Сохранить профиль</button></form>
+    <hr><details><summary>Изменить пароль</summary><p class="hint">Пароль изменится и для входа в библиотеку. Открытые сеансы чтения завершатся; книги и прогресс сохранятся. После смены своего пароля войдите заново.</p>
+      <form id="account-password"><label>Новый пароль<input name="password" type="password" required minlength="8" autocomplete="new-password"></label><label>Повторите пароль<input name="confirm" type="password" required minlength="8" autocomplete="new-password"></label><button class="secondary" type="submit">Изменить пароль</button></form>
+    </details>
+    <form id="account-access"><hr><h3>Доступ к библиотеке</h3><p class="hint">Отключение завершит сеансы OctoFox и запретит чтение и вход. Книги и прогресс останутся на месте; доступ можно включить снова.</p><label id="account-access-confirm" class="check-label"><input id="account-disable-confirm" type="checkbox">Подтверждаю отключение доступа</label><button id="account-access-button" class="secondary" type="submit"></button></form>
   </dialog>
   <dialog id="domain-guide" class="domain-guide" lang="en" aria-labelledby="domain-guide-title">
     <div class="dialog-heading"><p class="eyebrow">YOUR LIBRARY, YOUR ADDRESS</p><button id="close-domain-guide" class="quiet" aria-label="Close guide">×</button></div>

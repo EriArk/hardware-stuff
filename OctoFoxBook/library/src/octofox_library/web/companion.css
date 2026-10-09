@@ -613,3 +613,8 @@ textarea { resize:vertical; line-height:1.7; }
   .guide-picture svg { max-height:135px; }
   .guide-footer { position:sticky; bottom:-20px; margin-inline:-20px; padding:16px 20px; background:var(--panel); }
 }
+
+.user-edit { flex-shrink:0; }
+.check-label { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+.check-label input { width:20px; height:20px; min-height:20px; flex-shrink:0; }
+@media(max-width:560px) { .user-edit { margin-left:auto; } }

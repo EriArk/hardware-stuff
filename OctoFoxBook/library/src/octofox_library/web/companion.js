@@ -5,6 +5,7 @@
   let csrf = '';
   let creating = false;
   const network = window.createCompanionNetwork({api, report});
+  const accounts = window.createAccountControls({api, refresh: users, report, signedOut: welcome, notice});
 
   function notice(message = '', error = false) {
     $('notice').textContent = message;
@@ -28,6 +29,7 @@
   }
 
   function welcome() {
+    accounts.reset();
     csrf = '';
     network.reset();
     $('companion-nav').hidden = true;
@@ -61,8 +63,11 @@
       const login = document.createElement('small'); login.textContent = '@' + user.username;
       info.append(name, login);
       const role = document.createElement('span'); role.className = 'role';
-      role.textContent = user.admin ? 'Администратор' : 'Читатель';
-      li.append(avatar, info, role); fragment.append(li);
+      role.textContent = user.passwordPending ? 'Нужна смена пароля' : user.accessEnabled === false ? 'Доступ отключён' : user.admin ? 'Администратор' : 'Читатель';
+      const edit = document.createElement('button'); edit.className = 'quiet user-edit';
+      edit.textContent = 'Управлять'; edit.setAttribute('aria-label', 'Управлять аккаунтом ' + user.username);
+      edit.onclick = () => accounts.open(user);
+      li.append(avatar, info, role, edit); fragment.append(li);
     }
     $('users').replaceChildren(fragment);
     $('user-count').textContent = data.users.length;
@@ -75,6 +80,7 @@
     $('welcome').hidden = true; $('dashboard').hidden = false; $('logout').hidden = false;
     $('signed-in').textContent = 'Вы вошли как ' + (data.user.name || data.user.username);
     await users();
+    window.scrollTo(0, 0);
   }
 
   function report(error) {
@@ -90,7 +96,8 @@
     const form = event.currentTarget, button = $('identity-submit');
     const data = Object.fromEntries(new FormData(form));
     const setupKey = data.setupKey; delete data.setupKey;
-    button.disabled = true; notice();
+    const label = button.textContent;
+    button.disabled = true; button.textContent = 'Подключаем…'; notice();
     try {
       const result = await api(configured ? 'login' : 'setup', data, setupKey ? {'X-Setup-Key': setupKey} : {});
       form.reset();
@@ -101,7 +108,7 @@
       // A lost response may follow successful setup. Never blindly resubmit it.
       try { configured = (await api('status')).configured; welcome(); } catch (_) { /* retain the original failure */ }
       report(error);
-    } finally { button.disabled = false; }
+    } finally { button.disabled = false; button.textContent = configured ? 'Войти →' : label; }
   });
 
   $('add-reader').addEventListener('click', () => {

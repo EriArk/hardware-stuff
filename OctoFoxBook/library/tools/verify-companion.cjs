@@ -9,7 +9,7 @@ const output = path.resolve(process.env.QA_OUTPUT || 'test-results/companion');
 fs.mkdirSync(output, {recursive:true});
 let configured = false, loggedIn = false;
 let networkRevision = 0, additionalOrigins = [], confirmedAt = null, checkLifetime = 600;
-const accounts = [{id:1,username:'owner',name:'Александра',admin:true}];
+const accounts = [{id:1,username:'owner',name:'Александра',email:'owner@example.org',admin:true,accessEnabled:true}];
 const server = http.createServer(async (req,res) => {
   const url = new URL(req.url, 'http://localhost');
   if (url.pathname.startsWith('/companion-api/')) {
@@ -39,9 +39,15 @@ const server = http.createServer(async (req,res) => {
       data = {token:'x'.repeat(43),url:checkUrl,qrDataUrl,expiresIn:checkLifetime};
     }
     else if (route === 'network/check-status') data = {confirmedAt,scope:'browser',externalReachability:'unverified'};
+    else if (/^users\/\d+\/(profile|password|access)$/.test(route)) {
+      const [, id, action] = route.split('/'), user = accounts.find(u => u.id === Number(id));
+      if (action === 'profile') Object.assign(user, {name:form.name,email:form.email});
+      if (action === 'access') user.accessEnabled = form.enabled;
+      data = {ok:true,user};
+    }
     else if (route === 'users' && req.method === 'GET') data = {users:accounts};
     else if (route === 'users') {
-      accounts.push({id:accounts.length+1,username:form.username,name:form.name,admin:false});
+      accounts.push({id:accounts.length+1,username:form.username,name:form.name,email:form.email,admin:false,accessEnabled:true});
       status = 201; data = {readerReady:true};
     } else if (route === 'reader-access') data = {readerReady:true};
     else if (route === 'logout') loggedIn = false;
@@ -89,6 +95,31 @@ const server = http.createServer(async (req,res) => {
     await page.setViewportSize({width:393,height:852});
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.screenshot({path:path.join(output,'readers-mobile.png'),fullPage:true});
+    await page.locator('#users li').nth(1).locator('.user-edit').click();
+    const accountDialog = page.locator('#account-dialog');
+    await page.locator('#account-profile [name=name]').fill('Reader Updated');
+    await page.locator('#account-profile button').click();
+    await page.locator('#account-title').filter({hasText:'Reader Updated'}).waitFor();
+    await page.locator('#account-disable-confirm').check();
+    await page.locator('#account-access-button').click();
+    await page.locator('#account-state').filter({hasText:english ? 'Access disabled' : 'Доступ отключён'}).waitFor();
+    await page.locator('#account-access-button').click();
+    await page.locator('#account-state').filter({hasText:english ? 'Access enabled' : 'Доступ включён'}).waitFor();
+    await accountDialog.locator('summary').click();
+    await page.locator('#account-password [name=password]').fill('new-reader-password');
+    await page.locator('#account-password [name=confirm]').fill('different-password');
+    await page.locator('#account-password button').click();
+    assert.equal(await page.locator('#account-password [name=confirm]').evaluate(el => el.validity.valid), false);
+    await page.locator('#account-password [name=password]').fill('different-password');
+    await page.locator('#account-password button').click();
+    await page.waitForFunction(() => !document.querySelector('#account-password [name=password]').value);
+    for (const width of [393,1280]) {
+      await page.setViewportSize({width,height:980});
+      assert(await accountDialog.evaluate(el => el.scrollWidth <= el.clientWidth), 'account dialog overflow');
+      await page.screenshot({path:path.join(output,`account-${width}.png`)});
+    }
+    await page.locator('#close-account-dialog').click();
+    await accountDialog.waitFor({state:'hidden'});
     await page.locator('#logout').click();
     await page.getByRole('heading',{name:english ? 'Sign in to Companion' : 'Войти в Companion'}).waitFor();
     assert.equal(await page.locator('#setup-fields').isVisible(), false);
