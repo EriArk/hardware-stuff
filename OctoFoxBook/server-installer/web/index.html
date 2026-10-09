@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OctoFox · Server setup</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body>
+<header><a class="brand" href="/">OCTOFOX</a><span>SERVER SETUP</span><small>Your books, at home.</small></header>
+<main>
+  <aside><p class="eyebrow">A HOME FOR YOUR BOOKS</p><h1>Your library.<br>Your own server.</h1><p class="intro">Reading, listening and your personal collection — together on a computer you control.</p>
+    <div class="book-art" aria-hidden="true"><div class="book book-back"></div><div class="book book-front"><span>OCTOFOX</span><div class="ornament">❧</div><strong>A shelf of<br>possibilities</strong><i>READ · LISTEN · KEEP</i></div></div>
+    <p class="quiet">Companion is included with your server.<br>The portable desktop browser finds it for you.</p>
+  </aside>
+  <section class="card" aria-labelledby="setup-title">
+    <p class="eyebrow">LET’S GET YOU SET UP</p><h2 id="setup-title">Install your book server</h2><p class="sub">We’ll prepare the required components and start your library. No account or setup key needed here.</p>
+    <form id="form">
+      <label for="directory">Server folder</label><input id="directory" name="directory" required autocomplete="off" spellcheck="false"><p class="hint">Server files and settings go here. Books and accounts are kept in Docker’s persistent storage.</p>
+      <label class="option"><input id="speech" type="checkbox" checked><span><strong>Include read-aloud voices</strong><small>Listen to books in several languages. The first download takes longer.</small></span></label>
+      <details><summary>Advanced settings</summary><div class="ports"><div><label for="port">Library port</label><input id="port" type="number" min="1024" max="65535" value="8080" required></div><div><label for="adminPort">Internal admin port</label><input id="adminPort" type="number" min="1024" max="65535" value="8081" required></div></div><p class="hint">The server will be available on your local network. Existing installations keep their saved settings.</p></details>
+      <div class="actions"><button id="install" class="primary" type="submit">Install server <span>→</span></button><button id="check" type="button">Check computer</button></div>
+      <p class="hint">Missing components are installed automatically. Your operating system may ask for permission or a restart. Docker Desktop may show its <a href="https://www.docker.com/legal/docker-subscription-service-agreement/" target="_blank" rel="noreferrer">terms</a>.</p>
+    </form>
+    <div id="status" role="status" aria-live="polite" hidden><div class="status-top"><span id="indicator"></span><h3 id="phase"></h3></div><p id="detail"></p><div id="progress" hidden><span></span></div></div>
+    <div id="error" role="alert" hidden></div>
+    <div id="success" hidden><p class="eyebrow">READY FOR YOUR FIRST BOOK</p><h2>Your server is ready.</h2><p>Open the portable <strong>OctoFox Companion</strong> browser. It will find this server and display its setup page.</p><p>Create your owner account there, then add your books. This installer can now be closed; the server keeps running.</p><div class="result"><span>Installed in</span><strong id="installed-path"></strong></div><button id="finish" class="primary">Finish setup <span>✓</span></button></div>
+  </section>
+</main>
+<footer><span>LIBRARY · NARRATION · COMPANION</span><span>Private by default. Ready to make yours.</span></footer>
+</body></html>
