@@ -105,6 +105,68 @@ const server = http.createServer(async (req,res) => {
     await page.locator('#external-ip').click();
     await page.locator('#external-ip-result').filter({hasText:'203.0.113.42'}).waitFor();
     await page.locator('.cloudflare-guide summary').click();
+    const guide = page.locator('#domain-guide');
+    await page.locator('#open-domain-guide').click();
+    assert.equal(await guide.getAttribute('lang'), 'en');
+    await page.locator('#guide-hostname').fill('textbooks.abysstail.art');
+    assert(await page.locator('#guide-back').isDisabled());
+    await page.locator('#guide-next').click();
+    assert.equal(await page.locator('#guide-progress').textContent(), '2 / 5');
+    await page.locator('#guide-back').click();
+    assert.equal(await page.locator('#guide-progress').textContent(), '1 / 5');
+    for (const width of [393,768,1280]) {
+      await page.setViewportSize({width,height:980});
+      for (let step = 0; step < 5; step++) {
+        await page.locator(`[data-guide-step="${step}"]`).click();
+        assert.equal(await guide.locator('[data-guide-panel]:visible').count(), 1);
+        assert(await guide.evaluate(el => el.scrollWidth <= el.clientWidth), `guide overflow ${width}/${step}`);
+        assert(!/[А-Яа-яЁё]/.test(await guide.innerText()), 'guide is English');
+        await page.screenshot({path:path.join(output,`guide-${width}-step-${step+1}.png`)});
+      }
+    }
+    await page.locator('[data-guide-step="2"]').click();
+    assert.equal(await page.locator('#guide-service-url').textContent(), 'http://127.0.0.1:8080');
+    await page.locator('#guide-connector').selectOption('docker');
+    assert.equal(await page.locator('#guide-service-url').textContent(), 'http://library:8080');
+    await page.locator('[data-guide-step="0"]').click();
+    await page.locator('#guide-hostname').fill('<script>window.injected=true</script>');
+    await page.locator('[data-guide-step="3"]').click();
+    await page.locator('#guide-add-origin').click();
+    assert(await page.locator('#guide-origin-error').isVisible());
+    assert.equal(await page.evaluate(() => window.injected), undefined);
+    await page.locator('[data-guide-step="0"]').click();
+    await page.locator('#guide-hostname').fill('textbooks.abysstail.art');
+    const revisionBeforeGuide = networkRevision;
+    await page.locator('[data-guide-step="3"]').click();
+    await page.locator('#guide-add-origin').click();
+    await guide.waitFor({state:'hidden'});
+    await page.waitForFunction(() => document.activeElement.id === 'additional-origins');
+    assert.equal(networkRevision, revisionBeforeGuide, 'guide does not save settings');
+    assert.equal(await page.locator('#additional-origins').inputValue(), 'http://192.168.1.20:8080\nhttps://books.example.org\nhttps://textbooks.abysstail.art');
+    await page.locator('#open-domain-guide').click();
+    await page.locator('[data-guide-step="3"]').click();
+    await page.locator('#guide-add-origin').click();
+    await guide.waitFor({state:'hidden'});
+    assert.equal((await page.locator('#additional-origins').inputValue()).split('\n').length, 3, 'no duplicate address');
+    await page.locator('#open-domain-guide').click();
+    await page.keyboard.press('Escape');
+    await guide.waitFor({state:'hidden'});
+    await page.waitForFunction(() => document.activeElement.id === 'open-domain-guide');
+    await page.locator('#open-domain-guide').click();
+    await page.locator('[data-guide-step="4"]').click();
+    await page.locator('#guide-go-check').click();
+    await guide.waitFor({state:'hidden'});
+    await page.waitForFunction(() => document.activeElement.id === 'check-origin');
+    const fullList = Array.from({length:8}, (_, i) => `https://books${i}.example.org`).join('\n');
+    await page.locator('#additional-origins').fill(fullList);
+    await page.locator('#open-domain-guide').click();
+    await page.locator('[data-guide-step="3"]').click();
+    await page.locator('#guide-add-origin').click();
+    assert(await page.locator('#guide-origin-error').isVisible());
+    assert.equal(await page.locator('#additional-origins').inputValue(), fullList);
+    await page.locator('#close-domain-guide').click();
+    await guide.waitFor({state:'hidden'});
+    await page.locator('#additional-origins').fill(additionalOrigins.join('\n'));
     for (const width of [393,768,1024,1280]) {
       await page.setViewportSize({width,height:980});
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `network overflow at ${width}`);

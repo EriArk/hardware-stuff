@@ -581,3 +581,35 @@ textarea { resize:vertical; line-height:1.7; }
 .language-choice select { width: auto; max-width: 160px; min-height: 36px; padding: 6px 10px; }
 .drawer-footer { flex-wrap: wrap; }
 .drawer-footer .language-choice { flex-basis: 100%; }
+
+.domain-guide { width:920px; padding:30px; color:var(--text); }
+.domain-guide h2 { font-family:Companion Serif,Georgia,serif; font-size:34px; margin:16px 0 10px; }
+.guide-steps { display:flex; flex-wrap:wrap; gap:7px; margin:22px 0; padding-bottom:18px; border-bottom:1px solid var(--line); }
+.guide-steps button { border:1px solid var(--line); border-radius:20px; padding:9px 13px; color:var(--muted); background:transparent; font:inherit; font-size:12px; }
+.guide-steps [aria-current] { color:var(--gold); border-color:var(--gold); background:#e6bd8310; }
+.guide-layout { display:grid; grid-template-columns:1.15fr 1fr; gap:28px; align-items:start; }
+.guide-layout h3 { margin-top:4px; font-size:22px; }
+.guide-layout p { color:var(--muted); line-height:1.65; font-size:14px; }
+.guide-picture { margin:0; border:1px solid #65514e; border-radius:20px; padding:22px; background:linear-gradient(145deg,#392c35,#1e1b25); text-align:center; min-width:0; }
+.guide-picture svg { display:block; width:100%; max-height:200px; fill:none; stroke:var(--gold); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+.guide-picture figcaption { display:grid; gap:10px; margin-top:16px; color:var(--muted); font-size:12px; }
+.guide-picture strong,.guide-picture b { color:var(--gold); overflow-wrap:anywhere; }
+.guide-picture code { font-size:12px; white-space:normal; overflow-wrap:anywhere; }
+.guide-window { border:1px solid #735f6a; border-radius:12px; text-align:left; padding:17px; display:grid; gap:16px; }
+.guide-window>span { font-size:11px; color:var(--muted); border-bottom:1px solid #735f6a; padding-bottom:12px; }
+.guide-window label { font-size:11px; color:var(--muted); }
+.guide-window strong { display:block; margin-top:8px; font-size:14px; }
+.guide-terminal { padding:15px; background:#141219; border-radius:8px; color:#eed3a8; font:13px monospace; line-height:2; }
+.guide-terminal span { color:#706674; }
+.guide-route-arrow { text-align:center; color:var(--gold); font-size:24px; }
+.guide-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:25px; padding-top:20px; border-top:1px solid var(--line); }
+.guide-troubleshooting { margin-top:20px; font-size:13px; color:var(--muted); line-height:1.6; }
+.guide-troubleshooting li { margin-bottom:10px; }
+.guide-source { margin-bottom:0; }
+@media(max-width:650px) {
+  .domain-guide { padding:20px; }
+  .guide-layout { grid-template-columns:1fr; gap:18px; }
+  .guide-picture { padding:16px; }
+  .guide-picture svg { max-height:135px; }
+  .guide-footer { position:sticky; bottom:-20px; margin-inline:-20px; padding:16px 20px; background:var(--panel); }
+}

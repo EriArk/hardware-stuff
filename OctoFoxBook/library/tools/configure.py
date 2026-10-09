@@ -29,6 +29,12 @@ def configuration(origin, bind, port, admin_port):
     }
 
 
+def write_configuration(output, values):
+    fd = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as out:
+        out.write("".join(f"{key}={value}\n" for key, value in values.items()))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--origin", default="http://localhost:8080")
@@ -39,9 +45,7 @@ def main():
     args = parser.parse_args()
     try:
         values = configuration(args.origin, args.bind, args.port, args.admin_port)
-        fd = os.open(args.output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as out:
-            out.write("".join(f"{key}={value}\n" for key, value in values.items()))
+        write_configuration(args.output, values)
     except (ValueError, OSError) as error:
         parser.exit(1, f"Configuration not written: {error}\n")
     print(f"Created {args.output}. Keep this file private and include it in your backup.")

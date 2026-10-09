@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/companion.css">
   <script defer src="/ui-language.js"></script>
   <script defer src="/companion-network.js"></script>
+  <script defer src="/companion-guide.js"></script>
   <script defer src="/companion.js"></script>
 </head>
 <body>
@@ -87,16 +88,11 @@
             <p class="hint">По нажатию сервер обратится к ipify. Данные аккаунтов и книг не передаются.</p>
             <p id="external-ip-result" class="address-value" aria-live="polite"></p>
             <p class="hint">Найденный IP не подтверждает входящие подключения. Для прямого доступа нужны настройка роутера и HTTPS; при CGNAT может понадобиться туннель.</p>
-            <details class="cloudflare-guide"><summary>Подключить через Cloudflare</summary>
-              <ol>
-                <li>Добавьте свой домен в Cloudflare, выберите поддомен библиотеки и сохраните его HTTPS-адрес в форме слева.</li>
-                <li>В панели Cloudflare откройте <b>Networking → Tunnels</b> и создайте туннель. Установите коннектор на компьютер с библиотекой командой, которую покажет Cloudflare.</li>
-                <li>В туннеле откройте <b>Routes → Add route → Published application</b> и выберите этот поддомен.</li>
-                <li>Для коннектора, установленного на самом компьютере, укажите Service URL:<code id="cloudflare-service"></code><span class="hint">Для коннектора в той же Docker-сети — <code class="inline-code">http://library:8080</code>. Сохраняйте исходный Host; переопределять его на localhost не нужно.</span></li>
-                <li>Сохраните маршрут и откройте ссылку проверки ниже с другого подключения.</li>
-              </ol>
-              <p class="hint">Токен туннеля вводится только при установке коннектора. Companion его не запрашивает.</p>
-              <a class="text-link" href="https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel/" target="_blank" rel="noopener noreferrer">Инструкция Cloudflare ↗</a>
+            <details class="cloudflare-guide" lang="en"><summary>Connect through Cloudflare</summary>
+              <p>Five illustrated steps, from your domain to a check on your phone.</p>
+              <button id="open-domain-guide" class="primary" type="button">Open illustrated guide</button>
+              <p class="hint">For a connector installed on the library computer, use this Service URL:</p><code id="cloudflare-service"></code>
+              <p class="hint">The guide also explains Docker connectors, allowed addresses and QR checks. The tunnel token is only used to install the connector; Companion does not ask for it.</p>
             </details>
           </section>
           <section class="panel" aria-labelledby="check-title">
@@ -118,6 +114,47 @@
     <h2 id="reader-title">Пригласите читателя</h2><p class="muted">Передайте ему логин и пароль лично. Письмо автоматически не отправляется.</p>
     <p id="create-error" class="notice" role="alert" hidden></p>
     <form id="reader-form"><label>Имя<input name="name" maxlength="254" autocomplete="off" required></label><label>Email<input name="email" type="email" maxlength="254" autocomplete="off" required></label><label>Логин<input name="username" maxlength="64" autocomplete="off" required autocapitalize="none" spellcheck="false"></label><label>Пароль<input name="password" type="password" minlength="8" autocomplete="new-password" required></label><p class="hint">Читатель сможет загружать и читать свои книги. Управление аккаунтами останется у администратора.</p><button class="primary" type="submit">Создать аккаунт</button></form>
+  </dialog>
+  <dialog id="domain-guide" class="domain-guide" lang="en" aria-labelledby="domain-guide-title">
+    <div class="dialog-heading"><p class="eyebrow">YOUR LIBRARY, YOUR ADDRESS</p><button id="close-domain-guide" class="quiet" aria-label="Close guide">×</button></div>
+    <h2 id="domain-guide-title">Connect your domain</h2>
+    <p class="hint">These illustrations are diagrams, not screenshots of the Cloudflare dashboard. Menu names follow the official guide.</p>
+    <nav class="guide-steps" aria-label="Connection steps">
+      <button data-guide-step="0" aria-current="step">1 · Domain</button><button data-guide-step="1">2 · Tunnel</button><button data-guide-step="2">3 · Route</button><button data-guide-step="3">4 · Library</button><button data-guide-step="4">5 · Check</button>
+    </nav>
+    <section data-guide-panel="0">
+      <div class="guide-layout">
+        <div><h3 tabindex="-1">Prepare your domain</h3><p>In Cloudflare, go to Domains → Onboard a domain and add your root domain. Review the DNS records for your website and email, then set the assigned Cloudflare nameservers at your registrar. Wait for Active status.</p><p>Already active in Cloudflare? Continue to the next step. Choose a separate subdomain for your library.</p>
+          <label>Your library hostname<input id="guide-hostname" placeholder="books.example.org" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="253" aria-describedby="guide-host-hint"></label><p id="guide-host-hint" class="hint">Enter just the hostname, without https:// or a path. This is a preview; it does not change any settings.</p>
+          <a class="text-link" href="https://developers.cloudflare.com/fundamentals/manage-domains/add-site/" target="_blank" rel="noopener noreferrer">How to add a domain ↗</a>
+        </div>
+        <figure class="guide-picture"><svg viewBox="0 0 300 148" role="img" aria-label="A domain directs visitors through Cloudflare to the library"><rect x="20" y="42" width="72" height="65" rx="10"/><path d="M27 57h58M54 43v63M27 89h58M92 75h44m-9-9 9 9-9 9"/><path d="M161 97h57a22 22 0 0 0 1-44 30 30 0 0 0-56 7 19 19 0 0 0-2 37Z"/><path d="M178 74l11 10 20-22"/></svg><figcaption><b>Cloudflare · Active</b><span>Your library hostname</span><strong class="guide-domain-preview">books.example.org</strong></figcaption></figure>
+      </div>
+    </section>
+    <section data-guide-panel="1" hidden>
+      <div class="guide-layout"><div><h3 tabindex="-1">Connect your server to Cloudflare</h3><p>Open Networking → Tunnels → Create a tunnel. Name it, choose the server operating system and run the supplied connector installation command on the computer hosting your library.</p><p>Wait for the tunnel to connect. Its token stays on your server; Companion does not need it.</p><p class="hint">Keep the server and connector running. A tunnel does not require opening the library port on your router.</p></div>
+        <figure class="guide-picture"><div class="guide-window"><span>Networking / Tunnels</span><b>octofox-library</b><div class="guide-terminal">cloudflared<br><span>••••••••••••••••</span></div><strong class="guide-success">● Healthy</strong></div><figcaption>Get the command from your Cloudflare dashboard</figcaption></figure>
+      </div>
+    </section>
+    <section data-guide-panel="2" hidden>
+      <div class="guide-layout"><div><h3 tabindex="-1">Point the address to your library</h3><p>In the tunnel, select Routes → Add route → Published application. Select your root domain and library subdomain. Leave Path empty.</p>
+          <label>Where is the connector installed?<select id="guide-connector"><option value="host">On the library computer</option><option value="docker">On the same Docker network</option></select></label>
+          <p>Copy the displayed Service URL into the route and save it. The public address uses HTTPS; the internal library address uses HTTP.</p><p id="guide-connector-hint" class="hint"></p><p class="hint">Preserve the original Host. Under Additional application settings, do not set HTTP Host Header to localhost.</p>
+        </div><figure class="guide-picture"><div class="guide-window"><span>Published application</span><label>Hostname<strong class="guide-domain-preview">books.example.org</strong></label><label>Service URL<code id="guide-service-url">http://127.0.0.1:8080</code></label><div class="guide-route-arrow" aria-hidden="true">↓</div><b>OctoFox Library</b></div><figcaption>The public name points to the internal address</figcaption></figure></div>
+    </section>
+    <section data-guide-panel="3" hidden>
+      <div class="guide-layout"><div><h3 tabindex="-1">Allow the new address in Companion</h3><p>Add the HTTPS address to Additional addresses and click Save addresses. This allows access through the domain while keeping your previous address available.</p><p>The button below only fills in the form. You save it separately.</p><button id="guide-add-origin" class="primary" type="button">Add address to form</button><p id="guide-origin-error" class="notice error" role="alert" hidden></p></div>
+        <figure class="guide-picture"><div class="guide-window"><span>OctoFox Companion</span><svg viewBox="0 0 240 98" role="img" aria-label="The new HTTPS address joins the existing addresses"><rect x="30" y="14" width="180" height="68" rx="8"/><path d="M47 33h95M47 50h117M47 66h72m61-4v14m-7-7h14"/></svg><code class="guide-origin-preview">https://books.example.org</code><b>Save addresses</b></div><figcaption>Your existing addresses stay in the list</figcaption></figure>
+      </div>
+    </section>
+    <section data-guide-panel="4" hidden>
+      <div class="guide-layout"><div><h3 tabindex="-1">Check over mobile data</h3><p>In the connection check, select the saved HTTPS address and create a QR code. Turn off Wi-Fi on your phone and scan it with the camera. Wait for confirmation on the phone and in Companion.</p><p>Then open the library through your domain, sign in and try reading and narration. The QR code checks that this installation is reachable; it does not sign you in.</p><button id="guide-go-check" class="primary" type="button">Go to connection check</button></div>
+        <figure class="guide-picture"><svg viewBox="0 0 300 190" role="img" aria-label="A phone receives confirmation from the library over mobile data"><rect x="87" y="10" width="126" height="169" rx="18"/><path d="M121 26h58M133 163h34"/><circle cx="150" cy="95" r="36"/><path d="m130 95 14 14 29-31M236 53h7V40h7v13h7V27h7v26"/></svg><figcaption><b>Wi-Fi OFF · 4G / 5G</b><span>The real QR code appears in the connection check</span></figcaption></figure>
+      </div>
+      <details class="guide-troubleshooting"><summary>If the connection does not work</summary><ul><li>Domain not found: check the domain status and the DNS record for your chosen subdomain in Cloudflare.</li><li>Error 502: check that the library is running and its Service URL is reachable from the connector computer or container.</li><li>Access denied: check the saved HTTPS address and make sure Host is not overridden.</li><li>QR is not confirmed: generate a new code, check the selected address and turn off Wi-Fi on your phone.</li></ul></details>
+    </section>
+    <footer class="guide-footer"><button id="guide-back" class="secondary" type="button">Back</button><span id="guide-progress" class="hint" aria-live="polite"></span><button id="guide-next" class="primary" type="button">Next</button></footer>
+    <p class="hint guide-source"><a href="https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/get-started/create-remote-tunnel/" target="_blank" rel="noopener noreferrer">Official Cloudflare guide ↗</a></p>
   </dialog>
 </body>
 </html>

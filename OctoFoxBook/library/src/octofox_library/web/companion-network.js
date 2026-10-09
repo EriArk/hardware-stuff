@@ -33,7 +33,8 @@ window.createCompanionNetwork = ({api, report}) => {
       : data.publishedBind === '0.0.0.0'
         ? `Порт ${port || ''} опубликован на сетевых интерфейсах. Доступ также зависит от брандмауэра и роутера.`
         : 'Параметры опубликованного порта неизвестны. Проверьте настройки запуска на сервере.';
-    $('cloudflare-service').textContent = port ? `http://127.0.0.1:${port}` : 'http://127.0.0.1:ПОРТ_БИБЛИОТЕКИ';
+    const host = data.publishedBind && data.publishedBind !== '0.0.0.0' ? data.publishedBind : '127.0.0.1';
+    $('cloudflare-service').textContent = port ? `http://${host}:${port}` : 'http://127.0.0.1:LIBRARY_PORT';
   }
   function failure(error) {
     message(error.message || 'Соединение прервалось. Обновите настройки перед повтором.', true);

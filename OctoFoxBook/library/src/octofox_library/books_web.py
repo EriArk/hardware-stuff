@@ -1258,6 +1258,7 @@ class WebHandler(BaseHTTPRequestHandler):
             "/companion.js",
             "/companion.css",
             "/companion-network.js",
+            "/companion-guide.js",
             "/connection-check.js",
             "/ui-language.js",
         }:
