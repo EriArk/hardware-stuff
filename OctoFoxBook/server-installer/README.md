@@ -2,6 +2,10 @@
 
 A separate installer for the book server, including Library, narration and the server-side Companion panel. The portable Companion browser is a separate download and does not need installation.
 
+## Early beta downloads
+
+[Download OctoFox Book 0.2.0-beta.1](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.1). Choose the portable Companion browser for your desktop and, separately, Server Setup for the computer hosting your books. The release includes checksums, source code and known limitations.
+
 ## Install your server
 
 Open **OctoFox-Server-Setup** on the computer that will host your books. The setup page opens in your browser. Keep the suggested folder and narration option, then choose **Install server**.
