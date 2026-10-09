@@ -1,4 +1,5 @@
 {
+  "fixture_version": 2,
   "width": 960,
   "height": 540,
   "levels": 4,
@@ -33,6 +34,26 @@
       "index": 5,
       "sha256": "249e740d3127bab2dc9b23920c3466f91c5402624db5edc24661bc8a145fe92e",
       "runs": 21983
+    },
+    {
+      "index": 6,
+      "sha256": "c4676b7c2dfd1733c414f1d1cbe57d8795c30bc09079be21a44875aac6956723",
+      "runs": 8252
+    },
+    {
+      "index": 7,
+      "sha256": "0195e78f0542e7f073fddac61b93bff8db3c6c8c013da8a3617c02011d6bf421",
+      "runs": 13761
+    },
+    {
+      "index": 8,
+      "sha256": "2daa8dbde5d07cf77a3b31550585256f3211302985bbb048064b2d0b53d936b8",
+      "runs": 23109
+    },
+    {
+      "index": 9,
+      "sha256": "4601e44268d8bb52033363fb2981aa3e4b2454a96351c969a9a3e01b48301a72",
+      "runs": 23207
     }
   ]
 }

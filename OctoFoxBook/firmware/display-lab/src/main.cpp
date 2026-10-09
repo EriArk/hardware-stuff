@@ -23,12 +23,24 @@ unsigned step = 0;
 unsigned cadence = 0;
 unsigned quality = 0;
 unsigned cleanup = 0;
-bool menu = false;
+unsigned sceneId = 0;
 char line[100];
 size_t lineSize = 0;
 bool overflow = false;
 const char* const kQualities[] = {"HIGH", "NORMAL", "FAST"};
 const char* const kCleanups[] = {"NONE", "HARD", "SOFT", "LOCAL"};
+const char* const kScenes[] = {"TEXT", "MENU", "COVER", "LIBRARY", "MIXED"};
+
+unsigned targetForStep() {
+    if (sceneId == 1) return 4 + step % 2;
+    if (sceneId == 2) return 6 + step % 2;
+    if (sceneId == 3) return 8 + step % 2;
+    if (sceneId == 4) {
+        constexpr unsigned sequence[] = {8, 9, 6, 0, 7, 3};
+        return sequence[step % 6];
+    }
+    return step % 4;
+}
 
 bool waitPanel() {
 #ifdef LAB_PAINTER
@@ -45,7 +57,7 @@ bool waitPanel() {
 }
 
 bool decode(unsigned index) {
-    if (index >= 6 || !frame) return false;
+    if (index >= sizeof(kFrames) / sizeof(kFrames[0]) || !frame) return false;
     size_t offset = 0;
     for (size_t i = 0; i < kFrameRuns[index]; ++i) {
         const LabRun run = kFrames[index][i];
@@ -66,7 +78,7 @@ bool decode(unsigned index) {
 
 void showFrame(bool initial) {
     if (!waitPanel()) return;
-    const unsigned target = menu ? 4 + (step % 2) : step % 4;
+    const unsigned target = targetForStep();
     const uint32_t start = micros();
     if (!decode(target)) {
         active = false;
@@ -107,7 +119,7 @@ void showFrame(bool initial) {
     Serial.printf("LAB FRAME backend=%s quality=%s policy=%s cadence=%u scene=%s "
                   "step=%u target=%u initial=%u cleanup=%s decode_us=%lu clean_us=%lu "
                   "paint_us=%lu total_us=%lu ok=1\n", kBackend, kQualities[quality],
-                  kCleanups[cleanup], cadence, menu ? "MENU" : "TEXT", step, target,
+                  kCleanups[cleanup], cadence, kScenes[sceneId], step, target,
                   initial ? 1 : 0, cleared, (unsigned long)(decoded-start),
                   (unsigned long)(cleaned-decoded), (unsigned long)(done-cleaned),
                   (unsigned long)(done-start));
@@ -115,7 +127,7 @@ void showFrame(bool initial) {
 
 void command(const char* input) {
     if (!strcmp(input, "PING") || !strcmp(input, "LAB STATUS")) {
-        Serial.printf("LAB STATUS version=1 backend=%s ready=%u active=%u fault=%u step=%u "
+        Serial.printf("LAB STATUS version=2 fixtures=2 backend=%s ready=%u active=%u fault=%u step=%u "
                       "storage=untouched wifi=off\n", kBackend, ready, active, fault, step);
         return;
     }
@@ -137,10 +149,11 @@ void command(const char* input) {
     if (sscanf(input, "LAB START %11s %11s %u %11s %c", q, c, &interval, scene, &extra) != 4) {
         Serial.println("LAB ERROR syntax"); return;
     }
-    int qi = -1, ci = -1;
+    int qi = -1, ci = -1, si = -1;
     for (int i = 0; i < 3; ++i) if (!strcmp(q, kQualities[i])) qi = i;
     for (int i = 0; i < 4; ++i) if (!strcmp(c, kCleanups[i])) ci = i;
-    if (qi < 0 || ci < 0 || (strcmp(scene, "TEXT") && strcmp(scene, "MENU")) ||
+    for (int i = 0; i < 5; ++i) if (!strcmp(scene, kScenes[i])) si = i;
+    if (qi < 0 || ci < 0 || si < 0 ||
         interval > 24 || (ci == 0 ? interval != 0 : interval == 0)) {
         Serial.println("LAB ERROR invalid-profile"); return;
     }
@@ -148,7 +161,7 @@ void command(const char* input) {
     if (ci != 0 || interval != 0) { Serial.println("LAB ERROR lilygo-clears-every-frame"); return; }
 #endif
     if (!waitPanel()) return;
-    quality = qi; cleanup = ci; cadence = interval; menu = !strcmp(scene, "MENU"); step = 0;
+    quality = qi; cleanup = ci; cadence = interval; sceneId = si; step = 0;
 #ifdef LAB_PAINTER
     panel.setQuality(quality == 0 ? EPD_Painter::Quality::QUALITY_HIGH :
                      quality == 1 ? EPD_Painter::Quality::QUALITY_NORMAL :

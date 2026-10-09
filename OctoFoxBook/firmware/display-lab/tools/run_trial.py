@@ -33,7 +33,7 @@ def main():
     parser.add_argument('--quality', choices=['HIGH', 'NORMAL', 'FAST'], default='HIGH')
     parser.add_argument('--cleanup', choices=['NONE', 'HARD', 'SOFT', 'LOCAL'], default='HARD')
     parser.add_argument('--every', type=int, default=6)
-    parser.add_argument('--scene', choices=['TEXT', 'MENU'], default='TEXT')
+    parser.add_argument('--scene', choices=['TEXT', 'MENU', 'COVER', 'LIBRARY', 'MIXED'], default='TEXT')
     parser.add_argument('--steps', type=int, default=11)
     parser.add_argument('--delay', type=float, default=2.0)
     parser.add_argument('--output', type=Path, required=True)
@@ -58,6 +58,8 @@ def main():
         result['device'] = status
         if status.get('ready') != '1' or status.get('fault') != '0':
             raise RuntimeError('Display lab is not ready')
+        if args.scene in ('COVER', 'LIBRARY', 'MIXED') and int(status.get('fixtures', 1)) < 2:
+            raise RuntimeError('Cover scenes require display lab fixture version 2')
         if status.get('backend') == 'lilygo' and args.cleanup != 'NONE':
             raise RuntimeError('LilyGo clears on every frame; use NONE --every 0')
         start = f'LAB START {args.quality} {args.cleanup} {args.every} {args.scene}'

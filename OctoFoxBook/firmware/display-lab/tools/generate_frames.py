@@ -30,6 +30,31 @@ def native_levels(image):
                  for y in range(540) for x in range(960))
 
 
+def cover_image(variant, font):
+    """Original geometric test covers: broad gray fields and fine details."""
+    image = Image.new('L', (432, 660), 0 if variant == 0 else 255)
+    draw = ImageDraw.Draw(image)
+    if variant == 0:
+        draw.ellipse((190, 70, 370, 250), fill=170)
+        draw.polygon([(0, 450), (170, 230), (310, 470), (432, 340),
+                      (432, 660), (0, 660)], fill=85)
+        draw.polygon([(0, 560), (270, 390), (432, 550), (432, 660),
+                      (0, 660)], fill=170)
+        draw.text((28, 30), 'NIGHT / 01', font=font, fill=255)
+    else:
+        for x in range(0, 432, 24):
+            draw.line((x, 100, 432 - x, 550), fill=170, width=2)
+        draw.ellipse((60, 200, 350, 490), fill=85)
+        draw.ellipse((130, 260, 290, 420), fill=255)
+        draw.text((28, 30), 'LIGHT / 02', font=font, fill=0)
+        # Alternating black/white marks expose residual high-frequency detail.
+        for y in range(560, 620, 4):
+            for x in range(24, 408, 4):
+                if (x + y) % 8 == 0:
+                    draw.rectangle((x, y, x + 1, y + 1), fill=0)
+    return image
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--font', type=Path, required=True)
@@ -39,7 +64,7 @@ def main():
     output.mkdir(exist_ok=True)
     header = ['#pragma once', '#include <stdint.h>',
               'struct LabRun { uint16_t count; uint8_t level; };']
-    manifest = {'width': 960, 'height': 540, 'levels': 4,
+    manifest = {'fixture_version': 2, 'width': 960, 'height': 540, 'levels': 4,
                 'font_sha256': hashlib.sha256(args.font.read_bytes()).hexdigest(),
                 'frames': []}
     text = [
@@ -54,7 +79,8 @@ def main():
     ]
     font = ImageFont.truetype(str(args.font), 22)
     title = ImageFont.truetype(str(args.font), 28)
-    for index in range(6):
+    covers = [cover_image(i, title) for i in range(2)]
+    for index in range(10):
         img = Image.new('L', (540, 960), 255)
         draw = ImageDraw.Draw(img)
         draw.text((24, 20), 'OctoFox / display comparison', font=title, fill=0)
@@ -65,7 +91,7 @@ def main():
                 line = text[(row + index * 3) % len(text)]
                 draw.text((24 + index * 3, 104 + row * 36 + index * 5),
                           line, font=font, fill=0)
-        else:
+        elif index < 6:
             for row in range(6):
                 box = (24, 100 + row * 116, 516, 198 + row * 116)
                 selected = row == index - 3
@@ -73,6 +99,22 @@ def main():
                                        outline=85, width=2)
                 draw.text((42, box[1] + 29), f'BOOK {row + 1} / КНИГА {row + 1}',
                           font=title, fill=255 if selected else 0)
+        elif index < 8:
+            img.paste(covers[index - 6], (54, 120))
+            draw.text((54, 802), 'Cover detail / synthetic image', font=font, fill=0)
+        else:
+            for row in range(4):
+                top = 94 + row * 185
+                selected = row == index - 8
+                draw.rounded_rectangle((24, top, 516, top + 170), 10,
+                                       fill=0 if selected else 255, outline=85, width=2)
+                thumb = covers[(row + index) % 2].resize((92, 140), Image.Resampling.NEAREST)
+                img.paste(thumb, (36, top + 14))
+                ink = 255 if selected else 0
+                draw.text((146, top + 22), f'BOOK {row + 1 + (index - 8) * 4}', font=title, fill=ink)
+                draw.text((146, top + 68), 'Cover / author / title', font=font, fill=ink)
+                draw.rectangle((146, top + 114, 460, top + 122), fill=170)
+                draw.rectangle((146, top + 114, 210 + row * 50, top + 122), fill=85)
         for level in range(4):
             draw.rectangle((24 + level * 72, 870, 76 + level * 72, 894),
                            fill=255 - level * 85)
@@ -95,9 +137,9 @@ def main():
         manifest['frames'].append({'index': index, 'sha256': hashlib.sha256(levels).hexdigest(),
                                    'runs': len(runs)})
     header.append('static const LabRun* const kFrames[] = {' +
-                  ','.join(f'kFrame{i}' for i in range(6)) + '};')
+                  ','.join(f'kFrame{i}' for i in range(10)) + '};')
     header.append('static const size_t kFrameRuns[] = {' +
-                  ','.join(f'sizeof(kFrame{i})/sizeof(LabRun)' for i in range(6)) + '};')
+                  ','.join(f'sizeof(kFrame{i})/sizeof(LabRun)' for i in range(10)) + '};')
     (root / 'src' / 'frames.h').write_text('\n'.join(header) + '\n', encoding='utf8')
     (output / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf8')
 

@@ -2,7 +2,7 @@
 
 An experimental screen-only firmware for the **non-touch LILYGO
 Screen-4.7-S3 V2.4 / H716**, 960 × 540. It compares display transactions using
-the same six pre-rendered targets. This is not the reader application.
+the same ten pre-rendered targets. This is not the reader application.
 
 Two separate build targets avoid running two display drivers at once:
 
@@ -79,6 +79,22 @@ Use 5/11/23 steps to inspect just before a proposed 6/12/24-transition cleanup.
 Use 6/12/24 to measure the cleanup itself. USB never automatically advances to
 another profile. STOP leaves the final image visible.
 
+Fixture version 2 adds `COVER` (targets 7–8, dark/light geometric covers),
+`LIBRARY` (9–10, changing thumbnails and selection), and `MIXED`
+(9, 10, 7, 1, 8, 4: library, cover, text transitions). The first six targets
+are unchanged. Covers are synthetic gray/detail stress targets, not screenshots
+of the reader or acceptance of actual book-image rendering. MIXED uses the
+selected quality for the entire trial; it does not emulate per-screen quality
+switching or automatic transition clears from the reader application.
+
+```sh
+python tools/run_trial.py --scene LIBRARY --quality HIGH --cleanup HARD --every 12 --steps 11 --output results/library-high.json
+python tools/run_trial.py --scene MIXED --quality HIGH --cleanup HARD --every 12 --steps 11 --output results/mixed-high.json
+```
+
+Inspect white areas previously occupied by a dark cover, differences between
+gray shades, thumbnail details, and residue around the previous selection.
+
 Measurements include decode, cleanup, paint-completion and total times. Host
 round-trip includes USB overhead; it is not physical button latency. First-frame
 cleanup is excluded from trial statistics. Compare ordinary transitions and
@@ -102,6 +118,6 @@ LAB STOP
 ```
 
 START syntax: `LAB START <HIGH|NORMAL|FAST> <NONE|HARD|SOFT|LOCAL>
-<0..24> <TEXT|MENU>`. NONE requires 0; other policies require 1..24. Each
+<0..24> <TEXT|MENU|COVER|LIBRARY|MIXED>`. NONE requires 0; other policies require 1..24. Each
 completed frame reports timing and the actual cleanup. A Painter timeout latches
 a fault until reset; no further frames are submitted.
