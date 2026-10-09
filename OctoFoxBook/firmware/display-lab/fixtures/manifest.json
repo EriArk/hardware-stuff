@@ -1,0 +1,38 @@
+{
+  "width": 960,
+  "height": 540,
+  "levels": 4,
+  "font_sha256": "c9b76220a5be42ead4733611e417cd65c5fd8aeaa33eb56576ac378a37d130a1",
+  "frames": [
+    {
+      "index": 0,
+      "sha256": "2734d96a4ef4a0db15bed67ea6df8d07de4bae5474771b9f55bfe2a3c8757ea6",
+      "runs": 43357
+    },
+    {
+      "index": 1,
+      "sha256": "2d023e9980576a84cb68e55d0abd51a8b06c1f8e8cc787b743d43de5924a9c80",
+      "runs": 43478
+    },
+    {
+      "index": 2,
+      "sha256": "aec94ab5c583f9d1b95b3a12776108871d54a56e8ca43ef24f3be9d64bfa0bad",
+      "runs": 43715
+    },
+    {
+      "index": 3,
+      "sha256": "a31d618cec28a70690146e2cc07a8fb939880563f1bd78ea9262ec28656f5d6d",
+      "runs": 43463
+    },
+    {
+      "index": 4,
+      "sha256": "e94e6b9b9293ee3c980f9e9d883a4ea9d99c0f3b74ea8bb026a5c0ef37b14352",
+      "runs": 21985
+    },
+    {
+      "index": 5,
+      "sha256": "249e740d3127bab2dc9b23920c3466f91c5402624db5edc24661bc8a145fe92e",
+      "runs": 21983
+    }
+  ]
+}
