@@ -4,9 +4,9 @@ Companion is the administration interface served by the OctoFox book server. Thi
 
 The desktop browser needs no installer. Installing the book server is a separate operation; Companion itself is included with that server.
 
-## Early beta downloads
+## Release candidate downloads
 
-[Download OctoFox Book 0.2.0-beta.4](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.4). Choose the portable Companion browser for your desktop and, separately, Server Setup for the computer hosting your books. The release includes checksums, source code and known limitations.
+[Download OctoFox Book 0.9.0-rc.1](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.9.0-rc.1). Choose the portable Companion browser for your desktop and, separately, Server Setup for the computer hosting your books. The release includes checksums, source code and known limitations.
 
 ## Open your library
 

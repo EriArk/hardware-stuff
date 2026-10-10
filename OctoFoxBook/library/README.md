@@ -2,11 +2,11 @@
 
 Личная веб-библиотека: загрузка FB2 и EPUB, поиск, коллекции, чтение, закладки и серверная озвучка. Открывается в браузере на компьютере, планшете и телефоне.
 
-**Ранняя версия для отдельной тестовой установки.** Работают библиотека, первоначальная настройка и управление читателями через Companion. Companion также сохраняет сетевые адреса, помогает настроить внешний доступ и проверяет подключение через QR-код. Интерфейс доступен на русском и английском. Привязка AbyssBook реализована в текущих исходниках; проверка USB на физической читалке ещё нужна. Аккаунты и общий каталог обслуживает BookLore.
+**Релиз-кандидат перед версией 1.0.** Работают библиотека, первоначальная настройка и управление читателями через Companion. Companion также сохраняет сетевые адреса, помогает настроить внешний доступ и проверяет подключение через QR-код. Интерфейс доступен на русском и английском. Привязка AbyssBook по USB проверена на Windows с физической читалкой; проверены загрузка книги, двусторонний обмен позицией чтения и получение закладки с сайта. Аккаунты и общий каталог обслуживает BookLore.
 
-## Ранняя бета
+## Релиз-кандидат
 
-[OctoFox Book 0.2.0-beta.4 — скачать сборки](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.4). Установщик сервера и переносимый браузер Companion доступны отдельно. Проверенные сценарии и ограничения указаны в описании релиза.
+[OctoFox Book 0.9.0-rc.1 — скачать сборки](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.9.0-rc.1). Установщик сервера и переносимый браузер Companion доступны отдельно. Проверенные сценарии и ограничения указаны в описании релиза.
 
 ## Установка через мастер
 
@@ -101,7 +101,7 @@ python tools/manage.py start --speech
 
 ## Backups and restore
 
-The current source includes **Companion → Backups**, currently in English. Included in the `0.2.0-beta.4` server installers. The original `0.2.0-beta.1` packages do not include backups. Build the current server source with `python tools/manage.py start` using the installation's existing project name and `.env`. The portable Companion browser does not need an update.
+The current source includes **Companion → Backups**, currently in English. Included in the `0.9.0-rc.1` server installers. The original `0.2.0-beta.1` packages do not include backups. Build the current server source with `python tools/manage.py start` using the installation's existing project name and `.env`. The portable Companion browser does not need an update.
 
 1. Sign in to Companion as an administrator and open **Backups**.
 2. Choose **Create backup**. The library briefly pauses so account data, books and reading state belong to the same snapshot. Keep the server running. The page reconnects when it returns.
