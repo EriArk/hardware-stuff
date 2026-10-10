@@ -1,0 +1,101 @@
+[
+  {
+    "name": "reader-01-library",
+    "title": "AbyssBook library shelves",
+    "width": 540,
+    "height": 960,
+    "source": "Physical reader USB framebuffer",
+    "png": "png/reader/reader-01-library.png",
+    "webp": "webp/reader/reader-01-library.webp",
+    "png_sha256": "7ed852e493a92d835fd698adc27f13cb9240ad9c466981975dd680fd5b00d884",
+    "webp_bytes": 11740
+  },
+  {
+    "name": "reader-02-reading",
+    "title": "AbyssBook reading an original sample story",
+    "width": 540,
+    "height": 960,
+    "source": "Physical reader USB framebuffer",
+    "png": "png/reader/reader-02-reading.png",
+    "webp": "webp/reader/reader-02-reading.webp",
+    "png_sha256": "bd609dddf22d85ca44860162f87003b64feeec32a5898f12bfd527076c0537bc",
+    "webp_bytes": 12024
+  },
+  {
+    "name": "reader-03-settings",
+    "title": "AbyssBook reading, screen, sleep and language settings",
+    "width": 540,
+    "height": 960,
+    "source": "Physical reader USB framebuffer",
+    "png": "png/reader/reader-03-settings.png",
+    "webp": "webp/reader/reader-03-settings.webp",
+    "png_sha256": "0cc6fac6a322a4310fcf405e65a1d95527f1262a133a78a72fb718e5bbe6f688",
+    "webp_bytes": 10498
+  },
+  {
+    "name": "library-01-books-desktop",
+    "title": "OctoFox Library personal bookshelf",
+    "width": 2880,
+    "height": 2200,
+    "source": "Running Library server in Chromium",
+    "png": "png/library/library-01-books-desktop.png",
+    "webp": "webp/library/library-01-books-desktop.webp",
+    "png_sha256": "e1bd80c0b86ff9f938c21b65ebc7933ba6137afd763ed36e97c3f032887f2572",
+    "webp_bytes": 920458
+  },
+  {
+    "name": "library-02-book-details",
+    "title": "Book details and personal actions",
+    "width": 2880,
+    "height": 2640,
+    "source": "Running Library server in Chromium",
+    "png": "png/library/library-02-book-details.png",
+    "webp": "webp/library/library-02-book-details.webp",
+    "png_sha256": "077d2d702ce7146cd1bafe6aab91ad750166bdfae473ba51cf4192b29cd01c7f",
+    "webp_bytes": 272284
+  },
+  {
+    "name": "library-03-reading-desktop",
+    "title": "Two-page reading in the paper theme",
+    "width": 2880,
+    "height": 2200,
+    "source": "Running Library server in Chromium",
+    "png": "png/library/library-03-reading-desktop.png",
+    "webp": "webp/library/library-03-reading-desktop.webp",
+    "png_sha256": "9b23ccfbe67efa23e146f6442c0f0f2517f107e2976d7faee27772fa1369d0a3",
+    "webp_bytes": 134544
+  },
+  {
+    "name": "library-04-reading-phone",
+    "title": "Single-page reading on a phone-sized viewport",
+    "width": 860,
+    "height": 1864,
+    "source": "Running Library server in Chromium",
+    "png": "png/library/library-04-reading-phone.png",
+    "webp": "webp/library/library-04-reading-phone.webp",
+    "png_sha256": "3230f945093523fec4553ae1ca33c07503ccea446d19b0074b0d0aa7aa53109a",
+    "webp_bytes": 49984
+  },
+  {
+    "name": "library-05-books-phone",
+    "title": "Personal bookshelf on a phone-sized viewport",
+    "width": 860,
+    "height": 1864,
+    "source": "Running Library server in Chromium",
+    "png": "png/library/library-05-books-phone.png",
+    "webp": "webp/library/library-05-books-phone.webp",
+    "png_sha256": "e6471eb4f7ea2030d5c2c99979b188699eb8c9c65d1c911b857a6ce2408724d3",
+    "webp_bytes": 466008
+  },
+  {
+    "name": "library-06-collection",
+    "title": "Evening stories personal collection",
+    "width": 2880,
+    "height": 2000,
+    "source": "Running Library server in Chromium",
+    "png": "png/library/library-06-collection.png",
+    "webp": "webp/library/library-06-collection.webp",
+    "png_sha256": "73b692ffddbb7dae8bde77555541d162f02c94a381a5d29ad475a513b87212b9",
+    "webp_bytes": 420166
+  }
+]
