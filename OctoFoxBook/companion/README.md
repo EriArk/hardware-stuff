@@ -6,7 +6,7 @@ The desktop browser needs no installer. Installing the book server is a separate
 
 ## Early beta downloads
 
-[Download OctoFox Book 0.2.0-beta.2](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.2). Choose the portable Companion browser for your desktop and, separately, Server Setup for the computer hosting your books. The release includes checksums, source code and known limitations.
+[Download OctoFox Book 0.2.0-beta.3](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.3). Choose the portable Companion browser for your desktop and, separately, Server Setup for the computer hosting your books. The release includes checksums, source code and known limitations.
 
 ## Open your library
 
@@ -15,7 +15,7 @@ Use the development package for your computer, or build it using the commands be
 | Computer | Package |
 | --- | --- |
 | Windows | Extract the `.zip` and run `OctoFox Companion.exe` inside the folder |
-| macOS (Apple Silicon and Intel) | Extract the universal `.zip` and open `OctoFox Companion.app` |
+| macOS (Apple Silicon and Intel) | Extract the `.zip` for your processor (arm64 for Apple Silicon, x64 for Intel) and open `OctoFox Companion.app` |
 | Linux x64 | Make the `.AppImage` executable and open it |
 
 Launch **OctoFox Companion**. If one library is found, it opens automatically. If several are found, choose one. On later launches the app tries your previous library first.
@@ -45,7 +45,7 @@ previous website position remains as a bookmark.
 USB pairing belongs to the bundled local app screen. The server page has no USB
 or native bridge access. This development implementation has passed serial-protocol
 tests and a live server check; physical USB pairing still needs device acceptance.
-The earlier beta download above does not include these new development features.
+Beta.3 includes this implementation; physical USB acceptance remains pending.
 
 ## Server requirements
 

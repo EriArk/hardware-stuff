@@ -6,7 +6,7 @@
 
 ## Ранняя бета
 
-[OctoFox Book 0.2.0-beta.2 — скачать сборки](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.2). Установщик сервера и переносимый браузер Companion доступны отдельно. Проверенные сценарии и ограничения указаны в описании релиза.
+[OctoFox Book 0.2.0-beta.3 — скачать сборки](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.3). Установщик сервера и переносимый браузер Companion доступны отдельно. Проверенные сценарии и ограничения указаны в описании релиза.
 
 ## Установка через мастер
 
@@ -83,7 +83,7 @@ docker compose up -d --no-deps library
 
 В исходниках alpha7 добавлен двусторонний обмен местом чтения, отметкой «прочитано» и закладками. Позиции привязаны к тексту, а не к номеру страницы. Если чтение продолжалось независимо на сайте и устройстве, текущей становится позиция читалки, а прежняя позиция сайта сохраняется закладкой. Несовместимая копия книги или неподдерживаемая позиция останавливает обмен вместо приблизительного переноса. Проверка обмена через настоящий HTTPS-сервер пройдена; физическая читалка ещё требует приёмки.
 
-В обновлённом настольном Companion откройте **Pair reader**, подключите читалку по USB, выберите аккаунт и настроенный HTTPS-адрес библиотеки. Для текущего аккаунта владельца повторный пароль не нужен; пароль другого читателя вводится однократно. На устройство записывается отдельный отзывной ключ, а не пароль аккаунта. Wi-Fi сохраняется; выбрать сеть можно в настройках читалки. Ключ отзывается в том же разделе Companion. После привязки обмен работает через Интернет без запущенного Companion. Радио включается только по явному действию пользователя. Предыдущий опубликованный beta-релиз этих новых функций ещё не содержит.
+В обновлённом настольном Companion откройте **Pair reader**, подключите читалку по USB, выберите аккаунт и настроенный HTTPS-адрес библиотеки. Для текущего аккаунта владельца повторный пароль не нужен; пароль другого читателя вводится однократно. На устройство записывается отдельный отзывной ключ, а не пароль аккаунта. Wi-Fi сохраняется; выбрать сеть можно в настройках читалки. Ключ отзывается в том же разделе Companion. После привязки обмен работает через Интернет без запущенного Companion. Радио включается только по явному действию пользователя. Эти функции входят в beta.3; для привязки нужна прошивка alpha7.
 
 ## Язык интерфейса
 
@@ -101,7 +101,7 @@ python tools/manage.py start --speech
 
 ## Backups and restore
 
-The current source includes **Companion → Backups**, currently in English. Included in the `0.2.0-beta.2` server installers. The original `0.2.0-beta.1` packages do not include backups. Build the current server source with `python tools/manage.py start` using the installation's existing project name and `.env`. The portable Companion browser does not need an update.
+The current source includes **Companion → Backups**, currently in English. Included in the `0.2.0-beta.3` server installers. The original `0.2.0-beta.1` packages do not include backups. Build the current server source with `python tools/manage.py start` using the installation's existing project name and `.env`. The portable Companion browser does not need an update.
 
 1. Sign in to Companion as an administrator and open **Backups**.
 2. Choose **Create backup**. The library briefly pauses so account data, books and reading state belong to the same snapshot. Keep the server running. The page reconnects when it returns.

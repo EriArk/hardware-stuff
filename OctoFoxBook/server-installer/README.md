@@ -4,7 +4,7 @@ A separate installer for the book server, including Library, narration and the s
 
 ## Early beta downloads
 
-[Download OctoFox Book 0.2.0-beta.2](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.2). Choose the portable Companion browser for your desktop and, separately, Server Setup for the computer hosting your books. The release includes checksums, source code and known limitations.
+[Download OctoFox Book 0.2.0-beta.3](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.3). Choose the portable Companion browser for your desktop and, separately, Server Setup for the computer hosting your books. The release includes checksums, source code and known limitations.
 
 ## Install your server
 
