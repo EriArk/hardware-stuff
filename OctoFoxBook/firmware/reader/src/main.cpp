@@ -65,7 +65,7 @@
 namespace {
 
 constexpr char kFirmwareName[] = "abyss-reader";
-constexpr char kFirmwareVersion[] = "0.21.0-alpha10";
+constexpr char kFirmwareVersion[] = "0.21.0-alpha11";
 constexpr size_t kFramebufferBytes = EPD_WIDTH * EPD_HEIGHT / 2;
 constexpr int32_t kPortraitWidth = EPD_HEIGHT;
 constexpr int32_t kPortraitHeight = EPD_WIDTH;
@@ -6762,6 +6762,7 @@ void queueBackAction() {
     }
 }
 
+#include "sync_progress_ui.inc"
 #include "battery_ui.inc"
 
 void emitInput(const char *button, const char *gesture, const char *source) {
@@ -7868,10 +7869,13 @@ void handleSerialCommand(char *line) {
         return;
     }
     if (strcmp(line, "SYNC STATUS") == 0) {
-        Serial.printf("SYNC STATUS device=%s busy=%s paused=%s status=%u reason=%s http=%d\n",
+        const auto progress = AutomaticSync::progress();
+        Serial.printf("SYNC STATUS device=%s busy=%s paused=%s status=%u reason=%s http=%d stage=%u done=%lu total=%lu percent=%d elapsed_s=%lu\n",
                       AutomaticSync::deviceId(), AutomaticSync::busy() ? "true" : "false",
                       AutomaticSync::isPaused() ? "true" : "false", static_cast<unsigned>(AutomaticSync::status()),
-                      ReaderSyncPolicy::errorCode(AutomaticSync::error()), AutomaticSync::httpCode());
+                      ReaderSyncPolicy::errorCode(AutomaticSync::error()), AutomaticSync::httpCode(),
+                      unsigned(progress.stage),static_cast<unsigned long>(progress.done),static_cast<unsigned long>(progress.total),
+                      SyncProgress::percent(progress),static_cast<unsigned long>((millis()-progress.startedAt)/1000));
         return;
     }
     // Operator-only storage/radio operations cannot race a background import.
@@ -8923,19 +8927,14 @@ void loop() {
     if (BookPreparation::busy() || AutomaticSync::busy()) {
         // Worker exclusively owns SD parsing/writes; UI still handles cancel,
         // power and the loading indicator, without concurrent cache mutation.
-        static unsigned shownDownloaded = UINT32_MAX;
-        static AutomaticSync::Status shownStatus = AutomaticSync::Status::Idle;
-        if (AutomaticSync::busy() && uiScreen == UiScreen::Home &&
-            (shownDownloaded != AutomaticSync::downloaded() || shownStatus != AutomaticSync::status())) {
-            shownDownloaded = AutomaticSync::downloaded();
-            shownStatus = AutomaticSync::status();
-            if (renderHomeFrame()) displayRefresh.refresh(framebuffer, DisplayRefreshMode::RecoveryRegion, kSyncFooterRegion);
-        }
-        drawBusyIndicator();
+        if (AutomaticSync::busy()) drawSyncProgress();
+        else drawBusyIndicator();
         delay(2);
         return;
     }
     if (AutomaticSync::takeFinished()) {
+        if (syncProgressVisible) scheduleGhostCleanup("sync-finished");
+        syncProgressVisible = false;
         AutomaticSync::takeLibraryChanged();
         char currentPath[96]{};
         if (readerSession.active && BookUploadReceiver::bookPath(readerSession.bookId, currentPath, sizeof(currentPath)) &&
@@ -8945,6 +8944,7 @@ void loop() {
         favoritesSession.loaded=false;
         if (uiScreen == UiScreen::Home) displayHome(true, "manual-sync-finished");
         if (uiScreen == UiScreen::LocalLibrary) displayLocalLibrary(true,"manual-sync-finished");
+        else if (uiScreen != UiScreen::Home) displayTopLevelTab(activeTopLevelTab,true,"manual-sync-finished");
     }
     if (AutomaticSync::takeLibraryChanged()) {
         homeSession.loaded = false;

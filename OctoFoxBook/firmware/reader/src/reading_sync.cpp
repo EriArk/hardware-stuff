@@ -106,6 +106,7 @@ bool one(NetworkService &network,const char *device,const char *book,bool upload
     if(!save(mirrorPath,mirror))return false;
     unsigned acknowledged=mirror["acknowledged"]|0U;
     unsigned operationIndex=0;
+    bool sentOperations=false;
     for(JsonObjectConst op:mirror["pending"].as<JsonArrayConst>()) {
         if(operationIndex++<acknowledged)continue;
         if(AutomaticSync::cancelRequested())return fail("reading-cancelled");
@@ -116,6 +117,7 @@ bool one(NetworkService &network,const char *device,const char *book,bool upload
             return fail("reading-upload");
         }
         JsonDocument ack(&ram);if(deserializeJson(ack,body) || ack["ok"]!=true)return fail("reading-ack");
+        sentOperations=true;
         mirror["acknowledged"]=operationIndex;
         if(!save(mirrorPath,mirror))return false;
     }
@@ -138,7 +140,10 @@ bool one(NetworkService &network,const char *device,const char *book,bool upload
     unsigned cursor=0;String revision;
     remote["bookmarks"].to<JsonArray>();
     do {
-        if(AutomaticSync::cancelRequested() || !fetch(cursor))return false;
+        if(AutomaticSync::cancelRequested())return false;
+        // The initial GET is already this snapshot's first page. Refetch it only
+        // after a mutation; later bookmark pages still verify the same revision.
+        if((cursor || sentOperations) && !fetch(cursor))return false;
         String current=page["revision"]|"";
         if(current.length()!=64 || (cursor && revision!=current) || account!=(page["account"]|""))return fail("reading-snapshot-changed");
         revision=current;
@@ -168,14 +173,29 @@ const char *error(){return lastError;}
 ReaderSyncPolicy::Error policyError(){return lastPolicy;}
 bool run(NetworkService &network,const char *device,bool uploadOnly) {
     lastError[0]=0;lastPolicy=ReaderSyncPolicy::Error::Protocol;File root=SD.open("/books",FILE_READ);if(!root)return true;
+    const auto stage=uploadOnly?SyncProgress::Stage::ReadingUpload:SyncProgress::Stage::ReadingDownload;
+    auto bookName=[](File &f) {
+        const bool directory=f.isDirectory();String name=f.name();f.close();
+        int slash=name.lastIndexOf('/');if(slash>=0)name=name.substring(slash+1);
+        if(!directory || !name.startsWith("opds-") || name.length()<=5 || name.length()>32)return String();
+        for(unsigned i=5;i<name.length();++i)if(name[i]<'0'||name[i]>'9')return String();
+        return name;
+    };
+    unsigned total=0,completed=0;
     for(;;) {
         if(AutomaticSync::cancelRequested())return fail("reading-cancelled");
         File f=root.openNextFile(FILE_READ);if(!f)break;
-        const bool directory=f.isDirectory();String name=f.name();f.close();
-        int slash=name.lastIndexOf('/');if(slash>=0)name=name.substring(slash+1);
-        if(!directory || !name.startsWith("opds-") || name.length()>32)continue;
-        bool valid=true;for(unsigned i=5;i<name.length();++i)if(name[i]<'0'||name[i]>'9')valid=false;
-        if(valid && !one(network,device,name.c_str(),uploadOnly))return false;
+        if(bookName(f).length())++total;
+    }
+    root.close();root=SD.open("/books",FILE_READ);
+    AutomaticSync::reportProgress(stage,0,total);
+    if(!root)return fail("reading-list-unavailable");
+    for(;;) {
+        if(AutomaticSync::cancelRequested())return fail("reading-cancelled");
+        File f=root.openNextFile(FILE_READ);if(!f)break;
+        const String name=bookName(f);if(!name.length())continue;
+        if(!one(network,device,name.c_str(),uploadOnly))return false;
+        AutomaticSync::reportProgress(stage,++completed,total);
     }
     return true;
 }

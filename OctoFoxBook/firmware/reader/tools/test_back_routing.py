@@ -11,7 +11,7 @@ class BackRoutingTests(unittest.TestCase):
     def test_double_click_returns_one_level(self):
         s=(ROOT/'src/main.cpp').read_text('utf8')
         enums='enum class UiScreen'+s.split('enum class UiScreen',1)[1].split('struct Diagnostics',1)[0]
-        function='void queueBackAction()'+s.split('void queueBackAction()',1)[1].split('#include "battery_ui.inc"',1)[0]
+        function='void queueBackAction()'+s.split('void queueBackAction()',1)[1].split('#include',1)[0]
         flags=sorted(set(re.findall(r'\b(pending\w+)\s*=true',function)))
         expected={'ReaderMenu':'pendingReaderMenuBack','Contents':'pendingContentsBack','Bookmarks':'pendingReaderBookmarksBack',
             'ReadingSettings':'pendingReadingSettingsBack','OrderedSelector':'pendingOrderedSelectorBack','LocalLibrary':'pendingLocalLibraryBack',

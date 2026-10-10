@@ -27,6 +27,8 @@ std::atomic<ReaderSyncPolicy::Error> lastError{ReaderSyncPolicy::Error::None};
 std::atomic<int> lastHttpCode{0};
 TaskHandle_t syncTask = nullptr;
 portMUX_TYPE syncGate = portMUX_INITIALIZER_UNLOCKED;
+portMUX_TYPE progressGate = portMUX_INITIALIZER_UNLOCKED;
+SyncProgress::Snapshot syncProgress;
 char identity[32]{};
 constexpr char kReceiptPath[] = "/sync-receipt.json";
 constexpr char kReceiptPartial[] = "/sync-receipt.json.part";
@@ -95,6 +97,7 @@ void worker(void *) {
         // No boot scan, timer, retry or wake-triggered Wi-Fi connection.
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         network.invalidateConfiguration(); // Wi-Fi may have changed in Settings.
+        AutomaticSync::reportProgress(SyncProgress::Stage::Connecting);
         setWorkCancelCallback(AutomaticSync::cancelRequested);
         // USB provisioning may have replaced NVS while this task was paused.
         network.invalidateConfiguration();
@@ -107,6 +110,7 @@ void worker(void *) {
             if (!sendSavedReceipt(network)) break;
             // Persist offline edits before the server decides which books to remove.
             // A failed upload must stop this pass, preserving the local books.
+            if (batch == 0) AutomaticSync::reportProgress(SyncProgress::Stage::CollectionsUpload);
             if (batch == 0 && !Collections::sync(network, identity, true)) {
                 hadFailures = true;
                 recordFailure(ReaderSyncPolicy::Error::Protocol);
@@ -117,6 +121,7 @@ void worker(void *) {
                 Serial.printf("SYNC READING error=%s\n", ReadingSync::error()); break;
             }
             char path[128]{};
+            AutomaticSync::reportProgress(SyncProgress::Stage::CheckingBooks);
             // Each job is attempted once per manual pass. Failed jobs stay queued
             // for the next press, without starving later downloads or removals.
             snprintf(path, sizeof(path), "/reader-api/device/next?device=%s&v=2&after=%llu", identity, after);
@@ -156,6 +161,7 @@ void worker(void *) {
                 break;
             }
             if (removal) {
+                AutomaticSync::reportProgress(SyncProgress::Stage::Removing);
                 const bool ok = BookUploadReceiver::archiveBook(id);
                 snprintf(receipt, sizeof(receipt),
                          "{\"job\":%s,\"state\":\"%s\",\"error\":\"%s\"}", job,
@@ -179,6 +185,7 @@ void worker(void *) {
             snprintf(marker, sizeof(marker), "/books/%s/sync.pending", id);
             const bool existing = localReady(id) && !SD.exists(marker);
             if (existing) {
+                AutomaticSync::reportProgress(SyncProgress::Stage::Verifying);
                 ok = NetworkService::verifiedLocalDigest(id, result.sha256);
             } else {
                 BookUploadReceiver::ensureBookDirectory(id);
@@ -186,12 +193,14 @@ void worker(void *) {
                 const bool marked = pending && pending.print("1\n") == 2;
                 pending.close();
                 Serial.printf("SYNC STAGE id=%s stage=download\n", id);
+                AutomaticSync::reportProgress(SyncProgress::Stage::Download);
                 ok = marked && (localReady(id) || network.downloadFb2(url, id, result));
                 if (!ok && marked && result.error[0]) {
                     bookError = ReaderSyncPolicy::downloadError(result.error, result.httpCode);
                 }
                 if (ok) {
                     Serial.printf("SYNC STAGE id=%s stage=prepare\n", id);
+                    AutomaticSync::reportProgress(SyncProgress::Stage::Preparing);
                     auto *info = static_cast<Fb2CacheInfo *>(heap_caps_calloc(
                         1, sizeof(Fb2CacheInfo), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
                     ok = info != nullptr && (Fb2Cache::load(id, *info) || Fb2Cache::build(id, *info));
@@ -202,6 +211,7 @@ void worker(void *) {
                 if (ok) {
                     if (cover && cover[0] && !paused.load()) {
                         Serial.printf("SYNC STAGE id=%s stage=cover\n", id);
+                        AutomaticSync::reportProgress(SyncProgress::Stage::Cover);
                         BookDownloadResult ignored{};
                         network.downloadCover(cover, id, ignored);
                     }
@@ -212,6 +222,7 @@ void worker(void *) {
                         if (added) added.printf("%lu\n", static_cast<unsigned long>(time(nullptr)));
                         added.close();
                     }
+                    AutomaticSync::reportProgress(SyncProgress::Stage::Verifying);
                     ok = SD.remove(marker) && NetworkService::verifiedLocalDigest(id, result.sha256);
                     if (ok) changed = true;
                 }
@@ -236,6 +247,7 @@ void worker(void *) {
                 hadFailures=true;recordFailure(ReadingSync::policyError());
                 Serial.printf("SYNC READING error=%s\n",ReadingSync::error());
             }
+            AutomaticSync::reportProgress(SyncProgress::Stage::CollectionsDownload);
             if(!Collections::sync(network,identity)) {
                 hadFailures=true;recordFailure(ReaderSyncPolicy::Error::Protocol);
                 Serial.printf("SYNC COLLECTIONS error=%s\n",Collections::error());
@@ -257,6 +269,27 @@ void worker(void *) {
 }
 
 namespace AutomaticSync {
+SyncProgress::Snapshot progress() {
+    portENTER_CRITICAL(&progressGate);
+    auto result = syncProgress;
+    portEXIT_CRITICAL(&progressGate);
+    result.downloaded = deliveredCount.load();
+    return result;
+}
+void reportProgress(SyncProgress::Stage stage, uint32_t done, uint32_t total) {
+    const uint32_t now = millis();
+    portENTER_CRITICAL(&progressGate);
+    const bool transition = syncProgress.stage != stage;
+    const auto previous = syncProgress.stage;
+    const uint32_t duration = now - syncProgress.stageStartedAt;
+    if (transition) syncProgress.stageStartedAt = now;
+    syncProgress.stage = stage;
+    syncProgress.done = done;
+    syncProgress.total = total;
+    portEXIT_CRITICAL(&progressGate);
+    if (transition) Serial.printf("SYNC STEP previous=%u duration_ms=%lu stage=%u\n",
+        unsigned(previous), static_cast<unsigned long>(duration), unsigned(stage));
+}
 void start() {
     if (syncTask != nullptr) return;
     const uint64_t mac = ESP.getEfuseMac();
@@ -279,6 +312,10 @@ bool request(bool exclusiveBusy) {
         syncStatus = Status::Running;
         lastError = ReaderSyncPolicy::Error::None;
         lastHttpCode = 0;
+        portENTER_CRITICAL(&progressGate);
+        syncProgress = SyncProgress::Snapshot{};
+        syncProgress.startedAt = syncProgress.stageStartedAt = millis();
+        portEXIT_CRITICAL(&progressGate);
     } else if (!running.load()) {
         lastError = exclusiveBusy ? ReaderSyncPolicy::Error::Busy : ReaderSyncPolicy::Error::Memory;
         lastHttpCode = 0;

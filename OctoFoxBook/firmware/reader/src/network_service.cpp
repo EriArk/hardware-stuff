@@ -702,6 +702,7 @@ bool NetworkService::downloadFb2(const char *url, const char *bookId,
     }
 
     const int announcedLength = http.getSize();
+    if (AutomaticSync::ownsNetworkSession()) AutomaticSync::reportProgress(SyncProgress::Stage::Download,0,announcedLength>0?announcedLength:0);
     if (announcedLength >= 0 &&
         (announcedLength <
              static_cast<int>(BookUploadReceiver::kMinimumBookBytes) ||
@@ -778,6 +779,7 @@ bool NetworkService::downloadFb2(const char *url, const char *bookId,
             prefix[prefixBytes] = '\0';
         }
         received += count;
+        if (AutomaticSync::ownsNetworkSession()) AutomaticSync::reportProgress(SyncProgress::Stage::Download,received,announcedLength>0?announcedLength:0);
         lastDataAt = millis();
         if (announcedLength >= 0 &&
             received == static_cast<size_t>(announcedLength)) {
@@ -936,6 +938,7 @@ bool NetworkService::downloadCover(const char *url, const char *bookId,
         return fail("invalid-content-type");
     }
     const int announcedLength = http.getSize();
+    if (AutomaticSync::ownsNetworkSession()) AutomaticSync::reportProgress(SyncProgress::Stage::Cover,0,announcedLength>0?announcedLength:0);
     if (announcedLength >= 0 &&
         (announcedLength < 32 ||
          announcedLength >
@@ -999,6 +1002,7 @@ bool NetworkService::downloadCover(const char *url, const char *bookId,
         }
         mbedtls_sha256_update_ret(&sha, buffer, count);
         received += count;
+        if (AutomaticSync::ownsNetworkSession()) AutomaticSync::reportProgress(SyncProgress::Stage::Cover,received,announcedLength>0?announcedLength:0);
         lastDataAt = millis();
         if (announcedLength >= 0 &&
             received == static_cast<size_t>(announcedLength)) {

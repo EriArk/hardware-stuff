@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include "sync_policy.h"
+#include "sync_progress.h"
 
 // Owns network I/O in a low-priority task. It never touches the framebuffer,
 // active reader state or existing book caches. Main loop consumes completions.
@@ -14,6 +15,8 @@ void cancel();
 enum class Status : uint8_t { Idle, Running, Complete, Failed, Cancelled, More, Cancelling };
 Status status();
 unsigned downloaded();
+SyncProgress::Snapshot progress();
+void reportProgress(SyncProgress::Stage stage, uint32_t done = 0, uint32_t total = 0);
 bool takeFinished();
 void setPaused(bool paused);
 bool busy();

@@ -108,5 +108,11 @@ int main() {
     drawing.str("");drawing.clear();ReaderBookishCanvas canvas(nullptr);
     BookishUI::batteryNotice(canvas,15,false);snapshot("battery-warning");
     drawing.str("");drawing.clear();BookishUI::batteryNotice(canvas,8,true);snapshot("charge-required");
+    drawing.str("");drawing.clear();
+    BookishUI::Sync sync;sync.stage="Updating positions & bookmarks";
+    sync.detail="Books checked: 3 / 5";sync.percent=60;sync.elapsedSeconds=47;
+    BookishUI::syncProgress(canvas,sync);snapshot("sync-progress");
+    drawing.str("");drawing.clear();sync.percent=-1;sync.stage="Preparing the book";sync.detail="Your library is being updated.";
+    BookishUI::syncProgress(canvas,sync);snapshot("sync-indeterminate");
     std::cout<<"WIFI_UI_OK\n";
 }

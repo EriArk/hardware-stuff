@@ -137,6 +137,10 @@ int main() {
 #include <cstdio>
 #include <cstring>
 #include "sync_policy.h"
+#include "sync_progress.h"
+SyncProgress::Snapshot syncProgress;
+int progressGate=0;
+uint32_t millis(){return 1234;}
 enum class Status { Idle, Running, Failed, Cancelling };
 std::atomic<bool> running{false}, paused{false}, cancelled{false}, finished{false};
 std::atomic<unsigned> deliveredCount{0};

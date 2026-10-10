@@ -1,6 +1,6 @@
 # AbyssBook reader firmware
 
-Early **0.21.0-alpha10** firmware for the non-touch LILYGO T5 e-Paper S3
+Early **0.21.0-alpha11** firmware for the non-touch LILYGO T5 e-Paper S3
 (4.7-inch H716 panel, 16 MB flash, 8 MB PSRAM).
 
 Home, Library, Search, Collections and book details share the bookish design: logo, visible
@@ -14,6 +14,13 @@ keeps its separate refresh policy.
 Lists turn a whole page when the selection passes the last or first visible row.
 Rows stay in place within a page; a shorter final page does not shift earlier items.
 Each page change requests a display cleanup.
+
+Synchronization displays its current step, checked-book count, downloaded-book
+count and elapsed time. Percentages describe the current step or file, using
+known book counts or the response's byte length; preparation and requests with
+unknown totals remain indeterminate. Progress updates clear only the changing
+area, at most once per 1.5 seconds, with a ten-second waiting update. OK cancels
+safely and keeps books already saved.
 
 ## Controls
 

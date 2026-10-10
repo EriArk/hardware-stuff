@@ -3,6 +3,31 @@
 #include <stdio.h>
 
 namespace BookishUI {
+void syncProgress(Canvas &c, const Sync &v) {
+    c.box(0,0,540,960,0,15,15);
+    header(c,v.activeTab);
+    c.text(Font::Title,I18n::text("Synchronizing","Синхронизация"),30,218,480);
+    c.text(Font::Control,v.cancelling?I18n::text("Finishing safely…","Завершаем безопасно…"):v.stage,40,308,460);
+    c.text(Font::Body,v.detail,40,351,460,5);
+    c.box(40,389,460,18,4,0,15,2);
+    if(v.percent>=0) {
+        const unsigned p=v.percent>100?100:static_cast<unsigned>(v.percent);
+        if(p)c.box(44,393,452*p/100,10,2,0,0);
+        char value[80]{};snprintf(value,sizeof(value),I18n::text("%u%% of this step","%u%% этого этапа"),p);
+        c.text(Font::Control,value,40,447,460);
+    } else {
+        c.text(Font::Body,I18n::text("Waiting for the next update…","Ожидаем обновление…"),40,447,460,5);
+    }
+    char text[96]{};
+    snprintf(text,sizeof(text),I18n::text("Books downloaded: %u","Загружено книг: %u"),v.downloaded);
+    c.text(Font::Body,text,40,516,460,5);
+    snprintf(text,sizeof(text),I18n::text("Elapsed: %u:%02u","Прошло: %u:%02u"),v.elapsedSeconds/60,v.elapsedSeconds%60);
+    c.text(Font::Body,text,40,558,460,5);
+    c.box(30,779,480,58,6,0,15,2);
+    c.text(Font::Control,I18n::text("OK — cancel","OK — отменить"),48,817,440);
+    c.text(Font::Body,I18n::text("Books already saved will be kept.","Сохранённые книги останутся."),32,881,478,5);
+}
+
 void batteryNotice(Canvas &c, unsigned percent, bool critical) {
     if(critical) {
         c.box(0,0,540,960,0,15,15);

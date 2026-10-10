@@ -76,4 +76,12 @@ struct Card {
 };
 void card(Canvas &c, const Card &view);
 void batteryNotice(Canvas &c, unsigned percent, bool critical);
+struct Sync {
+    const char *stage = "";
+    const char *detail = "";
+    int percent = -1;
+    unsigned downloaded = 0, elapsedSeconds = 0, activeTab = 1;
+    bool cancelling = false;
+};
+void syncProgress(Canvas &c, const Sync &view);
 }
