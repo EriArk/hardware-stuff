@@ -626,8 +626,14 @@ void scheduleGhostCleanup(const char *reason) {
     Serial.printf("DISPLAY CLEAN SCHEDULED reason=%s\n", reason);
 }
 
+bool syncReturnCleanupPending = false;
+
 void scheduleScreenTransitionCleanup(UiScreen target, const char *reason) {
-    if (uiScreen != target) {
+    // Defer until the destination is rendered: its SD scan may draw a busy frame.
+    if (syncReturnCleanupPending) {
+        scheduleGhostCleanup("sync-finished");
+        syncReturnCleanupPending = false;
+    } else if (uiScreen != target) {
         scheduleGhostCleanup(reason);
     }
 }
@@ -1544,7 +1550,6 @@ bool displayHome(bool rescan, const char *reason) {
         static_cast<unsigned long>(millis() - startedAt), reason);
     Serial.flush();
     scheduleScreenTransitionCleanup(UiScreen::Home, "screen-home");
-    if (strcmp(reason, "manual-sync-finished") == 0) scheduleGhostCleanup("sync-finished");
     lastDisplayRefresh =
         displayRefresh.refresh(framebuffer,
             AutomaticSync::busy() ? DisplayRefreshMode::RecoveryRegion : DisplayRefreshMode::QualityFull,
@@ -8933,7 +8938,7 @@ void loop() {
         return;
     }
     if (AutomaticSync::takeFinished()) {
-        if (syncProgressVisible) scheduleGhostCleanup("sync-finished");
+        syncReturnCleanupPending = syncProgressVisible;
         syncProgressVisible = false;
         AutomaticSync::takeLibraryChanged();
         char currentPath[96]{};

@@ -12,8 +12,47 @@ class SyncProgressTests(unittest.TestCase):
     def test_finishing_overlay_cleans_before_returning_to_the_same_list(self):
         source = (ROOT / 'src/main.cpp').read_text('utf8')
         finish = source.split('if (AutomaticSync::takeFinished()) {', 1)[1].split('if (AutomaticSync::takeLibraryChanged())', 1)[0]
-        self.assertLess(finish.index('scheduleGhostCleanup("sync-finished")'), finish.index('syncProgressVisible = false'))
-        self.assertLess(finish.index('scheduleGhostCleanup("sync-finished")'), finish.index('displayLocalLibrary('))
+        self.assertLess(finish.index('syncReturnCleanupPending = syncProgressVisible'), finish.index('syncProgressVisible = false'))
+        helper = source.split('void scheduleScreenTransitionCleanup(', 1)[1].split('\nvoid noteReaderPageTurn()', 1)[0]
+        for name, target in [('displayHome', 'Home'), ('displayLocalLibrary', 'LocalLibrary')]:
+            body = source.split(f'bool {name}(bool rescan, const char *reason) {{', 1)[1]
+            body = body.split('\n}\n', 1)[0]
+            cleanup = body.index(f'scheduleScreenTransitionCleanup(UiScreen::{target}')
+            if name == 'displayLocalLibrary':
+                self.assertLess(body.rindex('BusyIndicator'), cleanup)
+            self.assertLess(cleanup, body.index('displayRefresh.refresh('))
+        harness = r'''
+#include <cassert>
+#include <cstring>
+enum class UiScreen { Home, LocalLibrary };
+UiScreen uiScreen=UiScreen::LocalLibrary;
+bool syncReturnCleanupPending=true, hardClear=false;
+int cleanupCount=0;
+void scheduleGhostCleanup(const char *reason) {
+    assert(!strcmp(reason,"sync-finished"));hardClear=true;++cleanupCount;
+}
+void scheduleScreenTransitionCleanup(''' + helper + r'''
+int main() {
+    // A rescan's busy refresh consumes any early clear request.
+    hardClear=false;
+    scheduleScreenTransitionCleanup(UiScreen::LocalLibrary,"screen-local-library");
+    assert(hardClear && !syncReturnCleanupPending && cleanupCount==1);
+    hardClear=false;
+    scheduleScreenTransitionCleanup(UiScreen::LocalLibrary,"screen-local-library");
+    assert(!hardClear && cleanupCount==1);
+}
+'''
+        self.compile_and_run(harness)
+
+    def compile_and_run(self, source):
+        with tempfile.TemporaryDirectory() as folder:
+            cpp = Path(folder) / 'progress.cpp'
+            exe = Path(folder) / 'progress.exe'
+            cpp.write_text(source, encoding='utf8')
+            subprocess.run([shutil.which('g++'), '-std=c++17', '-Wall', '-Wextra',
+                            '-Werror', '-I', str(ROOT / 'include'), str(cpp),
+                            '-o', str(exe)], check=True)
+            subprocess.run([str(exe)], check=True)
 
     def test_unknown_total_steps_and_large_transfers(self):
         source = r'''
@@ -34,14 +73,7 @@ int main() {
     next=s;next.total=0;assert(changed(s,next) && percent(next)==-1);
 }
 '''
-        with tempfile.TemporaryDirectory() as folder:
-            cpp = Path(folder) / 'progress.cpp'
-            exe = Path(folder) / 'progress.exe'
-            cpp.write_text(source, encoding='utf8')
-            subprocess.run([shutil.which('g++'), '-std=c++17', '-Wall', '-Wextra',
-                            '-Werror', '-I', str(ROOT / 'include'), str(cpp),
-                            '-o', str(exe)], check=True)
-            subprocess.run([str(exe)], check=True)
+        self.compile_and_run(source)
 
 
 if __name__ == '__main__':
