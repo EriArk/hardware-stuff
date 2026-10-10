@@ -27,12 +27,15 @@ from configure import configuration  # noqa: E402
 
 MARKER = '.octofox-install.json'
 ROOT_FILES = ('compose.yaml', 'Dockerfile', '.dockerignore', 'pyproject.toml', 'README.md', 'THIRD_PARTY.md')
+RUNTIME_TOOLS = ('configure.py', 'manage.py')
 
 
 def payload_files(source=SOURCE):
     """Only server code and build inputs; never copy a developer's .env or data."""
     result = [source / name for name in ROOT_FILES]
-    for name in ('src', 'speech', 'tools'):
+    # Developer verification fixtures are source-only, not installation payload.
+    result += [source / 'tools' / name for name in RUNTIME_TOOLS]
+    for name in ('src', 'speech'):
         result += [p for p in (source / name).rglob('*') if p.is_file()
                    and not any(x.startswith('.') or x == '__pycache__' or x.endswith('.egg-info')
                                for x in p.relative_to(source).parts)

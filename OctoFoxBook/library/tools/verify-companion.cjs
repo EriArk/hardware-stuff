@@ -138,7 +138,7 @@ const server = http.createServer(async (req,res) => {
     const guide = page.locator('#domain-guide');
     await page.locator('#open-domain-guide').click();
     assert.equal(await guide.getAttribute('lang'), 'en');
-    await page.locator('#guide-hostname').fill('textbooks.abysstail.art');
+    await page.locator('#guide-hostname').fill('reading.example.net');
     assert(await page.locator('#guide-back').isDisabled());
     await page.locator('#guide-next').click();
     assert.equal(await page.locator('#guide-progress').textContent(), '2 / 5');
@@ -165,14 +165,14 @@ const server = http.createServer(async (req,res) => {
     assert(await page.locator('#guide-origin-error').isVisible());
     assert.equal(await page.evaluate(() => window.injected), undefined);
     await page.locator('[data-guide-step="0"]').click();
-    await page.locator('#guide-hostname').fill('textbooks.abysstail.art');
+    await page.locator('#guide-hostname').fill('reading.example.net');
     const revisionBeforeGuide = networkRevision;
     await page.locator('[data-guide-step="3"]').click();
     await page.locator('#guide-add-origin').click();
     await guide.waitFor({state:'hidden'});
     await page.waitForFunction(() => document.activeElement.id === 'additional-origins');
     assert.equal(networkRevision, revisionBeforeGuide, 'guide does not save settings');
-    assert.equal(await page.locator('#additional-origins').inputValue(), 'http://192.168.1.20:8080\nhttps://books.example.org\nhttps://textbooks.abysstail.art');
+    assert.equal(await page.locator('#additional-origins').inputValue(), 'http://192.168.1.20:8080\nhttps://books.example.org\nhttps://reading.example.net');
     await page.locator('#open-domain-guide').click();
     await page.locator('[data-guide-step="3"]').click();
     await page.locator('#guide-add-origin').click();

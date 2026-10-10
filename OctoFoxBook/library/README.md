@@ -6,7 +6,7 @@
 
 ## Релиз-кандидат
 
-[OctoFox Book 0.9.0-rc.1 — скачать сборки](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.9.0-rc.1). Установщик сервера и переносимый браузер Companion доступны отдельно. Проверенные сценарии и ограничения указаны в описании релиза.
+[OctoFox Book 0.9.0-rc.2 — скачать сборки](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.9.0-rc.2). Установщик сервера и переносимый браузер Companion доступны отдельно. Проверенные сценарии и ограничения указаны в описании релиза.
 
 ## Установка через мастер
 
@@ -101,7 +101,7 @@ python tools/manage.py start --speech
 
 ## Backups and restore
 
-The current source includes **Companion → Backups**, currently in English. Included in the `0.9.0-rc.1` server installers. The original `0.2.0-beta.1` packages do not include backups. Build the current server source with `python tools/manage.py start` using the installation's existing project name and `.env`. The portable Companion browser does not need an update.
+The current source includes **Companion → Backups**, currently in English. Included in the `0.9.0-rc.2` server installers. The original `0.2.0-beta.1` packages do not include backups. Build the current server source with `python tools/manage.py start` using the installation's existing project name and `.env`. The portable Companion browser does not need an update.
 
 1. Sign in to Companion as an administrator and open **Backups**.
 2. Choose **Create backup**. The library briefly pauses so account data, books and reading state belong to the same snapshot. Keep the server running. The page reconnects when it returns.

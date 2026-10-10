@@ -59,6 +59,8 @@ class InstallerTests(unittest.TestCase):
         for name in ('src', 'speech', 'tools'):
             (self.source / name).mkdir()
             (self.source / name / 'sample.py').write_text('print("hello")')
+        for name in m.RUNTIME_TOOLS:
+            (self.source / 'tools' / name).write_text('# runtime tool')
         self.target = self.root / 'server'
         self.runtime = Mock()
         self.runtime.ready.return_value = True
@@ -112,6 +114,16 @@ class InstallerTests(unittest.TestCase):
         self.assertFalse((self.target / '.env').exists())
         self.assertFalse((self.target / 'data').exists())
         self.assertFalse((self.target / 'src/__pycache__').exists())
+
+    def test_only_runtime_tools_are_shipped(self):
+        for name in ('verify-companion.cjs', 'local-access.json', 'debug.py'):
+            (self.source / 'tools' / name).write_text('developer fixture only')
+        m.prepare(self.target, self.source)
+        self.assertEqual({p.name for p in (self.target / 'tools').iterdir()},
+                         {'configure.py', 'manage.py'})
+        real_tools = {p.relative_to(m.SOURCE).as_posix() for p in m.payload_files()
+                      if p.parent == m.SOURCE / 'tools'}
+        self.assertEqual(real_tools, {'tools/configure.py', 'tools/manage.py'})
 
     def test_cancelled_permissions_and_unexpected_errors_do_not_leak_details(self):
         self.runtime.ensure.side_effect = d.DependencyError('Permission was cancelled. Retry.')
