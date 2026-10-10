@@ -1,3 +1,4 @@
+#include "collection_store.h"
 #include "automatic_sync.h"
 #include "wifi_setup.h"
 
@@ -103,6 +104,13 @@ void worker(void *) {
         unsigned long long after = 0;
         for (unsigned batch = 0; batch < 64 && !paused.load() && !cancelled.load(); ++batch) {
             if (!sendSavedReceipt(network)) break;
+            // Persist offline edits before the server decides which books to remove.
+            // A failed upload must stop this pass, preserving the local books.
+            if (batch == 0 && !Collections::sync(network, identity, true)) {
+                hadFailures = true;
+                recordFailure(ReaderSyncPolicy::Error::Protocol);
+                break;
+            }
             char path[128]{};
             // Each job is attempted once per manual pass. Failed jobs stay queued
             // for the next press, without starving later downloads or removals.
@@ -217,6 +225,12 @@ void worker(void *) {
             if (!ok) { hadFailures = true; continue; }
             ++delivered;
             deliveredCount = delivered;
+        }
+        if(complete && !paused.load() && !cancelled.load()) {
+            if(!Collections::sync(network,identity)) {
+                hadFailures=true;recordFailure(ReaderSyncPolicy::Error::Protocol);
+                Serial.printf("SYNC COLLECTIONS error=%s\n",Collections::error());
+            } else changed=true;
         }
         network.disconnect();
         setWorkCancelCallback(nullptr);

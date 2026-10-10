@@ -33,21 +33,21 @@ int main() {
     assert(SectionBackFocus::input(back,0,0,1,false)==A::Redraw && back);
     assert(SectionBackFocus::input(back,0,3,0,true)==A::Back && !back);
     List v{};v.title="Ваша библиотека";v.subtitle="На устройстве: 24 · выберите подборку";
-    v.total=8;v.rowCount=5;
+    v.total=8;v.rowCount=kListRows;
     const char *titles[]={"Все книги","Недавно добавлены","Читаю","Непрочитанные","Прочитанные"};
     const char *hints[]={"Все загруженные книги","Последние пополнения","Истории, которые вы начали","Откройте что-нибудь новое","Прочитанные истории"};
-    for(size_t i=0;i<5;++i) v.rows[i]={titles[i],hints[i],"Книг: 12","",false,i==0,0};
+    for(size_t i=0;i<kListRows;++i) v.rows[i]={titles[i],hints[i],"Книг: 12","",false,i==0,0};
     Capture c;
     auto scene=[&](const char *name){std::cout<<"SCENE "<<name<<"\n";const int before=c.logos;list(c,v);assert(c.logos==before+1);};
     scene("library");
     v.title="Все книги";v.subtitle="Книг: 24";v.back="< К разделам библиотеки";
-    for(size_t i=0;i<5;++i)v.rows[i]={i==0?"Очень длинное название книги, которое не должно налезть на соседнюю строку":"Сад за горизонтом","Александр Лис","Глава 8 · 34%","sample",true,i==0,34};
-    scene("books");assert(c.covers==5);
+    for(size_t i=0;i<kListRows;++i)v.rows[i]={i==0?"Очень длинное название книги, которое не должно налезть на соседнюю строку":"Сад за горизонтом","Александр Лис","Глава 8 · 34%","sample",true,i==0,34};
+    scene("books");assert(c.covers==kListRows);
     v.backFocused=true;scene("back");v.backFocused=false;
     v.tabFocus=2;scene("tabs");v.tabFocus=-1;
     v.activeTab=2;v.title="Найдём книгу";v.subtitle="Поиск среди книг на устройстве.";v.back="";
     const char *letters[]={"А–Д","Е–К","Л–П","Р–У","Ф–Я"};
-    for(size_t i=0;i<5;++i)v.rows[i]={letters[i],"Выбрать первую букву","","",false,i==0,0};
+    for(size_t i=0;i<kListRows;++i)v.rows[i]={letters[i],"Выбрать первую букву","","",false,i==0,0};
     scene("search");
     v.activeTab=3;v.title="Избранное";v.subtitle="Ваши книги — в ваших подборках.";v.rowCount=3;v.total=3;
     v.rows[0]={"Хочу прочитать","Истории, с которыми хочется познакомиться","Книг: 4","",false,true,0};
@@ -58,4 +58,5 @@ int main() {
     v.back="< Ко всем подборкам";v.backFocused=true;
     v.emptyTitle="В подборке пока пусто";v.emptyHint="Откройте карточку книги и добавьте";v.emptyHint2="её в одну из подборок избранного.";
     scene("empty");
+    std::cout<<"SCENE card\n";Card detail{};detail.book={"sample","A book","An author","34%",34,true};card(c,detail);
 }

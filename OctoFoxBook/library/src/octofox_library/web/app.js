@@ -68,11 +68,11 @@ let serverSpeechInfo = {available: true, voice: 'eugene', voices: [
 ]};
 const readerScreenAwake = createReaderScreenAwake(navigator, document, window);
 const personalLibrary = window.BookPersonal?.createPersonalLibrary({api, session: () => state.csrf,
-  onFilter: value => { state.personalCollection = value; if (state.view === 'personal') loadCatalog().catch(e => toast(e.message)); },
+  onFilter: value => { state.personalCollection = value; if (['personal', 'favorite'].includes(state.view)) loadCatalog().catch(e => toast(e.message)); },
   onChange: () => refreshPersonalLibrary(),
 });
 function refreshPersonalLibrary() {
-  if (state.view !== 'personal') return;
+  if (!['personal', 'favorite'].includes(state.view)) return;
   personalLibrary?.refresh().catch(e => toast(e.message));
   loadCatalog().catch(e => toast(e.message));
 }
@@ -326,7 +326,8 @@ async function navigate(view, context = {}) {
   $("filterButton").setAttribute("aria-expanded", "false");
   state.view = view;
   state.personalCollection = context.personalCollection || '';
-  $("uploadControls").hidden = view !== "personal";
+  $("uploadControls").hidden = !['personal', 'favorite'].includes(view);
+  $("openUpload").hidden = view !== 'personal';
   location.hash = view;
   setDrawer(false);
   document
@@ -398,7 +399,7 @@ async function navigate(view, context = {}) {
       : view === "reading" ? "Недавно читали" : "Сначала новые";
   if (["recent", "reading"].includes(view)) $("sortFilter").value = "recent";
   $("sortFilter").closest("label").hidden = ["recent", "reading", "personal"].includes(view);
-  if (view === 'personal') await personalLibrary?.enter(state.personalCollection);
+  if (['personal', 'favorite'].includes(view)) await personalLibrary?.enter(state.personalCollection, view === 'favorite');
   if (view !== state.view) return;
   await loadCatalog();
 }
@@ -418,6 +419,10 @@ function parameters(page) {
   else if (state.view === "personal") {
     query.set("personal", "1");
     if (state.personalCollection) query.set('personalCollection', state.personalCollection);
+  }
+  else if (state.view === 'favorite' && state.personalCollection) {
+    query.set('personal', '1');
+    query.set('personalCollection', state.personalCollection);
   }
   else if (state.view === "recent") query.set("new", "1");
   else if (!["library", "recent"].includes(state.view))
@@ -1118,9 +1123,20 @@ async function loadQueue() {
   $("deviceList").innerHTML = devices
     .map(
       (d) =>
-        `<div class="device-card">${icon("device")}<div><h3>${esc(d.name)}</h3><p>${d.last_seen ? `Была в сети ${esc(new Date(d.last_seen * 1000).toLocaleString("ru", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}` : "Подключится после установки новой прошивки"}</p></div></div>`,
+        `<div class="device-card">${icon("device")}<div><h3>${esc(d.name)}</h3><p>${d.last_seen ? `Была в сети ${esc(new Date(d.last_seen * 1000).toLocaleString("ru", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }))}` : "Подключится после установки новой прошивки"}</p><label class="profile-sync-option"><input type="checkbox" data-profile-sync="${esc(d.id)}" ${d.profile_sync ? 'checked' : ''}> Синхронизировать весь профиль</label><p class="fine">${d.profile_sync ? 'Мои книги, избранное и коллекции появятся при синхронизации читалки.' : 'Выбирай книги для этого устройства вручную. Избранное и коллекции сохранятся.'}</p></div></div>`,
     )
     .join("");
+  $("deviceList").querySelectorAll('[data-profile-sync]').forEach(checkbox => {
+    checkbox.onchange = task(async () => {
+      const enabled = checkbox.checked;
+      checkbox.disabled = true;
+      try {
+        await api(`/devices/${encodeURIComponent(checkbox.dataset.profileSync)}/profile-sync`, {enabled});
+        await loadQueue();
+      } catch (error) { checkbox.checked = !enabled; throw error; }
+      finally { checkbox.disabled = false; }
+    });
+  });
   const labels = {
     queued: "Ожидает синхронизации",
     downloading: "Загружается",
@@ -1135,7 +1151,11 @@ async function loadQueue() {
             `<article class="queue-item managed-book"><button class="queue-cover" data-book="${esc(q.book)}" aria-label="Открыть карточку: ${esc(q.title)}">${cover({id:q.book, title:q.title, cover:`/reader-api/books/${encodeURIComponent(q.book)}/cover`})}</button><div><span class="delivery-label">${esc(q.action === "remove" ? (q.state === "failed" ? "Не удалось удалить" : q.state === "downloading" ? "Удаляется" : "Удалится при синхронизации") : labels[q.state] || q.state)}</span><h3><button class="queue-title" data-book="${esc(q.book)}">${esc(q.title)}</button></h3><p>${esc(devices.find((d) => d.id === q.device)?.name || "Читалка")}</p>${q.state === "failed" ? `<button class="text-button" data-retry="${q.id}">Повторить</button>` : ""}${q.action !== "remove" ? `<button class="text-button remove-book" data-remove="${q.id}">Убрать с читалки</button>` : '<p class="fine">Файл в общей и личной библиотеке останется.</p>'}</div></article>`,
         )
         .join("")
-    : '<div class="empty-state">На читалку пока ничего не отправлено. Выбери «Загрузить на устройство» в карточке книги.</div>';
+    : '<div class="empty-state">Добавь книги в «Мои книги» и запусти синхронизацию на читалке. Для ручного выбора сними галочку синхронизации профиля.</div>';
+  for (const button of $("queueList").querySelectorAll('[data-remove]')) {
+    const entry = queue.find(q => String(q.id) === button.dataset.remove);
+    if (devices.find(d => d.id === entry?.device)?.profile_sync) button.hidden = true;
+  }
   bindCovers($("queueList"));
   $("queueList").querySelectorAll("[data-book]").forEach(button => {
     button.onclick = task(() => openBook(button.dataset.book));

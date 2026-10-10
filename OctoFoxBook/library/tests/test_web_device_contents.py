@@ -21,7 +21,10 @@ PAYLOAD = ('<?xml version="1.0" encoding="utf-8"?>'
 
 
 class DeviceContentsTest(unittest.TestCase):
-    setUp = helpers.BooksWebTest.setUp
+    def setUp(self):
+        helpers.BooksWebTest.setUp(self)
+        # These scenarios explicitly exercise the optional manual device shelf.
+        self.app.set_profile_sync('alice', 'default', {'enabled': False})
     seed = helpers.BooksWebTest.seed
 
     def test_manual_pass_cursor_skips_failure_but_next_pass_retries_it(self):

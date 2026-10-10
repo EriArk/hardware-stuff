@@ -455,7 +455,11 @@
     "Загрузить книги": "Upload books",
     "Откройте приложение OctoFox Companion на этом компьютере или в одной сети с сервером. Оно найдёт библиотеку и откроет создание владельца.": "Open the OctoFox Companion app on this computer or on the same network as the server. It will find your library and open owner setup.",
     "Приложение Companion": "Companion app",
-    "Приложение Companion ↗": "Companion app ↗"
+    "Приложение Companion ↗": "Companion app ↗",
+    "Синхронизировать весь профиль": "Sync my whole profile",
+    "Мои книги, избранное и коллекции появятся при синхронизации читалки.": "My books, favorites and collections appear when you sync your reader.",
+    "Выбирай книги для этого устройства вручную. Избранное и коллекции сохранятся.": "Choose books for this reader manually. Favorites and collections remain available.",
+    "Добавь книги в «Мои книги» и запусти синхронизацию на читалке. Для ручного выбора сними галочку синхронизации профиля.": "Add books to My books, then sync your reader. Turn off whole-profile sync to choose device books manually."
   },
   "messages": {
     "Не удалось определить состояние библиотеки.": "Could not determine the library status.",

@@ -1557,3 +1557,5 @@ body:has(.reader-screen.night:not([hidden])) { background: #151318; }
 .drawer-footer .language-choice { flex-basis: 100%; }
 
 .empty-state .primary { margin: 16px auto 0; }
+.profile-sync-option { display: flex; flex-direction: row; align-items: center; gap: 12px; min-height: 44px; margin-top: 12px; font-size: 16px; color: var(--text); line-height: 1.5; cursor: pointer; }
+.profile-sync-option input { width: 20px; height: 20px; min-height: 0; padding: 0; flex: 0 0 auto; margin: 0; accent-color: var(--gold); }

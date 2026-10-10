@@ -48,6 +48,7 @@ from octofox_library.web_catalog import (
 from octofox_library.web_collections import COLLECTIONS, collection_filter
 from octofox_library.web_uploads import UploadsMixin
 from octofox_library.web_personal_collections import PersonalCollectionsMixin
+from octofox_library.web_reader_collections import ReaderCollectionsMixin
 from octofox_library.web_errors import WebError
 from octofox_library.web_speech import BookSpeech, SpeechError
 from octofox_library.companion import Companion
@@ -200,7 +201,7 @@ class Session:
     expires: float
 
 
-class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
+class LibraryWeb(ReaderCollectionsMixin, UploadsMixin, PersonalCollectionsMixin):
     def __init__(self, database: Path, upstream: str, origin: str):
         self.database, self.origin = database, origin.rstrip("/")
         database.parent.mkdir(parents=True, exist_ok=True)
@@ -248,6 +249,15 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
                 CREATE TABLE IF NOT EXISTS favorite_books (
                     owner TEXT NOT NULL, book TEXT NOT NULL, added REAL NOT NULL,
                     PRIMARY KEY(owner,book));
+                CREATE TABLE IF NOT EXISTS reader_profile_sync (
+                    owner TEXT NOT NULL, device TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
+                    PRIMARY KEY(owner,device));
+                CREATE TABLE IF NOT EXISTS reader_collection_ops (
+                    owner TEXT NOT NULL, device TEXT NOT NULL, op TEXT NOT NULL,
+                    identity TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                    PRIMARY KEY(owner,device,op));
+                CREATE TABLE IF NOT EXISTS reader_collection_meta (key TEXT PRIMARY KEY,value TEXT NOT NULL);
+                INSERT OR IGNORE INTO reader_collection_meta VALUES ('identity',lower(hex(randomblob(16))));
                 CREATE TABLE IF NOT EXISTS personal_collections (
                     owner TEXT NOT NULL, id TEXT NOT NULL, name TEXT NOT NULL,
                     name_key TEXT NOT NULL, created REAL NOT NULL,
@@ -933,11 +943,14 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
             rows = [
                 dict(r)
                 for r in db.execute(
-                    "SELECT id,name,last_seen FROM devices WHERE owner=? ORDER BY last_seen DESC",
+                    "SELECT id,name,last_seen,COALESCE((SELECT enabled FROM reader_profile_sync s WHERE s.owner=devices.owner AND s.device=devices.id),1) AS profile_sync FROM devices WHERE owner=? ORDER BY last_seen DESC",
                     (owner,),
                 )
             ]
-        return rows or [{"id": "default", "name": "My e-reader" if locale == "en" else "Моя читалка", "last_seen": 0}]
+            if not rows:
+                rows = [{"id": "default", "name": "My e-reader" if locale == "en" else "Моя читалка", "last_seen": 0,
+                         "profile_sync": self.profile_sync_enabled(db, owner, 'default')}]
+        return [row | {'profile_sync': bool(row['profile_sync'])} for row in rows]
 
     def enqueue(self, owner, book_id, device):
         book = self.book(owner, book_id)
@@ -946,6 +959,8 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
         now = time.time()
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
+            if self.profile_sync_enabled(db, owner, device):
+                db.execute('INSERT OR IGNORE INTO personal_library VALUES (?,?,?)', (owner, book_id, now))
             previous = db.execute("SELECT * FROM delivery WHERE owner=? AND device=? AND book=?", (owner, device, book_id)).fetchone()
             if previous and previous["action"] == "download" and previous["state"] in {"queued", "downloading", "delivered"}:
                 return dict(previous)
@@ -966,6 +981,8 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
             row = db.execute("SELECT * FROM delivery WHERE owner=? AND id=?", (owner, job)).fetchone()
             if not row:
                 raise WebError(404, "Книга на устройстве не найдена")
+            if self.profile_sync_enabled(db, owner, row['device']):
+                raise WebError(409, 'Turn off whole-profile sync to manage individual device books')
             if row["action"] == "remove" and row["state"] != "failed":
                 return dict(row)
             db.execute("DELETE FROM delivery WHERE owner=? AND id=?", (owner, job))
@@ -1001,6 +1018,8 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
                     "UPDATE delivery SET device=? WHERE owner=? AND device='default'",
                     (device, owner),
                 )
+                db.execute('INSERT OR IGNORE INTO reader_profile_sync SELECT owner,?,enabled FROM reader_profile_sync WHERE owner=? AND device=?',
+                           (device, owner, 'default'))
             if (
                 existing >= 16
                 and not db.execute(
@@ -1013,6 +1032,8 @@ class LibraryWeb(UploadsMixin, PersonalCollectionsMixin):
                 DO UPDATE SET last_seen=excluded.last_seen""",
                 (owner, device, "Читалка " + device[-4:].upper(), now),
             )
+            if version >= 2 and after == 0:
+                self.reconcile_reader_profile(db, owner, device, now)
             row = db.execute(
                 """SELECT * FROM delivery WHERE owner=? AND device=? AND
                 (state='queued' OR (state='downloading' AND updated<?))
@@ -1298,6 +1319,14 @@ class WebHandler(BaseHTTPRequestHandler):
             device = query.get("device", [""])[0]
             if not DEVICE_RE.fullmatch(device):
                 raise WebError(400, "Invalid device identifier")
+            if path == "/reader-api/device/collections":
+                try:
+                    offset = int(query.get("offset", ["0"])[0])
+                except ValueError:
+                    raise WebError(400, "Invalid collection cursor")
+                value = self.app.reader_collections(owner, device, None if get else self.body(), offset)
+                # Compact encoding stays under the reader's 2 KiB response bound.
+                return self.send(200, json.dumps(value, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
             if get and path == "/reader-api/device/next":
                 value = self.app.poll(owner, device, int(query.get("v", ["1"])[0]),
                                       int(query.get("after", ["0"])[0]))
@@ -1453,6 +1482,9 @@ class WebHandler(BaseHTTPRequestHandler):
             return self.send(200, self.app.facets(session.owner, query, localization.language(self.headers)))
         if get and path == "/reader-api/devices":
             return self.send(200, self.app.devices(session.owner, localization.language(self.headers)))
+        device_settings = re.fullmatch(r'/reader-api/devices/([A-Za-z0-9_-]{1,80})/profile-sync', path)
+        if not get and device_settings:
+            return self.send(200, self.app.set_profile_sync(session.owner, device_settings[1], self.body()))
         if get and path == "/reader-api/queue":
             return self.send(200, self.app.deliveries(session.owner))
         if not get and path == "/reader-api/queue":

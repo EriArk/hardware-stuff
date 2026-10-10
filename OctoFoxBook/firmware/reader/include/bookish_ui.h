@@ -39,7 +39,7 @@ public:
 };
 void header(Canvas &c, unsigned activeTab, int focus = -1);
 void home(Canvas &c, const Home &view);
-constexpr size_t kListRows = 5;
+constexpr size_t kListRows = 4;
 struct ListRow {
     const char *title = "";
     const char *subtitle = "";
@@ -65,4 +65,12 @@ struct List {
     size_t selected = 0;
 };
 void list(Canvas &c, const List &view);
+struct Card {
+    Book book;
+    unsigned activeTab = 1, focus = 0;
+    const char *primary = "Читать";
+    const char *series = "Без серии";
+    bool favorite = false;
+};
+void card(Canvas &c, const Card &view);
 }

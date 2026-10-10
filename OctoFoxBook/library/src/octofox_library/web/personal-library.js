@@ -40,7 +40,7 @@
   function createPersonalLibrary({api, session, onFilter, onChange}) {
     const $ = id => document.getElementById(id);
     const select = $('personalCollection'), dialog = $('personalCollectionsDialog');
-    let selected = '', revision = 0, generation = 0, busy = false, items = [];
+    let selected = '', revision = 0, generation = 0, busy = false, items = [], favorites = false;
     const node = (tag, text, cls) => {
       const n = document.createElement(tag);
       if (text !== undefined) n.textContent = text;
@@ -49,7 +49,7 @@
     };
     function render() {
       select.replaceChildren();
-      const all = node('option', 'Все мои книги'); all.value = ''; select.append(all);
+      const all = node('option', favorites ? 'Избранное' : 'Все мои книги'); all.value = ''; select.append(all);
       for (const item of items) {
         const option = node('option', `${item.name} · ${item.count}`); option.value = item.id; select.append(option);
       }
@@ -174,7 +174,7 @@
       };
     }
     return {refresh, attachBook,
-      async enter(value = '') { selected = value; await refresh(); },
+      async enter(value = '', favoriteView = false) { favorites = favoriteView; selected = value; await refresh(); },
       reset() { generation++; revision++; busy = false; selected = ''; items = []; dialog.close(); render(); $('personalCollectionCreate').disabled = false; $('personalCollectionName').value = ''; $('personalCollectionsStatus').textContent = ''; }
     };
   }

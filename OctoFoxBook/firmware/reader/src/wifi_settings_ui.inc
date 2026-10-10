@@ -124,7 +124,7 @@ bool paintWifiSettings() {
     const bool transition=uiScreen!=target;
     scheduleScreenTransitionCleanup(target,"wifi-settings");
     uiScreen=target;
-    lastDisplayRefresh=displayRefresh.refresh(framebuffer,transition ? DisplayRefreshMode::QualityFull : DisplayRefreshMode::FastUi);
+    lastDisplayRefresh=displayRefresh.refresh(framebuffer,transition ? DisplayRefreshMode::QualityFull : DisplayRefreshMode::QualityFull);
     hasDisplayRefresh=lastDisplayRefresh.ok;
     // No SSID or password in diagnostics.
     Serial.printf("WIFI UI page=%u radio=%s\n",static_cast<unsigned>(wifiPage),WiFi.getMode()==WIFI_OFF?"off":"on");

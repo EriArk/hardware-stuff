@@ -85,6 +85,7 @@ bool selectFastPainterQuality(DisplayRefreshMode mode) {
 // Only this task submits normal paints. The mailbox owns its snapshot: UI
 // rendering and the loading indicator may immediately reuse their framebuffer.
 void paintFrames(void *) {
+    unsigned uiPaintsSinceClear = 0;
     for (;;) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
         for (;;) {
@@ -95,7 +96,9 @@ void paintFrames(void *) {
             }
             frameActive = true;
             const auto mode = queuedMode;
-            const bool clear = queuedClear;
+            // Antialiased UI/cover frames need HIGH and a shorter cleanup
+            // cadence than continuous reading. Count completed paints, not keys.
+            const bool clear = queuedClear || (queuedMode == DisplayRefreshMode::QualityFull && uiPaintsSinceClear >= 3);
             const Rect_t clearRegion = queuedClearRegion;
             const uint32_t sequence = queuedSequence;
             const uint32_t submitted = queuedAt;
@@ -117,6 +120,8 @@ void paintFrames(void *) {
                 fastPainter.paint(painterFramebuffer);
                 ok = waitForFastPainter();
             }
+            if (ok && clear) uiPaintsSinceClear = 0;
+            else if (ok && mode == DisplayRefreshMode::QualityFull) ++uiPaintsSinceClear;
             frameFailed = !ok;
             Serial.printf("DISPLAY COMPLETE seq=%lu ok=%s mode=%s clear=%s region_clear=%s wait_ms=%lu paint_ms=%lu total_ms=%lu\n",
                 static_cast<unsigned long>(sequence), ok ? "true" : "false",

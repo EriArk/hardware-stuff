@@ -216,7 +216,7 @@ int main() {
     def test_home_and_usb_share_exclusive_ownership_guards(self):
         main = source("main.cpp")
         calls = main.split("AutomaticSync::request(")[1:]
-        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(calls), 3)  # Home, Library footer and USB.
         for call in calls:
             condition = call.split(";", 1)[0]
             for guard in ("provisioningActive", "bookUpload.active()", "BookPreparation::busy()", "pendingPowerSleep"):

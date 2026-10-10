@@ -46,4 +46,9 @@ int main() {
     assert(g.update(true,1300,true)==E::None);
     assert(g.update(false,1350,true)==E::Double); // Home restored outside editor.
     std::cout << "KEYBOARD_OK\n";
+    k.reset("",3);k.cyrillic=true;k.mode=4;k.inside=true;
+    assert(k.columns(0)==12);k.confirm();assert(std::string(k.value())=="й");
+    assert(k.confirm()==TextKeyboard::Result::Full && k.length()==2);
+    k.row=4;k.column=1;k.confirm();assert(k.length()==0);
+    k.reset();k.mode=5;k.inside=true;k.confirm();assert(std::string(k.value())=="Й");
 }

@@ -23,6 +23,7 @@
 #include "epd_driver.h"
 #include "fb2_cache.h"
 #include "favorites_store.h"
+#include "collection_store.h"
 #include "local_library.h"
 #include "home_layout.h"
 #include "network_service.h"
@@ -60,7 +61,7 @@
 namespace {
 
 constexpr char kFirmwareName[] = "abyss-reader";
-constexpr char kFirmwareVersion[] = "0.21.0-alpha5";
+constexpr char kFirmwareVersion[] = "0.21.0-alpha6";
 constexpr size_t kFramebufferBytes = EPD_WIDTH * EPD_HEIGHT / 2;
 constexpr int32_t kPortraitWidth = EPD_HEIGHT;
 constexpr int32_t kPortraitHeight = EPD_WIDTH;
@@ -123,6 +124,7 @@ enum class UiScreen : uint8_t {
     Sections = 18,
     DeviceSettings = 19,
     Wifi = 20,
+    CollectionName = 21,
 };
 
 enum class TopLevelTab : uint8_t {
@@ -283,7 +285,7 @@ enum class FavoritesPhase : uint8_t {
 
 struct FavoritesSession {
     FavoritesPhase phase = FavoritesPhase::Folders;
-    FavoriteFolder folder = FavoriteFolder::WantToRead;
+    size_t folder = 0;
     size_t selected = 0;
     size_t firstVisible = 0;
     bool loaded = false;
@@ -295,6 +297,8 @@ enum class BookCardFocus : uint8_t {
     Author = 2,
     Series = 3,
     Favorite = 4,
+    Collections = 5,
+    Back = 6,
 };
 
 struct BookCardSession {
@@ -313,7 +317,7 @@ struct BookCardSession {
     uint8_t annotationPage = 0;
     bool favoritePickerOpen = false;
     bool favoriteStored = false;
-    FavoriteFolder favoriteFolder = FavoriteFolder::WantToRead;
+    size_t collectionSelection = 0;
     uint32_t displayedAt = 0;
     bool coverPreparationAttempted = false;
 };
@@ -801,7 +805,7 @@ void drawBusyIndicator() {
     }
     const Rect_t indicatorRegion{EPD_WIDTH - top - height, left, height, width};
     const auto result = displayRefresh.refresh(framebuffer,
-        syncHome ? DisplayRefreshMode::RecoveryRegion : DisplayRefreshMode::FastUi,
+        syncHome ? DisplayRefreshMode::RecoveryRegion : DisplayRefreshMode::QualityFull,
         syncHome && busyFrame % 4 == 0 ? kSyncFooterRegion : indicatorRegion);
     // The display mailbox owns a snapshot; restore the real screen beneath
     // the indicator without touching the in-flight panel buffer.
@@ -848,7 +852,7 @@ public:
         if (owner_ && busyPainted) {
             // Also erase the indicator on an error/early return that leaves
             // the old screen open. Never leave loading crystals stuck there.
-            displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+            displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
         }
     }
     BusyIndicator(const BusyIndicator &) = delete;
@@ -1513,6 +1517,7 @@ bool loadHomeSession() {
 #include "bookish_adapter.inc"
 bool displayHome(bool rescan, const char *reason);
 #include "wifi_settings_ui.inc"
+#include "collection_name_ui.inc"
 
 bool renderHomeFrame() { return renderBookishHome(); }
 
@@ -1592,7 +1597,7 @@ bool displayTopLevelPlaceholder(TopLevelTab tab, const char *reason) {
     }
     scheduleScreenTransitionCleanup(UiScreen::TopLevel, "screen-top-level");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("TAB", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -1709,6 +1714,8 @@ bool renderSearchFrame(int tabFocus = -1) {
 }
 
 bool displaySearch(bool reset, const char *reason) {
+    static size_t renderedFirst = SIZE_MAX;
+
     static SearchPhase renderedPhase = SearchPhase::Scope;
     if (reset) {
         searchSession = SearchSession{};
@@ -1716,6 +1723,8 @@ bool displaySearch(bool reset, const char *reason) {
     searchSession.scope = SearchScope::Local;
     if (searchSession.phase == SearchPhase::Scope) searchSession.phase = SearchPhase::Range;
     normalizeSearchSelection();
+    if (renderedFirst != searchSession.firstVisible) scheduleGhostCleanup("list-scroll");
+    renderedFirst = searchSession.firstVisible;
     if (!renderSearchFrame()) {
         Serial.println("ERROR SEARCH_OPEN reason=frame-build-failed");
         return false;
@@ -1725,7 +1734,7 @@ bool displaySearch(bool reset, const char *reason) {
         scheduleGhostCleanup("search-step");
     }
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("SEARCH", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -1980,7 +1989,7 @@ bool refreshCatalogFrame(const char *reason) {
     }
     scheduleScreenTransitionCleanup(UiScreen::Catalog, "screen-catalog");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("CATALOG", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -2108,7 +2117,7 @@ bool executeSearch() {
 
 constexpr const char *kLocalSectionLabels[] = {
     "Все книги", "Недавно добавлены", "Читаю", "Непрочитанные", "Прочитанные",
-    "Авторы", "Серии", "Жанры"};
+    "Авторы", "Серии", "Жанры", "Синхронизировать", "Настройки"};
 
 const char *localSectionLabel(LocalLibrarySection section) {
     const size_t index = static_cast<size_t>(section);
@@ -2470,13 +2479,14 @@ bool renderLocalLibraryFrame(int tabFocus = -1) {
     char details[BookishUI::kListRows][80]{};
     const char *hints[] = {"Все загруженные книги", "Последние пополнения", "Истории, которые вы начали",
         "Откройте что-нибудь новое", "Прочитанные истории", "Книги любимых писателей",
-        "Истории с продолжением", "Подберите книгу по настроению"};
+        "Истории с продолжением", "Подберите книгу по настроению", "Обмен книгами и коллекциями с сервером", "Wi-Fi и подключение"};
     for (size_t i = localLibrarySession.firstVisible; i < v.total && v.rowCount < BookishUI::kListRows; ++i) {
         const size_t row = v.rowCount++;
         auto &r = v.rows[row]; r.selected = i == localLibrarySession.selected;
         if (root || groups) {
             r.title = root ? localSectionLabel(static_cast<LocalLibrarySection>(i)) : localLibrarySession.groups[i];
             r.subtitle = root ? hints[i] : "Открыть подборку";
+            if (root && i >= 8) { r.detail = i == 8 ? (AutomaticSync::busy() ? "OK — отменить" : AutomaticSync::status()==AutomaticSync::Status::Failed ? ReaderSyncPolicy::errorLabel(AutomaticSync::error()) : AutomaticSync::status()==AutomaticSync::Status::Complete ? "Библиотека обновлена" : "OK — начать") : "OK — открыть"; continue; }
             snprintf(details[row], sizeof(details[row]), "Книг: %lu", static_cast<unsigned long>(root
                 ? localSectionBookCount(static_cast<LocalLibrarySection>(i)) : localGroupBookCount(r.title)));
         } else {
@@ -2709,7 +2719,7 @@ bool displayBookDownload(const BookDownloadJob &job, bool failed,
     }
     scheduleScreenTransitionCleanup(UiScreen::Download, "screen-download");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("DOWNLOAD", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -2747,7 +2757,7 @@ bool displayBookPreparation(const char *bookId, const char *title,
     scheduleScreenTransitionCleanup(UiScreen::Preparation,
                                     "screen-preparation");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("PREPARATION", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -2824,6 +2834,8 @@ bool prepareBookArtifacts(const char *bookId, const char *source,
 }
 
 bool displayLocalLibrary(bool rescan, const char *reason) {
+    static size_t renderedFirst = SIZE_MAX;
+
     static LocalLibraryPhase renderedPhase = LocalLibraryPhase::Sections;
     static LocalLibrarySection renderedSection = LocalLibrarySection::All;
     static char renderedGroup[128]{};
@@ -2867,6 +2879,8 @@ bool displayLocalLibrary(bool rescan, const char *reason) {
         }
     }
 
+    if (renderedFirst != localLibrarySession.firstVisible) scheduleGhostCleanup("list-scroll");
+    renderedFirst = localLibrarySession.firstVisible;
     if (!renderLocalLibraryFrame()) {
         Serial.println("ERROR LIBRARY_OPEN reason=frame-build-failed");
         return false;
@@ -2895,7 +2909,7 @@ bool displayLocalLibrary(bool rescan, const char *reason) {
     }
     lastDisplayRefresh =
         displayRefresh.refresh(framebuffer, localLibrarySession.phase == LocalLibraryPhase::Books
-            ? DisplayRefreshMode::QualityFull : DisplayRefreshMode::FastUi);
+            ? DisplayRefreshMode::QualityFull : DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("LIBRARY", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -2979,141 +2993,31 @@ void drawBookCardAction(uint8_t *scratch, BookCardFocus focus,
 }
 
 bool renderBookCardFrame() {
-    auto *scratch = static_cast<uint8_t *>(heap_caps_malloc(
-        kFramebufferBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-    if (scratch == nullptr || framebuffer == nullptr ||
-        !bookCardSession.active) {
-        heap_caps_free(scratch);
-        return false;
-    }
-    memset(framebuffer, 0xFF, kFramebufferBytes);
-    drawScreenChrome(scratch,
-                     bookCardSession.local ? "ABYSS // LOCAL BOOK"
-                                           : "ABYSS // OPDS BOOK",
-                     "КАРТОЧКА");
-
-    PortraitTextLines titleLines{};
-    wrapPortraitText(&UiCondensed14Bold, bookCardTitle(), 476, 2,
-                     titleLines);
-    drawPortraitTextLines(scratch, &UiCondensed14Bold, titleLines, 32,
-                          titleLines.count <= 1 ? 70 : 54, 36);
-
-    // The color original remains on microSD. This screen reads only the
-    // disposable fitted 4-bit cache, so portrait rendering never stretches or
-    // destructively crops artwork.
-    CoverBitmap cover{};
-    CoverCacheInfo coverInfo{};
-    const bool hasCover =
-        bookCardSession.bookId[0] != '\0' &&
-        CoverCache::load(bookCardSession.bookId, cover, coverInfo);
-    drawPortraitRoundedRect(188, 104, 164, 216, 12, 7, 15, 1);
-    if (hasCover) {
-        drawPortraitCover(cover, 270, 212);
-    } else {
-        drawPortraitText(scratch, &UiCondensed9, "ОБЛОЖКА", 236, 128, 6);
-        PortraitTextLines coverTitle{};
-        wrapPortraitText(&UiCondensed14Bold, bookCardTitle(), 132, 3,
-                         coverTitle);
-        const int32_t coverBaseline =
-            186 - static_cast<int32_t>(coverTitle.count - 1) * 10;
-        for (size_t index = 0; index < coverTitle.count; ++index) {
-            const int32_t width = measurePortraitText(
-                &UiCondensed14Bold, coverTitle.line[index]);
-            drawPortraitText(scratch, &UiCondensed14Bold,
-                             coverTitle.line[index],
-                             270 - min(66, width / 2),
-                             coverBaseline +
-                                 static_cast<int32_t>(index) * 36);
+    if(!bookCardSession.active)return false;
+    if(bookCardSession.favoritePickerOpen) {
+        BookishUI::List v{}; v.activeTab=3;v.title="В коллекции";v.subtitle="OK — добавить или убрать книгу.";
+        v.total=Collections::count()+2;v.selected=bookCardSession.collectionSelection;
+        const size_t first=(v.selected/BookishUI::kListRows)*BookishUI::kListRows;
+        static size_t previous=SIZE_MAX;if(first!=previous)scheduleGhostCleanup("collection-picker-page");previous=first;
+        for(size_t i=first;i<v.total && v.rowCount<BookishUI::kListRows;++i) {
+            auto &r=v.rows[v.rowCount++];r.selected=i==v.selected;
+            if(i==0){r.title="< Готово";r.subtitle="Вернуться к книге";}
+            else if(i==Collections::count()+1){r.title="+ Новая коллекция";r.subtitle="Создать свою подборку";}
+            else {r.title=Collections::name(i-1);r.subtitle=Collections::contains(i-1,bookCardSession.bookId)?"✓ Книга добавлена":"Книга не добавлена";}
         }
-        char coverAuthor[96]{};
-        fitPortraitText(&UiCondensed9, bookCardAuthor(), 132, coverAuthor,
-                        sizeof(coverAuthor));
-        const int32_t authorWidth =
-            measurePortraitText(&UiCondensed9, coverAuthor);
-        drawPortraitText(scratch, &UiCondensed9, coverAuthor,
-                         270 - min(66, authorWidth / 2), 281, 5);
+        return renderBookishList(v);
     }
-    CoverCache::release(cover);
-
-    const char *primary = bookCardSession.downloading
-                              ? "ЗАГРУЖАЮ..."
-                              : (bookCardSession.preparing
-                                     ? "ПОДГОТОВКА"
-                                     : (bookCardSession.localCopyPresent
-                                            ? "ЧИТАТЬ"
-                                            : (bookCardSession.downloadFailed
-                                                   ? "ПОВТОРИТЬ"
-                                                   : "ВЫБРАТЬ НА САЙТЕ")));
-    drawBookCardAction(scratch, BookCardFocus::Primary, primary, 326, true);
-
-    drawPortraitText(scratch, &UiCondensed9, "АННОТАЦИЯ", 34, 408, 5);
-    fillPortraitRect(34, 418, 472, 1, 10);
-    drawWrappedParagraph(scratch, &UiCondensed13, bookCardAnnotation(), 34,
-                         444, 472, 34, 0, 4, 0, 15);
-
-    drawBookCardAction(scratch, BookCardFocus::FullAnnotation,
-                       "ПОЛНАЯ АННОТАЦИЯ", 566);
-    char authorLabel[192]{};
-    snprintf(authorLabel, sizeof(authorLabel), "АВТОР  //  %s",
-             bookCardAuthor()[0] == '\0' ? "НЕ УКАЗАН" : bookCardAuthor());
-    char fittedAuthor[160]{};
-    fitPortraitText(&UiCondensed13, authorLabel, 430, fittedAuthor,
-                    sizeof(fittedAuthor));
-    drawBookCardAction(scratch, BookCardFocus::Author, fittedAuthor, 626);
-
-    char seriesLabel[224]{};
-    if (bookCardSeries()[0] == '\0') {
-        snprintf(seriesLabel, sizeof(seriesLabel), "СЕРИЯ  //  НЕ УКАЗАНА");
-    } else if (bookCardSeriesNumber()[0] != '\0') {
-        snprintf(seriesLabel, sizeof(seriesLabel), "СЕРИЯ  //  %s  ·  %s",
-                 bookCardSeries(), bookCardSeriesNumber());
-    } else {
-        snprintf(seriesLabel, sizeof(seriesLabel), "СЕРИЯ  //  %s",
-                 bookCardSeries());
-    }
-    char fittedSeries[160]{};
-    fitPortraitText(&UiCondensed13, seriesLabel, 430, fittedSeries,
-                    sizeof(fittedSeries));
-    drawBookCardAction(scratch, BookCardFocus::Series, fittedSeries, 686);
-    char favoriteLabel[96]{};
-    if (bookCardSession.favoriteStored) {
-        snprintf(favoriteLabel, sizeof(favoriteLabel), "ИЗБРАННОЕ  //  %s",
-                 FavoritesStore::folderLabel(
-                     bookCardSession.favoriteFolder));
-    } else {
-        snprintf(favoriteLabel, sizeof(favoriteLabel),
-                 "ДОБАВИТЬ В ИЗБРАННОЕ");
-    }
-    drawBookCardAction(scratch, BookCardFocus::Favorite, favoriteLabel, 746);
-
-    if (bookCardSession.favoritePickerOpen) {
-        fillPortraitRoundedRect(48, 564, 444, 250, 18, 15);
-        drawPortraitRoundedRect(48, 564, 444, 250, 18, 0, 15, 2);
-        drawPortraitText(scratch, &UiCondensed9, "ВЫБЕРИТЕ ПАПКУ", 74, 600,
-                         4);
-        for (uint8_t index = 0; index < 3; ++index) {
-            const FavoriteFolder folder =
-                static_cast<FavoriteFolder>(index);
-            const bool selected = folder == bookCardSession.favoriteFolder;
-            const int32_t y = 616 + static_cast<int32_t>(index) * 60;
-            drawPortraitRoundedRect(68, y, 404, 50, 14,
-                                    selected ? 0 : 11, 15,
-                                    selected ? 2 : 1);
-            const char *label = FavoritesStore::folderLabel(folder);
-            const int32_t width =
-                measurePortraitText(&UiCondensed13, label);
-            drawPortraitText(scratch, &UiCondensed13, label,
-                             max(82, (kPortraitWidth - width) / 2), y + 34,
-                             0, 15);
-        }
-    }
-
-    drawPortraitText(scratch, &UiCondensed9,
-                     bookCardSession.local ? "НА УСТРОЙСТВЕ // OFFLINE"
-                                           : "ВЫБОР КНИГ // OCTOFOX BOOK",
-                     34, 924, 6);
-    heap_caps_free(scratch);
-    return true;
+    auto *scratch=static_cast<uint8_t*>(heap_caps_malloc(kFramebufferBytes,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
+    if(!scratch || !framebuffer){heap_caps_free(scratch);return false;}
+    memset(framebuffer,0xff,kFramebufferBytes);ReaderBookishCanvas c(scratch);BookishUI::Card v{};
+    for(unsigned i=0;i<kVisibleTabCount;++i)if(kVisibleTabs[i]==activeTopLevelTab)v.activeTab=i;
+    char status[64]{};formatLocalBookStatus(bookCardSession.localEntry,status,sizeof(status));
+    v.book={bookCardSession.bookId,bookCardTitle(),bookCardAuthor(),bookCardSession.local?status:"Нет на устройстве",
+        static_cast<uint8_t>(bookCardSession.local?localBookProgressPercent(bookCardSession.localEntry):0),false};
+    v.primary=bookCardSession.preparing?"Подготовка…":bookCardSession.localCopyPresent?"Читать":"Выбрать на сайте";
+    v.series=*bookCardSeries()?bookCardSeries():"Серия не указана";
+    v.focus=static_cast<unsigned>(bookCardSession.focus);v.favorite=Collections::contains(0,bookCardSession.bookId);
+    BookishUI::card(c,v);heap_caps_free(scratch);return true;
 }
 
 bool displayBookCard(const char *reason) {
@@ -3123,7 +3027,7 @@ bool displayBookCard(const char *reason) {
     }
     scheduleScreenTransitionCleanup(UiScreen::BookCard, "screen-book-card");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("BOOK_CARD", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -3154,10 +3058,11 @@ bool renderAnnotationFrame() {
         return false;
     }
     memset(framebuffer, 0xFF, kFramebufferBytes);
-    drawScreenChrome(scratch, "ABYSS // BOOK NOTE", "АННОТАЦИЯ");
-    constexpr size_t kLinesPerPage = 21;
+    ReaderBookishCanvas c(scratch); BookishUI::header(c,static_cast<unsigned>(bookCardSession.returnTab)==4?3:1);
+    c.text(BookishUI::Font::Hero,"Аннотация",30,212,480);
+    constexpr size_t kLinesPerPage = 17;
     const size_t totalLines = drawWrappedParagraph(
-        nullptr, &UiCondensed13, bookCardAnnotation(), 42, 174, 456, 34, 0,
+        nullptr, &BookishArimo22, bookCardAnnotation(), 42, 287, 456, 34, 0,
         0);
     const size_t totalPages = max(static_cast<size_t>(1),
                                   (totalLines + kLinesPerPage - 1) /
@@ -3165,9 +3070,10 @@ bool renderAnnotationFrame() {
     bookCardSession.annotationPage = min(
         bookCardSession.annotationPage,
         static_cast<uint8_t>(min(static_cast<size_t>(255), totalPages - 1)));
-    drawPortraitRoundedRect(24, 138, 492, 746, 14, 12, 15, 1);
+    drawPortraitRoundedRect(24, 251, 492, 640, 14, 12, 15, 1);
+    c.text(BookishUI::Font::Control,"OK — к книге",30,937,350);
     drawWrappedParagraph(
-        scratch, &UiCondensed13, bookCardAnnotation(), 42, 174, 456, 34,
+        scratch, &BookishArimo22, bookCardAnnotation(), 42, 287, 456, 34,
         static_cast<size_t>(bookCardSession.annotationPage) * kLinesPerPage,
         kLinesPerPage);
     char page[32]{};
@@ -3187,7 +3093,7 @@ bool displayAnnotation(const char *reason) {
     }
     scheduleScreenTransitionCleanup(UiScreen::Annotation, "screen-annotation");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("ANNOTATION", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -3201,60 +3107,32 @@ bool displayAnnotation(const char *reason) {
     return true;
 }
 
+LocalBookEntry *collectionBooks=nullptr;
+LocalLibraryInfo collectionBookInfo{};
 bool loadFavoritesSession() {
-    if (favoriteCollection == nullptr) {
-        favoriteCollection =
-            static_cast<FavoriteCollection *>(heap_caps_calloc(
-                1, sizeof(FavoriteCollection),
-                MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-    }
-    if (favoriteCollection == nullptr) {
-        Serial.println("ERROR FAVORITES_LOAD reason=allocation-failed");
-        return false;
-    }
-    if (!FavoritesStore::load(*favoriteCollection)) {
-        Serial.printf("ERROR FAVORITES_LOAD reason=%s\n",
-                      favoriteCollection->error);
-        return false;
-    }
-    favoritesSession.loaded = true;
-    return true;
+    favoritesSession.loaded=Collections::load();
+    if(!collectionBooks)collectionBooks=static_cast<LocalBookEntry*>(heap_caps_calloc(kLocalLibraryCapacity,sizeof(LocalBookEntry),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
+    if(!collectionBooks || !LocalLibrary::scan(collectionBooks,kLocalLibraryCapacity,collectionBookInfo))return false;
+    if (favoritesSession.folder>=Collections::count()) favoritesSession.folder=0;
+    return favoritesSession.loaded;
 }
-
-size_t favoriteFolderCount(FavoriteFolder folder) {
-    if (favoriteCollection == nullptr || !favoriteCollection->ok) {
-        return 0;
+size_t favoriteFolderCount(size_t folder) { return Collections::bookCount(folder); }
+const FavoriteEntry *favoriteFolderEntry(size_t folder,size_t ordinal) {
+    static FavoriteEntry entry; entry=FavoriteEntry{};
+    const char *id=Collections::book(folder,ordinal); if(!*id)return nullptr;
+    snprintf(entry.bookId,sizeof(entry.bookId),"%s",id);
+    snprintf(entry.title,sizeof(entry.title),"%s",id);
+    for(size_t i=0;collectionBooks && i<collectionBookInfo.loadedCount;++i)if(!strcmp(collectionBooks[i].id,id)) {
+        snprintf(entry.title,sizeof(entry.title),"%s",collectionBooks[i].title);
+        snprintf(entry.author,sizeof(entry.author),"%s",collectionBooks[i].author);entry.local=true;break;
     }
-    size_t count = 0;
-    for (size_t index = 0; index < favoriteCollection->count; ++index) {
-        count += favoriteCollection->entries[index].folder == folder ? 1U
-                                                                     : 0U;
-    }
-    return count;
-}
-
-const FavoriteEntry *favoriteFolderEntry(FavoriteFolder folder,
-                                         size_t ordinal) {
-    if (favoriteCollection == nullptr || !favoriteCollection->ok) {
-        return nullptr;
-    }
-    size_t cursor = 0;
-    for (size_t index = 0; index < favoriteCollection->count; ++index) {
-        const FavoriteEntry &entry = favoriteCollection->entries[index];
-        if (entry.folder != folder) {
-            continue;
-        }
-        if (cursor++ == ordinal) {
-            return &entry;
-        }
-    }
-    return nullptr;
+    return &entry;
 }
 
 void normalizeFavoritesSelection() {
     const size_t count =
         favoritesSession.phase == FavoritesPhase::Folders
-            ? 3U
+            ? Collections::count()+1
             : favoriteFolderCount(favoritesSession.folder);
     if (count == 0) {
         favoritesSession.selected = 0;
@@ -3299,46 +3177,42 @@ void drawFavoriteFolderArtwork(uint8_t *scratch, FavoriteFolder folder,
 }
 
 bool renderFavoritesFrame(int tabFocus = -1) {
-    if (!favoriteCollection) return false;
-    BookishUI::List v{};
-    v.activeTab = 3; v.tabFocus = tabFocus;
-    const bool folders = favoritesSession.phase == FavoritesPhase::Folders;
-    const char *names[] = {"Хочу прочитать", "Любимые книги", "На потом"};
-    const char *hints[] = {"Истории, с которыми хочется познакомиться", "То, к чему хочется возвращаться", "Сохранено для другого настроения"};
-    v.title = folders ? "Избранное" : names[static_cast<unsigned>(favoritesSession.folder)];
-    v.subtitle = folders ? "Ваши книги — в ваших подборках." : "Сохранённые вами истории.";
-    v.back = folders ? "" : "< Ко всем подборкам";
-    v.emptyTitle = "В подборке пока пусто";
-    v.emptyHint = "Откройте карточку книги и добавьте";
-    v.emptyHint2 = "её в одну из подборок избранного.";
-    v.total = folders ? 3 : favoriteFolderCount(favoritesSession.folder);
-    v.selected = favoritesSession.selected;
-    char details[BookishUI::kListRows][64]{};
-    for (size_t i = favoritesSession.firstVisible; i < v.total && v.rowCount < BookishUI::kListRows; ++i) {
-        const size_t row = v.rowCount++;
-        auto &r = v.rows[row]; r.selected = i == favoritesSession.selected;
-        if (folders) {
-            r.title = names[i]; r.subtitle = hints[i];
-            snprintf(details[row], sizeof(details[row]), "Книг: %lu",
-                static_cast<unsigned long>(favoriteFolderCount(static_cast<FavoriteFolder>(i))));
-            r.detail = details[row];
+    if(!Collections::load())return false;
+    BookishUI::List v{}; v.activeTab=3;v.tabFocus=tabFocus;
+    const bool folders=favoritesSession.phase==FavoritesPhase::Folders;
+    v.title=folders?"Ваши коллекции":Collections::name(favoritesSession.folder);
+    v.subtitle=folders?"Избранное и ваши подборки.":"Собранные вами истории.";
+    v.back=folders?"":"< Ко всем коллекциям";
+    v.emptyTitle="Здесь пока нет книг";v.emptyHint="Добавляйте книги из их карточек.";v.emptyHint2="Или синхронизируйте с библиотекой.";
+    v.total=folders?Collections::count()+1:favoriteFolderCount(favoritesSession.folder);
+    v.selected=favoritesSession.selected;
+    char details[BookishUI::kListRows][64]{}; FavoriteEntry entries[BookishUI::kListRows]{};
+    for(size_t i=favoritesSession.firstVisible;i<v.total && v.rowCount<BookishUI::kListRows;++i) {
+        size_t row=v.rowCount++;auto &r=v.rows[row];r.selected=i==favoritesSession.selected;
+        if(folders) {
+            if(i==Collections::count()) {r.title="+ Новая коллекция";r.subtitle="Дайте имя своей подборке";continue;}
+            r.title=Collections::name(i);r.subtitle=i==0?"Самые любимые книги":"Ваша подборка";
+            snprintf(details[row],sizeof(details[row]),"Книг: %lu",static_cast<unsigned long>(Collections::bookCount(i)));r.detail=details[row];
         } else {
-            const auto *entry = favoriteFolderEntry(favoritesSession.folder, i);
-            if (!entry) { --v.rowCount; continue; }
-            r.title = entry->title; r.subtitle = entry->author; r.coverId = entry->bookId; r.book = true;
-            r.detail = localBookPresent(entry->bookId) ? "На устройстве" : "Нет на устройстве";
+            auto *entry=favoriteFolderEntry(favoritesSession.folder,i);if(!entry){--v.rowCount;continue;}
+            entries[row]=*entry;r.title=entries[row].title;r.subtitle=entries[row].author;r.coverId=entries[row].bookId;r.book=true;
+            r.detail=entry->local?"На устройстве":"Нет на устройстве";
         }
     }
     return renderBookishList(v);
 }
 
 bool displayFavorites(bool reload, const char *reason) {
+    static size_t renderedFirst = SIZE_MAX;
+
     static FavoritesPhase renderedPhase = FavoritesPhase::Folders;
-    static FavoriteFolder renderedFolder = FavoriteFolder::WantToRead;
+    static size_t renderedFolder = SIZE_MAX;
     if ((reload || !favoritesSession.loaded) && !loadFavoritesSession()) {
         return false;
     }
     normalizeFavoritesSelection();
+    if (renderedFirst != favoritesSession.firstVisible) scheduleGhostCleanup("list-scroll");
+    renderedFirst = favoritesSession.firstVisible;
     if (!renderFavoritesFrame()) {
         Serial.println("ERROR FAVORITES_OPEN reason=frame-build-failed");
         return false;
@@ -3352,7 +3226,7 @@ bool displayFavorites(bool reload, const char *reason) {
     }
     lastDisplayRefresh =
         displayRefresh.refresh(framebuffer, favoritesSession.phase == FavoritesPhase::Books
-            ? DisplayRefreshMode::QualityFull : DisplayRefreshMode::FastUi);
+            ? DisplayRefreshMode::QualityFull : DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("FAVORITES", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -3367,7 +3241,7 @@ bool displayFavorites(bool reload, const char *reason) {
                   static_cast<unsigned>(favoritesSession.phase),
                   static_cast<unsigned long>(
                       favoritesSession.phase == FavoritesPhase::Folders
-                          ? 3
+                          ? Collections::count()+1
                           : favoriteFolderCount(favoritesSession.folder)),
                   static_cast<unsigned long>(favoritesSession.selected + 1),
                   reason);
@@ -4043,7 +3917,7 @@ bool displayReaderMenu(const char *reason) {
     scheduleScreenTransitionCleanup(UiScreen::ReaderMenu,
                                     "screen-reader-menu");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("READER_MENU", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -4154,7 +4028,7 @@ bool displayContents(bool resetSelection, const char *reason) {
     }
     scheduleScreenTransitionCleanup(UiScreen::Contents, "screen-contents");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("CONTENTS", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -4292,7 +4166,7 @@ bool displayReaderBookmarks(bool resetSelection, const char *reason) {
     scheduleScreenTransitionCleanup(UiScreen::Bookmarks,
                                     "screen-bookmarks");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("READER_BOOKMARKS", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -4484,7 +4358,7 @@ bool displayReadingSettings(bool reload, const char *reason) {
     scheduleScreenTransitionCleanup(UiScreen::ReadingSettings,
                                     "screen-reading-settings");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("READING_SETTINGS", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -4548,7 +4422,7 @@ bool displayOrderedSelector(const char *reason) {
     scheduleScreenTransitionCleanup(UiScreen::OrderedSelector,
                                     "screen-selector");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("ORDERED_SELECTOR", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -5369,65 +5243,14 @@ bool startCatalogBookDownload(const OpdsEntry &entry, const char *source) {
 }
 
 void loadBookCardFavorite() {
-    bookCardSession.favoriteStored = false;
-    bookCardSession.favoriteFolder = FavoriteFolder::WantToRead;
-    if (!BookUploadReceiver::validBookId(bookCardSession.bookId)) {
-        return;
-    }
-    auto *collection = static_cast<FavoriteCollection *>(heap_caps_calloc(
-        1, sizeof(FavoriteCollection), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-    if (collection == nullptr) {
-        Serial.println("WARNING FAVORITES_LOAD reason=allocation-failed");
-        return;
-    }
-    FavoriteEntry entry{};
-    if (FavoritesStore::load(*collection) &&
-        FavoritesStore::find(*collection, bookCardSession.bookId, entry)) {
-        bookCardSession.favoriteStored = true;
-        bookCardSession.favoriteFolder = entry.folder;
-    } else if (!collection->ok) {
-        Serial.printf("WARNING FAVORITES_LOAD reason=%s\n",
-                      collection->error);
-    }
-    heap_caps_free(collection);
+    bookCardSession.favoriteStored=Collections::contains(0,bookCardSession.bookId);
+    bookCardSession.collectionSelection=0;
 }
 
 bool saveBookCardFavorite() {
-    if (!BookUploadReceiver::validBookId(bookCardSession.bookId)) {
-        return false;
-    }
-    FavoriteEntry entry{};
-    snprintf(entry.bookId, sizeof(entry.bookId), "%s",
-             bookCardSession.bookId);
-    snprintf(entry.title, sizeof(entry.title), "%s", bookCardTitle());
-    snprintf(entry.author, sizeof(entry.author), "%s", bookCardAuthor());
-    if (!bookCardSession.local) {
-        snprintf(entry.acquisitionHref, sizeof(entry.acquisitionHref), "%s",
-                 bookCardSession.remoteEntry.acquisitionHref);
-        snprintf(entry.coverHref, sizeof(entry.coverHref), "%s",
-                 bookCardSession.remoteEntry.coverHref[0] != '\0'
-                     ? bookCardSession.remoteEntry.coverHref
-                     : bookCardSession.remoteEntry.thumbnailHref);
-    }
-    entry.folder = bookCardSession.favoriteFolder;
-    entry.local = bookCardSession.local || bookCardSession.localCopyPresent;
-
-    auto *collection = static_cast<FavoriteCollection *>(heap_caps_calloc(
-        1, sizeof(FavoriteCollection), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-    if (collection == nullptr) {
-        Serial.println("ERROR FAVORITES_SAVE reason=allocation-failed");
-        return false;
-    }
-    const bool saved = FavoritesStore::put(entry, *collection);
-    Serial.printf("FAVORITES SAVE id=%s folder=%u ok=%s reason=%s\n",
-                  entry.bookId, static_cast<unsigned>(entry.folder),
-                  saved ? "true" : "false",
-                  saved ? "none" : collection->error);
-    heap_caps_free(collection);
-    if (saved) {
-        bookCardSession.favoriteStored = true;
-        favoritesSession.loaded = false;
-    }
+    const bool saved=Collections::toggle(0,bookCardSession.bookId);
+    loadBookCardFavorite(); favoritesSession.loaded=false;
+    Serial.printf("COLLECTION FAVORITE saved=%s selected=%s\n",saved?"true":"false",bookCardSession.favoriteStored?"true":"false");
     return saved;
 }
 
@@ -5579,7 +5402,7 @@ void processFavoritesActions() {
         }
         const size_t count =
             favoritesSession.phase == FavoritesPhase::Folders
-                ? 3U
+                ? Collections::count()+1
                 : favoriteFolderCount(favoritesSession.folder);
         if (count == 0) {
             Serial.println("FAVORITES BOUNDARY reason=empty");
@@ -5609,8 +5432,8 @@ void processFavoritesActions() {
         return;
     }
     if (favoritesSession.phase == FavoritesPhase::Folders) {
-        favoritesSession.folder =
-            static_cast<FavoriteFolder>(favoritesSession.selected);
+        if(favoritesSession.selected==Collections::count()){openCollectionName(false);return;}
+        favoritesSession.folder = favoritesSession.selected;
         favoritesSession.phase = FavoritesPhase::Books;
         favoritesSession.selected = 0;
         favoritesSession.firstVisible = 0;
@@ -5691,31 +5514,18 @@ void processBookCardActions() {
             return;
         }
         if (bookCardSession.favoritePickerOpen) {
-            const int32_t target = max(
-                0, min(2, static_cast<int32_t>(
-                                  bookCardSession.favoriteFolder) +
-                              delta));
-            if (target ==
-                static_cast<int32_t>(bookCardSession.favoriteFolder)) {
-                Serial.printf("FAVORITES PICKER BOUNDARY folder=%u\n",
-                              static_cast<unsigned>(
-                                  bookCardSession.favoriteFolder));
-                return;
-            }
-            bookCardSession.favoriteFolder =
-                static_cast<FavoriteFolder>(target);
-            displayBookCard("favorite-picker-selection");
-            return;
+            const int target=max(0,min(static_cast<int>(Collections::count()+1),static_cast<int>(bookCardSession.collectionSelection)+delta));
+            bookCardSession.collectionSelection=target; displayBookCard("collection-selection");return;
         }
         int32_t target = static_cast<int32_t>(bookCardSession.focus);
         const int32_t direction = delta < 0 ? -1 : 1;
         const int32_t steps = abs(static_cast<int32_t>(delta));
         for (int32_t step = 0; step < steps; ++step) {
             do {
-                target = max(0, min(4, target + direction));
+                target = max(0, min(6, target + direction));
             } while (!bookCardActionEnabled(
                          static_cast<BookCardFocus>(target)) &&
-                     target > 0 && target < 4);
+                     target > 0 && target < 6);
         }
         if (target == static_cast<int32_t>(bookCardSession.focus)) {
             Serial.printf("BOOK CARD BOUNDARY focus=%u\n",
@@ -5736,11 +5546,11 @@ void processBookCardActions() {
         return;
     }
     if (bookCardSession.favoritePickerOpen) {
-        if (saveBookCardFavorite()) {
-            bookCardSession.favoritePickerOpen = false;
-            displayBookCard("favorite-saved");
-        }
-        return;
+        const size_t chosen=bookCardSession.collectionSelection;
+        if(chosen==0){bookCardSession.favoritePickerOpen=false;scheduleGhostCleanup("collection-close");}
+        else if(chosen==Collections::count()+1){openCollectionName(true);return;}
+        else if(!Collections::toggle(chosen-1,bookCardSession.bookId)) Serial.printf("COLLECTION SAVE error=%s\n",Collections::error());
+        favoritesSession.loaded=false;displayBookCard("collection-toggle");return;
     }
     switch (bookCardSession.focus) {
         case BookCardFocus::Primary:
@@ -5781,7 +5591,13 @@ void processBookCardActions() {
             displayLocalLibrary(true, series ? "local-book-series" : "local-book-author");
             return;
         }
+        case BookCardFocus::Back:
+            restoreBookCardOrigin("card-back");return;
         case BookCardFocus::Favorite:
+            saveBookCardFavorite();displayBookCard("favorite-toggle");return;
+        case BookCardFocus::Collections:
+            bookCardSession.collectionSelection=0;
+            scheduleGhostCleanup("collection-picker");
             bookCardSession.favoritePickerOpen = true;
             displayBookCard("favorite-picker");
             return;
@@ -5812,9 +5628,9 @@ void processAnnotationActions() {
         Serial.println("ERROR ANNOTATION_NAVIGATION reason=not-annotation");
         return;
     }
-    constexpr size_t kLinesPerPage = 21;
+    constexpr size_t kLinesPerPage = 17;
     const size_t totalLines = drawWrappedParagraph(
-        nullptr, &UiCondensed13, bookCardAnnotation(), 42, 174, 456, 34, 0,
+        nullptr, &BookishArimo22, bookCardAnnotation(), 42, 287, 456, 34, 0,
         0);
     const size_t totalPages = max(
         static_cast<size_t>(1),
@@ -5829,6 +5645,7 @@ void processAnnotationActions() {
         return;
     }
     bookCardSession.annotationPage = static_cast<uint8_t>(target);
+    scheduleGhostCleanup("annotation-page");
     displayAnnotation(delta > 0 ? "page-next" : "page-previous");
 }
 
@@ -5889,7 +5706,7 @@ void displaySections() {
     scheduleScreenTransitionCleanup(UiScreen::Sections, "tabs-focus");
     uiScreen = UiScreen::Sections;
     lastDisplayRefresh = displayRefresh.refresh(framebuffer,
-        entering ? DisplayRefreshMode::QualityFull : DisplayRefreshMode::FastUi);
+        entering ? DisplayRefreshMode::QualityFull : DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = lastDisplayRefresh.ok;
     Serial.printf("SECTIONS OPEN COMPLETE selected=%u\n", static_cast<unsigned>(sectionSelection + 1));
 }
@@ -6225,7 +6042,7 @@ bool displayBulkDownloadConfirm(const char *reason) {
     scheduleScreenTransitionCleanup(UiScreen::BulkDownloadConfirm,
                                     "screen-bulk-confirm");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("BULK_CONFIRM", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -6256,7 +6073,7 @@ bool displayBulkDownloadProgress() {
     scheduleScreenTransitionCleanup(UiScreen::Download,
                                     "screen-bulk-download");
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, DisplayRefreshMode::QualityFull);
     hasDisplayRefresh = true;
     printDisplayRefresh("BULK_DOWNLOAD", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -6648,6 +6465,13 @@ void processLocalLibraryActions() {
             return;
         }
         if (localLibrarySession.phase == LocalLibraryPhase::Sections) {
+            if (localLibrarySession.selected == 9) { openWifiSettings(); return; }
+            if (localLibrarySession.selected == 8) {
+                if (AutomaticSync::request(provisioningActive || bookUpload.active() || BookPreparation::busy() || pendingPowerSleep))
+                    displayLocalLibrary(false, "library-sync-started");
+                else displayLocalLibrary(false, "sync-rejected");
+                return;
+            }
             localLibrarySession.section =
                 static_cast<LocalLibrarySection>(
                     localLibrarySession.selected);
@@ -6984,11 +6808,13 @@ void emitInput(const char *button, const char *gesture, const char *source) {
                   static_cast<unsigned long>(inputCount));
     if (strcmp(button, "POWER") == 0) {
         if (wifiScreen()) closeWifiSettings();
+        if(collectionTextEntry.load()){collectionTextEntry=false;collectionKeyboard.wipe();}
         pendingPowerSleep = true;
         AutomaticSync::setPaused(true);
         BookPreparation::cancel();
         return;
     }
+    if(collectionTextEntry.load()){inputCollectionName(button,gesture);return;}
     if (wifiScreen() && !(strcmp(button, "CENTER") == 0 &&
         strcmp(gesture, "DOUBLE") == 0 && !wifiTextEntry.load())) {
         if (strcmp(gesture, "DOUBLE") != 0) inputWifiSettings(button, gesture);
@@ -8918,7 +8744,7 @@ void pollButton(ButtonTracker &button) {
     }
 
     if (&button == &centerButton) {
-        const auto event = button.okGesture.update(button.stableLevel == LOW, now, !wifiTextEntry.load());
+        const auto event = button.okGesture.update(button.stableLevel == LOW, now, !wifiTextEntry.load() && !collectionTextEntry.load());
         if (event != OkGesture::Event::None)
             emitInput("CENTER", event == OkGesture::Event::Short ? "SHORT" :
                 event == OkGesture::Event::Double ? "DOUBLE" : "LONG", "gpio");
@@ -9152,7 +8978,9 @@ void loop() {
             !SD.exists(currentPath)) readerSession.active = false;
         homeSession.loaded = false;
         localLibrarySession.loaded = false;
+        favoritesSession.loaded=false;
         if (uiScreen == UiScreen::Home) displayHome(true, "manual-sync-finished");
+        if (uiScreen == UiScreen::LocalLibrary) displayLocalLibrary(true,"manual-sync-finished");
     }
     if (AutomaticSync::takeLibraryChanged()) {
         homeSession.loaded = false;

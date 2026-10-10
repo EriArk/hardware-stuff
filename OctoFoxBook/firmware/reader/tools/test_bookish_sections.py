@@ -13,6 +13,6 @@ class BookishSectionsTests(unittest.TestCase):
                 '-I',str(ROOT/'include'),str(ROOT/'tools/host_bookish_sections.cpp'),
                 str(ROOT/'src/bookish_ui.cpp'),'-o',str(exe)],check=True,capture_output=True)
             result=subprocess.run([str(exe)],check=True,capture_output=True,text=True,encoding='utf-8')
-            self.assertEqual(result.stdout.count('SCENE '),7)
+            self.assertEqual(result.stdout.count('SCENE '),8)
 
 if __name__=='__main__':unittest.main()

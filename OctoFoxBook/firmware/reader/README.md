@@ -1,13 +1,15 @@
 # AbyssBook reader firmware
 
-Early **0.21.0-alpha5** firmware for the non-touch LILYGO T5 e-Paper S3
+Early **0.21.0-alpha6** firmware for the non-touch LILYGO T5 e-Paper S3
 (4.7-inch H716 panel, 16 MB flash, 8 MB PSRAM).
 
-Home, Library, Search and Favorites share the bookish design: logo, visible
+Home, Library, Search, Collections and book details share the bookish design: logo, visible
 tabs, serif headings and light dividers. Book lists show real local covers,
 authors and reading status. Library sections, author/series/genre groups,
-local search and favorite folders retain their functions. Book details and
-reading dialogs still use the previous visual design.
+local search, annotations and collections retain their functions. Reading menus
+still use the previous visual design. Interface redraws use HIGH quality, with
+cleanup on content changes and after four UI paints; continuous text reading
+keeps its separate refresh policy.
 
 ## Controls
 
@@ -50,18 +52,36 @@ selection is preserved when leaving and reopening a tab.
 Nested lists have a Back control above their rows. Move UP from the first
 item and press OK to return to the parent list; an empty list focuses Back
 automatically. Hold OK still goes directly to the tabs. Tab focus keeps the
-current section underneath the header. Lists display five rows at a time
+current section underneath the header. Lists display four larger rows at a time
 and scroll to keep the selected row visible. Local search accepts a first
 Cyrillic or Latin letter, or a digit, matching title, author or series.
 
 ## Wi-Fi settings
 
-On Home, move down to **Настройки (Settings)**, press OK, then open **Wi-Fi**.
+On Home or at the bottom of Library, select **Настройки (Settings)**, press OK,
+then open **Wi-Fi**. Library also has a **Синхронизировать (Sync)** row at the bottom.
 Choose a nearby 2.4 GHz network, enter its password and select **Подключить
 (Connect)**. The device saves the network only after a successful association
 and IP connection, then turns the radio off. A failed check preserves the
 previous saved network and lets you edit the password. This checks Wi-Fi;
 it does not establish a server/account binding.
+
+## Favorites and collections
+
+The Collections tab contains a separate Favorites list and named collections.
+Use **Новая коллекция (New collection)** to enter a name on the reader, with
+Russian/English letters and symbols. Hold OK to leave character selection, then
+hold it again to cancel the editor. In a book card, Favorites toggles independently;
+**В коллекции (Collections)** lets a book belong to several collections.
+
+Explicit synchronization exchanges collections with the linked account on an
+updated OctoFox server. Pending changes survive restarts and failed requests.
+The device receives collection membership for books delivered to that device;
+creating a collection does not download its books. Books copied solely over USB
+retain their memberships locally. The original favorites file is preserved during
+migration. Renaming/deleting collections is currently available on the website.
+Changing the linked account requires resolving the old collection binding first;
+the reader refuses to upload one account's saved collection changes to another.
 
 UP/DOWN selects a keyboard row; OK enters that row. UP/DOWN then selects a
 character and OK inserts it. Hold OK to return to rows, then hold again to

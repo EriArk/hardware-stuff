@@ -180,6 +180,9 @@ bool StorageRecovery::run(StorageRecoveryReport &report) {
                  "/reader/favorites-v1.json", "/reader/favorites-v1.json.part",
                  "/reader/favorites-v1.json.old", report) &&
              passed;
+    passed = reconcileAtomicFile(
+                 "/reader/collections-v2.json", "/reader/collections-v2.json.part",
+                 "/reader/collections-v2.json.old", report) && passed;
 
     if (SD.exists("/books")) {
         File root = SD.open("/books", FILE_READ);
