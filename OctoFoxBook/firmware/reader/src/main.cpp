@@ -47,6 +47,7 @@
 #include "utilities.h"
 #include "work_progress.h"
 #include "bookish_ui.h"
+#include "section_back_focus.h"
 #include "bookish_logo.h"
 #include "bookish_fonts/BookishLora25.h"
 #include "bookish_fonts/BookishLora31.h"
@@ -59,7 +60,7 @@
 namespace {
 
 constexpr char kFirmwareName[] = "abyss-reader";
-constexpr char kFirmwareVersion[] = "0.21.0-alpha4";
+constexpr char kFirmwareVersion[] = "0.21.0-alpha5";
 constexpr size_t kFramebufferBytes = EPD_WIDTH * EPD_HEIGHT / 2;
 constexpr int32_t kPortraitWidth = EPD_HEIGHT;
 constexpr int32_t kPortraitHeight = EPD_WIDTH;
@@ -88,10 +89,10 @@ constexpr uint8_t kPowerPin = 10;   // side pad MOSI, RTC deep-sleep wake
 constexpr uint8_t kCleanPin = 21;   // on-board SENSOP_VN, not a solder target
 constexpr Rect_t kInputCardArea{496, 338, 426, 126};
 constexpr size_t kLocalLibraryCapacity = 256;
-constexpr size_t kLibraryRowsPerScreen = 7;
+constexpr size_t kLibraryRowsPerScreen = BookishUI::kListRows;
 constexpr size_t kCatalogRowsPerScreen = 8;
 constexpr size_t kCatalogHistoryCapacity = 8;
-constexpr size_t kSearchRowsPerScreen = 7;
+constexpr size_t kSearchRowsPerScreen = BookishUI::kListRows;
 constexpr size_t kBulkDownloadLimit = 8;
 
 enum class DashboardRefreshRequest : uint8_t {
@@ -1623,6 +1624,10 @@ constexpr SearchRangeDefinition kSearchRanges[] = {
     {"Ф-Я",
      {"Ф", "Х", "Ц", "Ч", "Ш", "Щ", "Ъ", "Ы", "Ь", "Э", "Ю", "Я"},
      12},
+    {"A–F", {"A", "B", "C", "D", "E", "F"}, 6},
+    {"G–L", {"G", "H", "I", "J", "K", "L"}, 6},
+    {"M–R", {"M", "N", "O", "P", "Q", "R"}, 6},
+    {"S–Z", {"S", "T", "U", "V", "W", "X", "Y", "Z"}, 8},
     {"0-9", {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"},
      10},
 };
@@ -1686,86 +1691,21 @@ void normalizeSearchSelection() {
     }
 }
 
-bool renderSearchFrame() {
-    auto *scratch = static_cast<uint8_t *>(heap_caps_malloc(
-        kFramebufferBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-    if (scratch == nullptr || framebuffer == nullptr) {
-        heap_caps_free(scratch);
-        return false;
+bool renderSearchFrame(int tabFocus = -1) {
+    BookishUI::List v{};
+    v.activeTab = 2; v.tabFocus = tabFocus;
+    v.title = "Найдём книгу";
+    v.subtitle = searchSession.phase == SearchPhase::Letter
+        ? "Первая буква названия, автора или серии." : "Поиск среди книг на устройстве.";
+    v.back = searchSession.phase == SearchPhase::Letter ? "< К алфавиту" : "";
+    v.total = searchRowCount(); v.selected = searchSession.selected;
+    for (size_t i = searchSession.firstVisible; i < v.total && v.rowCount < BookishUI::kListRows; ++i) {
+        auto &r = v.rows[v.rowCount++];
+        r.title = searchRowLabel(i);
+        r.subtitle = searchSession.phase == SearchPhase::Letter ? "Книги на эту букву" : "Выбрать первую букву";
+        r.selected = i == searchSession.selected;
     }
-
-    memset(framebuffer, 0xFF, kFramebufferBytes);
-    drawMainTabHeader(scratch, topLevelTabName(TopLevelTab::Search));
-
-    const char *step = "1/3  ОБЛАСТЬ ПОИСКА";
-    if (searchSession.phase == SearchPhase::Range) {
-        step = "2/3  ДИАПАЗОН ПЕРВОЙ БУКВЫ";
-    } else if (searchSession.phase == SearchPhase::Letter) {
-        step = "3/3  ПЕРВАЯ БУКВА";
-    }
-    drawPortraitText(scratch, &UiCondensed9, step, 28, 92, 4);
-    fillPortraitRect(26, 105, 478, 2, 0);
-
-    if (searchSession.phase != SearchPhase::Scope) {
-        char scope[160]{};
-        snprintf(scope, sizeof(scope), "ИСКАТЬ // %s",
-                 searchScopeLabel(searchSession.scope));
-        drawPortraitText(scratch, &UiCondensed9, scope, 30, 130, 6);
-    }
-
-    constexpr int32_t rowX = 26;
-    constexpr int32_t rowWidth = 478;
-    constexpr int32_t rowHeight = 78;
-    constexpr int32_t rowGap = 7;
-    const int32_t firstRowY =
-        searchSession.phase == SearchPhase::Scope ? 118 : 140;
-    const size_t count = searchRowCount();
-    const size_t end =
-        min(count, searchSession.firstVisible + kSearchRowsPerScreen);
-    for (size_t index = searchSession.firstVisible; index < end; ++index) {
-        const size_t visibleIndex = index - searchSession.firstVisible;
-        const int32_t y = firstRowY +
-                          static_cast<int32_t>(visibleIndex) *
-                              (rowHeight + rowGap);
-        const bool selected = index == searchSession.selected;
-        const uint8_t foreground = 0;
-        const uint8_t background = 15;
-        drawSoftRow(rowX, y, rowWidth, rowHeight, selected);
-
-        char ordinal[8]{};
-        snprintf(ordinal, sizeof(ordinal), "%02lu",
-                 static_cast<unsigned long>(index + 1));
-        drawPortraitText(scratch, &UiCondensed9, ordinal, rowX + 26, y + 31,
-                         selected ? 11 : 5, background);
-        drawPortraitText(scratch,
-                         searchSession.phase == SearchPhase::Letter
-                             ? &UiCondensed22Medium
-                             : &UiCondensed13,
-                         searchRowLabel(index), rowX + 86,
-                         y + (searchSession.phase == SearchPhase::Letter ? 53
-                                                                         : 47),
-                         foreground, background);
-        const char *action = searchSession.phase == SearchPhase::Letter
-                                 ? "ИСКАТЬ"
-                                 : "ВЫБРАТЬ";
-        const int32_t actionWidth = measurePortraitText(&UiCondensed9, action);
-        drawPortraitText(scratch, &UiCondensed9, action,
-                         rowX + rowWidth - 18 - actionWidth, y + 60,
-                         3, background);
-    }
-
-    char position[24]{};
-    snprintf(position, sizeof(position), "%lu / %lu",
-             static_cast<unsigned long>(count == 0
-                                            ? 0
-                                            : searchSession.selected + 1),
-             static_cast<unsigned long>(count));
-    const int32_t positionWidth = measurePortraitText(&UiCondensed9, position);
-    drawPortraitText(scratch, &UiCondensed9, position, 508 - positionWidth, 924,
-                     0);
-    drawTopLevelTabRail(scratch, TopLevelTab::Search);
-    heap_caps_free(scratch);
-    return true;
+    return renderBookishList(v);
 }
 
 bool displaySearch(bool reset, const char *reason) {
@@ -2167,8 +2107,8 @@ bool executeSearch() {
 }
 
 constexpr const char *kLocalSectionLabels[] = {
-    "ВСЕ КНИГИ", "НЕДАВНО ДОБАВЛЕНЫ", "ЧИТАЮ", "НЕПРОЧИТАННЫЕ", "ПРОЧИТАННЫЕ",
-    "АВТОРЫ", "СЕРИИ", "ЖАНРЫ"};
+    "Все книги", "Недавно добавлены", "Читаю", "Непрочитанные", "Прочитанные",
+    "Авторы", "Серии", "Жанры"};
 
 const char *localSectionLabel(LocalLibrarySection section) {
     const size_t index = static_cast<size_t>(section);
@@ -2503,166 +2443,52 @@ void drawLocalSectionIcon(LocalLibrarySection section, int32_t centerX,
     }
 }
 
-bool renderLocalLibraryFrame() {
-    auto *scratch = static_cast<uint8_t *>(heap_caps_malloc(
-        kFramebufferBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-    if (scratch == nullptr || framebuffer == nullptr) {
-        heap_caps_free(scratch);
-        return false;
-    }
-
-    memset(framebuffer, 0xFF, kFramebufferBytes);
-    drawMainTabHeader(scratch, topLevelTabName(localLibrarySession.owner));
-
-    char summary[96]{};
-    if (localLibrarySession.phase == LocalLibraryPhase::Sections) {
-        snprintf(summary, sizeof(summary), "%lu КНИГ НА УСТРОЙСТВЕ",
-                 static_cast<unsigned long>(
-                     localLibrarySession.info.loadedCount));
-    } else if (localLibrarySession.phase == LocalLibraryPhase::Groups) {
-        snprintf(summary, sizeof(summary), "%s // %02lu ГРУПП",
-                 localSectionLabel(localLibrarySession.section),
-                 static_cast<unsigned long>(localLibrarySession.groupCount));
-    } else {
-        size_t prepared = 0;
-        for (size_t index = 0; index < localLibrarySession.visibleCount;
-             ++index) {
-            const LocalBookEntry *entry = localVisibleEntry(index);
-            if (entry != nullptr && entry->detailsReady &&
-                entry->paginationReady) {
-                ++prepared;
-            }
+bool renderLocalLibraryFrame(int tabFocus = -1) {
+    BookishUI::List v{};
+    v.activeTab = localLibrarySession.owner == TopLevelTab::Search ? 2 : 1;
+    v.tabFocus = tabFocus;
+    const bool root = localLibrarySession.phase == LocalLibraryPhase::Sections;
+    const bool groups = localLibrarySession.phase == LocalLibraryPhase::Groups;
+    const bool search = localLibrarySession.section == LocalLibrarySection::Search;
+    v.title = root ? "Ваша библиотека" : search ? "Результаты поиска" : localSectionLabel(localLibrarySession.section);
+    char summary[160]{};
+    if (root) snprintf(summary, sizeof(summary), "На устройстве: %lu · выберите подборку",
+        static_cast<unsigned long>(localLibrarySession.info.loadedCount));
+    else if (search) snprintf(summary, sizeof(summary), "На «%s» · найдено: %lu",
+        localLibrarySession.searchPrefix, static_cast<unsigned long>(localLibrarySession.visibleCount));
+    else if (!groups && localSectionIsGrouping(localLibrarySession.section))
+        snprintf(summary, sizeof(summary), "%s", localLibrarySession.groupLabel);
+    else snprintf(summary, sizeof(summary), "%s: %lu", groups ? "Подборок" : "Книг",
+        static_cast<unsigned long>(localLibraryRowCount()));
+    v.subtitle = summary;
+    v.back = root ? "" : search ? "< Выбрать другую букву" :
+        !groups && localSectionIsGrouping(localLibrarySession.section) ? "< К списку подборок" : "< К разделам библиотеки";
+    v.emptyTitle = search ? "Ничего не найдено" : "Подборка пока пуста";
+    v.emptyHint = search ? "Попробуйте другую первую букву." : "Здесь появятся подходящие книги.";
+    v.emptyHint2 = "UP — к возврату · OK — назад";
+    v.total = localLibraryRowCount(); v.selected = localLibrarySession.selected;
+    char details[BookishUI::kListRows][80]{};
+    const char *hints[] = {"Все загруженные книги", "Последние пополнения", "Истории, которые вы начали",
+        "Откройте что-нибудь новое", "Прочитанные истории", "Книги любимых писателей",
+        "Истории с продолжением", "Подберите книгу по настроению"};
+    for (size_t i = localLibrarySession.firstVisible; i < v.total && v.rowCount < BookishUI::kListRows; ++i) {
+        const size_t row = v.rowCount++;
+        auto &r = v.rows[row]; r.selected = i == localLibrarySession.selected;
+        if (root || groups) {
+            r.title = root ? localSectionLabel(static_cast<LocalLibrarySection>(i)) : localLibrarySession.groups[i];
+            r.subtitle = root ? hints[i] : "Открыть подборку";
+            snprintf(details[row], sizeof(details[row]), "Книг: %lu", static_cast<unsigned long>(root
+                ? localSectionBookCount(static_cast<LocalLibrarySection>(i)) : localGroupBookCount(r.title)));
+        } else {
+            const auto *entry = localVisibleEntry(i);
+            if (!entry) { --v.rowCount; continue; }
+            r.title = entry->title; r.subtitle = entry->author; r.coverId = entry->id; r.book = true;
+            r.progress = static_cast<uint8_t>(localBookProgressPercent(*entry));
+            formatLocalBookStatus(*entry, details[row], sizeof(details[row]));
         }
-        snprintf(summary, sizeof(summary), "КНИГИ: %lu",
-                 static_cast<unsigned long>(localLibrarySession.visibleCount));
+        r.detail = details[row];
     }
-    drawPortraitText(scratch, &UiCondensed9, summary, 28, 92, 4);
-    fillPortraitRect(26, 105, 478, 2, 0);
-
-    const size_t rowCount = localLibraryRowCount();
-    if (rowCount == 0) {
-        drawPortraitRoundedRect(26, 132, 478, 220, 14, 10, 15, 1);
-        const char *emptyTitle =
-            localLibrarySession.info.loadedCount == 0
-                ? "КНИГ НА КАРТЕ НЕТ"
-                : "ЗДЕСЬ ПОКА ПУСТО";
-        drawPortraitText(scratch, &UiCondensed13, emptyTitle, 110, 222);
-        drawPortraitText(
-            scratch, &UiCondensed9,
-            localLibrarySession.section == LocalLibrarySection::Search
-                ? "ПОПРОБУЙТЕ ДРУГУЮ БУКВУ"
-                : "РАЗДЕЛ ОБНОВИТСЯ АВТОМАТИЧЕСКИ",
-            80, 268, 5);
-    } else {
-        constexpr int32_t rowX = 26;
-        constexpr int32_t rowWidth = 478;
-        constexpr int32_t rowHeight = 110;
-        constexpr int32_t rowGap = 4;
-        constexpr int32_t firstRowY = 116;
-        const size_t end = min(rowCount, localLibrarySession.firstVisible +
-                                             kLibraryRowsPerScreen);
-        for (size_t index = localLibrarySession.firstVisible; index < end;
-             ++index) {
-            const size_t visibleIndex = index - localLibrarySession.firstVisible;
-            const int32_t y = firstRowY +
-                              static_cast<int32_t>(visibleIndex) *
-                                  (rowHeight + rowGap);
-            const bool selected = index == localLibrarySession.selected;
-        const uint8_t foreground = 0;
-        const uint8_t background = 15;
-            drawSoftRow(rowX, y, rowWidth, rowHeight, selected);
-
-            if (localLibrarySession.phase == LocalLibraryPhase::Sections) {
-                const auto section = static_cast<LocalLibrarySection>(index);
-                drawLocalSectionIcon(section, rowX + 48, y + 46, foreground,
-                                     background);
-                drawPortraitText(scratch, &UiCondensed14Bold,
-                                 localSectionLabel(section), rowX + 84,
-                                 y + 54, foreground, background);
-                char countLabel[24]{};
-                snprintf(countLabel, sizeof(countLabel), "%lu",
-                         static_cast<unsigned long>(
-                             localSectionBookCount(section)));
-                const int32_t width =
-                    measurePortraitText(&UiCondensed13, countLabel);
-                drawPortraitText(scratch, &UiCondensed13, countLabel,
-                                 rowX + rowWidth - 22 - width, y + 54,
-                                 foreground, background);
-                continue;
-            }
-
-            if (localLibrarySession.phase == LocalLibraryPhase::Groups) {
-                drawLocalSectionIcon(localLibrarySession.section, rowX + 48,
-                                     y + 46, foreground, background);
-                PortraitTextLines groupLines{};
-                wrapPortraitText(&UiCondensed13,
-                                 localLibrarySession.groups[index], 330, 2,
-                                 groupLines);
-                drawPortraitTextLines(scratch, &UiCondensed13, groupLines,
-                                      rowX + 84,
-                                      groupLines.count <= 1 ? y + 52 : y + 35,
-                                      19, foreground, background);
-                char countLabel[32]{};
-                snprintf(countLabel, sizeof(countLabel), "%lu КНИГ",
-                         static_cast<unsigned long>(localGroupBookCount(
-                             localLibrarySession.groups[index])));
-                const int32_t width =
-                    measurePortraitText(&UiCondensed9, countLabel);
-                drawPortraitText(scratch, &UiCondensed9, countLabel,
-                                 rowX + rowWidth - 18 - width, y + 100,
-                                 3, background);
-                continue;
-            }
-
-            const LocalBookEntry *entry = localVisibleEntry(index);
-            if (entry == nullptr) {
-                continue;
-            }
-            char ordinal[8]{};
-            snprintf(ordinal, sizeof(ordinal), "%02lu",
-                     static_cast<unsigned long>(index + 1));
-            drawSoftOrdinalBadge(scratch, ordinal, rowX + 20, y + 17,
-                                 selected);
-
-            PortraitTextLines titleLines{};
-            wrapPortraitText(&UiCondensed14Bold, entry->title, 396, 2,
-                             titleLines);
-            const int32_t titleBaseline =
-                titleLines.count <= 1 ? y + 45 : y + 32;
-            drawPortraitTextLines(scratch, &UiCondensed14Bold, titleLines,
-                                  rowX + 72, titleBaseline, 24, foreground,
-                                  background);
-
-            char author[128]{};
-            fitPortraitText(&UiCondensed9, entry->author, 250, author,
-                            sizeof(author));
-            drawPortraitText(scratch, &UiCondensed9, author, rowX + 72,
-                             y + 100, 3, background);
-
-            char status[48]{};
-            formatLocalBookStatus(*entry, status, sizeof(status));
-            const int32_t statusWidth =
-                measurePortraitText(&UiCondensed9, status);
-            drawPortraitText(scratch, &UiCondensed9, status,
-                             rowX + rowWidth - 18 - statusWidth, y + 100,
-                             foreground, background);
-
-
-        }
-    }
-
-    char position[24]{};
-    if (rowCount > 0) {
-        snprintf(position, sizeof(position), "%lu / %lu",
-                 static_cast<unsigned long>(localLibrarySession.selected + 1),
-                 static_cast<unsigned long>(rowCount));
-        const int32_t width = measurePortraitText(&UiCondensed9, position);
-        drawPortraitText(scratch, &UiCondensed9, position, 508 - width, 936, 0);
-    }
-    drawTopLevelTabRail(scratch, localLibrarySession.owner);
-
-    heap_caps_free(scratch);
-    return true;
+    return renderBookishList(v);
 }
 
 const char *longOperationEyebrow(LongOperationKind kind) {
@@ -3068,7 +2894,8 @@ bool displayLocalLibrary(bool rescan, const char *reason) {
         scheduleGhostCleanup("local-library-content");
     }
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, localLibrarySession.phase == LocalLibraryPhase::Books
+            ? DisplayRefreshMode::QualityFull : DisplayRefreshMode::FastUi);
     hasDisplayRefresh = true;
     printDisplayRefresh("LIBRARY", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -3435,7 +3262,7 @@ void normalizeFavoritesSelection() {
         return;
     }
     favoritesSession.selected = min(favoritesSession.selected, count - 1);
-    constexpr size_t kRows = 7;
+    constexpr size_t kRows = BookishUI::kListRows;
     if (favoritesSession.selected < favoritesSession.firstVisible) {
         favoritesSession.firstVisible = favoritesSession.selected;
     } else if (favoritesSession.selected >=
@@ -3471,108 +3298,38 @@ void drawFavoriteFolderArtwork(uint8_t *scratch, FavoriteFolder folder,
     fillPortraitRect(x + 18, y + 84, 46, 2, ink);
 }
 
-bool renderFavoritesFrame() {
-    auto *scratch = static_cast<uint8_t *>(heap_caps_malloc(
-        kFramebufferBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
-    if (scratch == nullptr || framebuffer == nullptr ||
-        favoriteCollection == nullptr) {
-        heap_caps_free(scratch);
-        return false;
-    }
-    memset(framebuffer, 0xFF, kFramebufferBytes);
-    drawMainTabHeader(scratch, topLevelTabName(TopLevelTab::Favorites));
-
-    if (favoritesSession.phase == FavoritesPhase::Folders) {
-        for (uint8_t index = 0; index < 3; ++index) {
-            const FavoriteFolder folder =
-                static_cast<FavoriteFolder>(index);
-            const bool selected = favoritesSession.selected == index;
-            const int32_t y = 90 + static_cast<int32_t>(index) * 226;
-            drawSoftRow(26, y, 478, 196, selected);
-            drawFavoriteFolderArtwork(scratch, folder, 58, y + 44,
-                                      selected);
-        const uint8_t foreground = 0;
-        const uint8_t background = 15;
-            drawPortraitText(scratch, &UiCondensed16Bold,
-                             FavoritesStore::folderLabel(folder), 180,
-                             y + 74, foreground, background);
-            char count[40]{};
-            snprintf(count, sizeof(count), "%lu КНИГ",
-                     static_cast<unsigned long>(favoriteFolderCount(folder)));
-            drawPortraitText(scratch, &UiCondensed9, count, 180, y + 116,
-                             selected ? 11 : 5, background);
-            drawPortraitText(scratch, &UiCondensed9,
-                             index == 0
-                                 ? "ПЛАНЫ НА ЧТЕНИЕ"
-                                 : (index == 1 ? "САМОЕ ЦЕННОЕ"
-                                               : "ВЕРНУТЬСЯ ПОЗЖЕ"),
-                             180, y + 152, 3, background);
-        }
-    } else {
-        const size_t count = favoriteFolderCount(favoritesSession.folder);
-        if (count == 0) {
-            drawPortraitRoundedRect(26, 100, 478, 280, 16, 11, 15, 1);
-            drawPortraitText(scratch, &UiCondensed9, "ПАПКА ПОКА ПУСТА", 52,
-                             150, 5);
-            drawPortraitText(scratch, &UiCondensed16Bold,
-                             "ДОБАВЬТЕ КНИГУ ИЗ КАРТОЧКИ", 52, 222);
+bool renderFavoritesFrame(int tabFocus = -1) {
+    if (!favoriteCollection) return false;
+    BookishUI::List v{};
+    v.activeTab = 3; v.tabFocus = tabFocus;
+    const bool folders = favoritesSession.phase == FavoritesPhase::Folders;
+    const char *names[] = {"Хочу прочитать", "Любимые книги", "На потом"};
+    const char *hints[] = {"Истории, с которыми хочется познакомиться", "То, к чему хочется возвращаться", "Сохранено для другого настроения"};
+    v.title = folders ? "Избранное" : names[static_cast<unsigned>(favoritesSession.folder)];
+    v.subtitle = folders ? "Ваши книги — в ваших подборках." : "Сохранённые вами истории.";
+    v.back = folders ? "" : "< Ко всем подборкам";
+    v.emptyTitle = "В подборке пока пусто";
+    v.emptyHint = "Откройте карточку книги и добавьте";
+    v.emptyHint2 = "её в одну из подборок избранного.";
+    v.total = folders ? 3 : favoriteFolderCount(favoritesSession.folder);
+    v.selected = favoritesSession.selected;
+    char details[BookishUI::kListRows][64]{};
+    for (size_t i = favoritesSession.firstVisible; i < v.total && v.rowCount < BookishUI::kListRows; ++i) {
+        const size_t row = v.rowCount++;
+        auto &r = v.rows[row]; r.selected = i == favoritesSession.selected;
+        if (folders) {
+            r.title = names[i]; r.subtitle = hints[i];
+            snprintf(details[row], sizeof(details[row]), "Книг: %lu",
+                static_cast<unsigned long>(favoriteFolderCount(static_cast<FavoriteFolder>(i))));
+            r.detail = details[row];
         } else {
-            constexpr size_t kRows = 7;
-            const size_t end = min(
-                count, favoritesSession.firstVisible + kRows);
-            for (size_t ordinal = favoritesSession.firstVisible;
-                 ordinal < end; ++ordinal) {
-                const FavoriteEntry *entry =
-                    favoriteFolderEntry(favoritesSession.folder, ordinal);
-                if (entry == nullptr) {
-                    continue;
-                }
-                const int32_t y =
-                    94 + static_cast<int32_t>(
-                              ordinal - favoritesSession.firstVisible) *
-                              114;
-                const bool selected = ordinal == favoritesSession.selected;
-                drawSoftRow(26, y, 478, 108, selected);
-        const uint8_t foreground = 0;
-        const uint8_t background = 15;
-                char ordinalLabel[4]{};
-                snprintf(ordinalLabel, sizeof(ordinalLabel), "%02lu",
-                         static_cast<unsigned long>(ordinal + 1));
-                drawPortraitText(scratch, &UiCondensed9, ordinalLabel, 48,
-                                 y + 32, 3, background);
-                PortraitTextLines title{};
-                wrapPortraitText(&UiCondensed14Bold, entry->title, 318, 2,
-                                 title);
-                drawPortraitTextLines(scratch, &UiCondensed14Bold, title, 86,
-                                      y + (title.count > 1 ? 26 : 39), 18,
-                                      foreground, background);
-                char author[112]{};
-                fitPortraitText(&UiCondensed9, entry->author, 252, author,
-                                sizeof(author));
-                drawPortraitText(scratch, &UiCondensed9, author, 86, y + 96,
-                                 3, background);
-                const bool local = localBookPresent(entry->bookId);
-                const char *status = local ? "OFFLINE" : "OPDS";
-                const int32_t statusWidth =
-                    measurePortraitText(&UiCondensed9, status);
-                drawPortraitText(scratch, &UiCondensed9, status,
-                                 486 - statusWidth, y + 96, foreground,
-                                 background);
-            }
+            const auto *entry = favoriteFolderEntry(favoritesSession.folder, i);
+            if (!entry) { --v.rowCount; continue; }
+            r.title = entry->title; r.subtitle = entry->author; r.coverId = entry->bookId; r.book = true;
+            r.detail = localBookPresent(entry->bookId) ? "На устройстве" : "Нет на устройстве";
         }
-        char page[32]{};
-        snprintf(page, sizeof(page), "%lu / %lu",
-                 static_cast<unsigned long>(count == 0
-                                                ? 0
-                                                : favoritesSession.selected +
-                                                      1),
-                 static_cast<unsigned long>(count));
-        const int32_t width = measurePortraitText(&UiCondensed9, page);
-        drawPortraitText(scratch, &UiCondensed9, page, 470 - width, 918, 5);
     }
-    drawTopLevelTabRail(scratch, TopLevelTab::Favorites);
-    heap_caps_free(scratch);
-    return true;
+    return renderBookishList(v);
 }
 
 bool displayFavorites(bool reload, const char *reason) {
@@ -3594,7 +3351,8 @@ bool displayFavorites(bool reload, const char *reason) {
         scheduleGhostCleanup("favorites-folder");
     }
     lastDisplayRefresh =
-        displayRefresh.refresh(framebuffer, DisplayRefreshMode::FastUi);
+        displayRefresh.refresh(framebuffer, favoritesSession.phase == FavoritesPhase::Books
+            ? DisplayRefreshMode::QualityFull : DisplayRefreshMode::FastUi);
     hasDisplayRefresh = true;
     printDisplayRefresh("FAVORITES", lastDisplayRefresh);
     if (!lastDisplayRefresh.ok) {
@@ -3625,6 +3383,7 @@ struct LibraryTabNavigation {
 LibraryTabNavigation savedLibraryTab;
 
 bool displayTopLevelTab(TopLevelTab tab, bool rescan, const char *reason) {
+    sectionBackFocused = false;
     if (localLibrarySession.owner == TopLevelTab::OnDevice && localLibrarySession.loaded) {
         savedLibraryTab.phase = localLibrarySession.phase;
         savedLibraryTab.section = localLibrarySession.section;
@@ -6102,14 +5861,31 @@ void processDownloadActions() {
     executeDownloadJob(activeDownloadJob, "retry");
 }
 
+bool renderCurrentTabFocus(int focus) {
+    static UiScreen source = UiScreen::Home;
+    if (uiScreen != UiScreen::Sections) source = uiScreen;
+    switch (activeTopLevelTab) {
+        case TopLevelTab::OnDevice: return renderLocalLibraryFrame(focus);
+        case TopLevelTab::Search:
+            if (localLibrarySession.owner == TopLevelTab::Search &&
+                (source == UiScreen::LocalLibrary || source == UiScreen::BookCard))
+                return renderLocalLibraryFrame(focus);
+            return renderSearchFrame(focus);
+        case TopLevelTab::Favorites: return renderFavoritesFrame(focus);
+        default:
+            if (!homeSession.loaded && !loadHomeSession()) return false;
+            return renderBookishHome(focus);
+    }
+}
+
 void displaySections() {
     const bool entering = uiScreen != UiScreen::Sections;
     if (uiScreen != UiScreen::Sections) {
         for (size_t i = 0; i < kVisibleTabCount; ++i)
             if (kVisibleTabs[i] == activeTopLevelTab) sectionSelection = i;
     }
-    if (!homeSession.loaded && !loadHomeSession()) return;
-    if (!renderBookishHome(static_cast<int>(sectionSelection))) return;
+    sectionBackFocused = false;
+    if (!renderCurrentTabFocus(static_cast<int>(sectionSelection))) return;
     scheduleScreenTransitionCleanup(UiScreen::Sections, "tabs-focus");
     uiScreen = UiScreen::Sections;
     lastDisplayRefresh = displayRefresh.refresh(framebuffer,
@@ -6148,6 +5924,32 @@ bool handleTabNavigation(const char *button, const char *gesture) {
         default:
             return false; // Editors and subordinate dialogs retain Back.
     }
+}
+
+bool handleSectionBackFocus(const char *button, const char *gesture) {
+    if (strcmp(gesture, "SHORT")) return false;
+    size_t selected = 0, count = 0;
+    if (uiScreen == UiScreen::LocalLibrary && localLibrarySession.phase != LocalLibraryPhase::Sections) {
+        selected = localLibrarySession.selected; count = localLibraryRowCount();
+    } else if (uiScreen == UiScreen::Search && searchSession.phase == SearchPhase::Letter) {
+        selected = searchSession.selected; count = searchRowCount();
+    } else if (uiScreen == UiScreen::Favorites && favoritesSession.phase == FavoritesPhase::Books) {
+        selected = favoritesSession.selected; count = favoriteFolderCount(favoritesSession.folder);
+    } else return false;
+    const int direction = !strcmp(button, "UP") ? -1 : !strcmp(button, "DOWN") ? 1 : 0;
+    const auto action = SectionBackFocus::input(sectionBackFocused, selected, count, direction, !strcmp(button, "CENTER"));
+    if (action == SectionBackFocus::Action::None) return false;
+    if (action == SectionBackFocus::Action::Back) {
+        if (uiScreen == UiScreen::LocalLibrary) pendingLocalLibraryBack = true;
+        if (uiScreen == UiScreen::Search) pendingSearchBack = true;
+        if (uiScreen == UiScreen::Favorites) pendingFavoritesBack = true;
+    } else {
+        noteUiNavigationClick();
+        if (uiScreen == UiScreen::LocalLibrary) displayLocalLibrary(false, "back-focus");
+        if (uiScreen == UiScreen::Search) displaySearch(false, "back-focus");
+        if (uiScreen == UiScreen::Favorites) displayFavorites(false, "back-focus");
+    }
+    return true;
 }
 
 void processTopLevelActions() {
@@ -6795,8 +6597,8 @@ void processLocalLibraryActions() {
         }
         if (localLibrarySession.phase != LocalLibraryPhase::Sections) {
             localLibrarySession.phase = LocalLibraryPhase::Sections;
+            localLibrarySession.selected = static_cast<size_t>(localLibrarySession.section);
             localLibrarySession.section = LocalLibrarySection::All;
-            localLibrarySession.selected = 0;
             localLibrarySession.firstVisible = 0;
             localLibrarySession.groupLabel[0] = '\0';
             rebuildLocalLibraryView();
@@ -7213,6 +7015,7 @@ void emitInput(const char *button, const char *gesture, const char *source) {
         return;
     }
     if (handleTabNavigation(button, gesture)) return;
+    if (handleSectionBackFocus(button, gesture)) return;
     if (strcmp(button, "CLEAN") == 0) {
         pendingPanelClean = true;
         return;

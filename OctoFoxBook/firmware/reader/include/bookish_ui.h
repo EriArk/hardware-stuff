@@ -39,4 +39,30 @@ public:
 };
 void header(Canvas &c, unsigned activeTab, int focus = -1);
 void home(Canvas &c, const Home &view);
+constexpr size_t kListRows = 5;
+struct ListRow {
+    const char *title = "";
+    const char *subtitle = "";
+    const char *detail = "";
+    const char *coverId = "";
+    bool book = false;
+    bool selected = false;
+    uint8_t progress = 0;
+};
+struct List {
+    unsigned activeTab = 1;
+    int tabFocus = -1;
+    const char *title = "";
+    const char *subtitle = "";
+    const char *back = "";
+    bool backFocused = false;
+    const char *emptyTitle = "Здесь пока нет книг";
+    const char *emptyHint = "Выберите другую подборку.";
+    const char *emptyHint2 = "";
+    ListRow rows[kListRows];
+    size_t rowCount = 0;
+    size_t total = 0;
+    size_t selected = 0;
+};
+void list(Canvas &c, const List &view);
 }

@@ -1,14 +1,13 @@
 # AbyssBook reader firmware
 
-Early **0.21.0-alpha4** firmware for the non-touch LILYGO T5 e-Paper S3
+Early **0.21.0-alpha5** firmware for the non-touch LILYGO T5 e-Paper S3
 (4.7-inch H716 panel, 16 MB flash, 8 MB PSRAM).
 
-The new Home displays real SD-card books, covers and reading progress in the
-bookish design. Reading, library sections, local search, book details,
-favorites, bookmarks, reading settings and explicit server sync are inherited
-from the working reader firmware. The remaining screens still use the previous
-visual design. This is the first functional redesign increment, not a finished
-replacement for every screen.
+Home, Library, Search and Favorites share the bookish design: logo, visible
+tabs, serif headings and light dividers. Book lists show real local covers,
+authors and reading status. Library sections, author/series/genre groups,
+local search and favorite folders retain their functions. Book details and
+reading dialogs still use the previous visual design.
 
 ## Controls
 
@@ -48,6 +47,13 @@ the selected tab. Holding OK while already on the tabs keeps that level.
 Moving UP past the first Home item also focuses the tabs. The current content
 selection is preserved when leaving and reopening a tab.
 
+Nested lists have a Back control above their rows. Move UP from the first
+item and press OK to return to the parent list; an empty list focuses Back
+automatically. Hold OK still goes directly to the tabs. Tab focus keeps the
+current section underneath the header. Lists display five rows at a time
+and scroll to keep the selected row visible. Local search accepts a first
+Cyrillic or Latin letter, or a digit, matching title, author or series.
+
 ## Wi-Fi settings
 
 On Home, move down to **Настройки (Settings)**, press OK, then open **Wi-Fi**.
@@ -79,7 +85,7 @@ layout and bundled fonts to create host previews (requires Pillow); these do
 not demonstrate physical E-Ink quality or successful radio association.
 
 Text uses HIGH updates and periodic hard cleanup after 24 page turns; simple
-menus use FAST with cleanup after 12 navigation steps. Cover-bearing Home uses
+menus use FAST with cleanup after 12 navigation steps. Home and book lists use
 HIGH, with hard cleanup on transitions. Framebuffer captures show intended
 pixels and cannot establish physical ghosting or contrast.
 

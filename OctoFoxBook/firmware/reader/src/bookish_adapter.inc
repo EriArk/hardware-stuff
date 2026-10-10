@@ -15,7 +15,8 @@ struct HomeCoverSlot {
     char id[33]{};
     CoverBitmap bitmap{};
 };
-HomeCoverSlot homeCovers[HomeLayout::kReadingCapacity + HomeLayout::kAddedCapacity];
+HomeCoverSlot homeCovers[HomeLayout::kReadingCapacity + HomeLayout::kAddedCapacity + BookishUI::kListRows];
+size_t homeCoverVictim = 0;
 void invalidateHomeCovers() {
     for (auto &slot : homeCovers) {
         CoverCache::release(slot.bitmap);
@@ -36,7 +37,11 @@ const CoverBitmap *homeCover(const char *id) {
         if (CoverCache::load(id, slot.bitmap, info)) return &slot.bitmap;
         return nullptr;
     }
-    return nullptr;
+    auto &slot = homeCovers[homeCoverVictim++ % (sizeof(homeCovers) / sizeof(homeCovers[0]))];
+    CoverCache::release(slot.bitmap);
+    snprintf(slot.id, sizeof(slot.id), "%s", id);
+    CoverCacheInfo info{};
+    return CoverCache::load(id, slot.bitmap, info) ? &slot.bitmap : nullptr;
 }
 
 class ReaderBookishCanvas final : public BookishUI::Canvas {
@@ -83,6 +88,19 @@ public:
 private:
     uint8_t *scratch_;
 };
+
+bool sectionBackFocused = false;
+bool renderBookishList(BookishUI::List &view) {
+    auto *scratch = static_cast<uint8_t *>(heap_caps_malloc(
+        kFramebufferBytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    if (!scratch || !framebuffer) { heap_caps_free(scratch); return false; }
+    memset(framebuffer, 0xFF, kFramebufferBytes);
+    view.backFocused = view.back[0] && (sectionBackFocused || view.total == 0);
+    ReaderBookishCanvas canvas(scratch);
+    BookishUI::list(canvas, view);
+    heap_caps_free(scratch);
+    return true;
+}
 
 bool renderBookishHome(int tabFocus = -1) {
     auto *scratch = static_cast<uint8_t *>(heap_caps_malloc(

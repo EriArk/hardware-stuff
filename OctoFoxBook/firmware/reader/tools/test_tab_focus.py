@@ -11,7 +11,7 @@ class TabFocusTests(unittest.TestCase):
     def test_tab_focus_is_a_separate_top_level(self):
         source = (ROOT/'src/main.cpp').read_text(encoding='utf-8')
         enums = source.split('enum class UiScreen',1)[1].split('struct Diagnostics',1)[0]
-        production = source.split('void displaySections() {',1)[1].split('void processTopLevelActions()',1)[0]
+        production = source.split('void displaySections() {',1)[1].split('bool handleSectionBackFocus(',1)[0]
         harness = r'''
 #include <cassert>
 #include <cstring>
@@ -24,7 +24,8 @@ size_t sectionSelection=0;
 struct {bool loaded=true;} homeSession;
 bool loadHomeSession(){homeSession.loaded=true;return true;}
 int painted=-1,opened=-1,draws=0;
-bool renderBookishHome(int focus){painted=focus;return true;}
+bool sectionBackFocused=false;
+bool renderCurrentTabFocus(int focus){painted=focus;return true;}
 void scheduleScreenTransitionCleanup(UiScreen,const char*){}
 void noteUiNavigationClick(){}
 enum class DisplayRefreshMode { QualityFull, FastUi };

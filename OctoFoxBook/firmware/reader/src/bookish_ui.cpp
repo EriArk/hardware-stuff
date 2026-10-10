@@ -71,4 +71,51 @@ void home(Canvas &c, const Home &v) {
     c.text(Font::Small, v.tabFocus >= 0 ? "UP / DOWN — вкладка · OK — открыть" :
            "OK — открыть · удержать — вкладки · 2× OK — домой", 42, 951, 468, 5);
 }
+
+void list(Canvas &c, const List &v) {
+    header(c, v.activeTab, v.tabFocus);
+    c.text(Font::Hero, v.title, 30, 212, 480);
+    c.text(Font::Body, v.subtitle, 32, 247, 478, 5);
+    if (v.back && *v.back) {
+        const bool focused = v.backFocused && v.tabFocus < 0;
+        c.box(28, 264, 484, 34, 5, focused ? 0 : 15, focused ? 0 : 15);
+        c.text(Font::Body, v.back, 40, 287, 460, focused ? 15 : 0, focused ? 0 : 15);
+    }
+    if (!v.rowCount) {
+        c.box(28, 327, 484, 236, 10, 10, 15);
+        c.text(Font::Heading, v.emptyTitle, 48, 385, 444);
+        c.text(Font::Body, v.emptyHint, 48, 436, 444, 5);
+        c.text(Font::Body, v.emptyHint2, 48, 470, 444, 5);
+    }
+    for (size_t i = 0; i < v.rowCount && i < kListRows; ++i) {
+        const auto &r = v.rows[i];
+        const int y = 316 + static_cast<int>(i) * 112;
+        const bool selected = r.selected && v.tabFocus < 0 && !v.backFocused;
+        if (selected) {
+            c.box(28, y - 5, 484, 108, 7, 0, 15, 2);
+            c.box(29, y + 17, 3, 57, 0, 0, 0);
+        } else c.box(30, y + 103, 480, 1, 0, 10, 10);
+        const int x = r.book ? 111 : 43;
+        if (r.book) c.cover(r.coverId, 42, y + 3, 55, 85);
+        c.text(Font::Heading, r.title, x, y + 28, 489 - x);
+        c.text(Font::Body, r.subtitle, x + 1, y + 57, 487 - x, 5);
+        c.text(Font::Body, r.detail, x + 1, y + 82, 470 - x, 5);
+        if (r.book && r.progress) {
+            c.box(x, y + 94, 378, 2, 0, 10, 10);
+            c.box(x, y + 94, 378 * r.progress / 100, 2, 0, 0, 0);
+        }
+        if (selected) c.text(Font::Body, ">", 487, y + 82, 17);
+    }
+    c.box(30, 904, 480, 1, 0, 10, 10);
+    if (v.total) {
+        char position[48];
+        snprintf(position, sizeof(position), "%lu / %lu", static_cast<unsigned long>(v.selected + 1),
+                 static_cast<unsigned long>(v.total));
+        c.text(Font::Body, position, 402, 932, 108, 5);
+    }
+    c.text(Font::Body, v.tabFocus >= 0 ? "Выберите раздел" :
+           v.backFocused ? "OK — назад" : "OK — открыть", 30, 932, 355);
+    c.text(Font::Small, v.tabFocus >= 0 ? "UP / DOWN — вкладка · OK — открыть" :
+           "UP / DOWN — выбор · удержать OK — вкладки · 2× OK — домой", 30, 955, 480, 5);
+}
 }
