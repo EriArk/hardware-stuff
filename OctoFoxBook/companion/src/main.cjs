@@ -3,6 +3,7 @@ const {app,BrowserWindow,WebContentsView,ipcMain,session,shell,dialog}=require('
 const path=require('node:path'),fs=require('node:fs'),crypto=require('node:crypto');
 const {pathToFileURL}=require('node:url');
 const discovery=require('./discovery.cjs');
+const {selectReaderPort}=require('./reader-port.cjs');
 const localPage=pathToFileURL(path.join(__dirname,'shell.html')).href;
 let window,remote,active,scanning=false,records=new Map(),generation=0,refresh;
 const hidden=process.env.OCTOFOX_TEST_HIDE==='1';
@@ -102,10 +103,9 @@ app.whenReady().then(()=>{
  localSession.on('select-serial-port',(event,ports,wc,callback)=>{
   event.preventDefault();
   if(wc!==window?.webContents||wc.getURL()!==localPage){callback('');return;}
-  const matches=ports.filter(p=>parseInt(p.vendorId,16)===0x303a&&parseInt(p.productId,16)===0x1001);
   // Do not guess between two physical readers. The OS chooser is filtered to
   // the supported USB identity, and the firmware is checked again over serial.
-  callback(matches.length===1?matches[0].portId:'');
+  callback(selectReaderPort(ports));
  });
  window.webContents.on('will-navigate',event=>event.preventDefault());
  window.on('resize',resize);window.on('closed',()=>{clearInterval(refresh);if(remote&&!remote.webContents.isDestroyed())remote.webContents.close();remote=null;window=null;});

@@ -6,7 +6,7 @@ The desktop browser needs no installer. Installing the book server is a separate
 
 ## Early beta downloads
 
-[Download OctoFox Book 0.2.0-beta.3](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.3). Choose the portable Companion browser for your desktop and, separately, Server Setup for the computer hosting your books. The release includes checksums, source code and known limitations.
+[Download OctoFox Book 0.2.0-beta.4](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.4). Choose the portable Companion browser for your desktop and, separately, Server Setup for the computer hosting your books. The release includes checksums, source code and known limitations.
 
 ## Open your library
 
@@ -26,7 +26,7 @@ The app remembers the library and keeps its browser sign-in. It does not save yo
 
 ## Pair an AbyssBook reader
 
-Requires the updated server and AbyssBook **0.21.0-alpha7** firmware. Sign in as
+Requires the updated server and AbyssBook **0.21.0-alpha8** firmware. Sign in as
 the server owner, connect the awake reader by USB and select **Pair reader** in
 the app's top bar. Connect one reader at a time.
 
@@ -43,9 +43,9 @@ If both sides changed position, the device position becomes current and the
 previous website position remains as a bookmark.
 
 USB pairing belongs to the bundled local app screen. The server page has no USB
-or native bridge access. This development implementation has passed serial-protocol
-tests and a live server check; physical USB pairing still needs device acceptance.
-Beta.3 includes this implementation; physical USB acceptance remains pending.
+or native bridge access. Beta.4 fixes physical USB discovery in Electron. USB pairing
+from Windows and a real HTTPS book download have been verified on a T5 e-Paper S3.
+Native macOS/Linux USB pairing still needs device acceptance.
 
 ## Server requirements
 

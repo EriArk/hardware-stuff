@@ -39,6 +39,7 @@ void identity(char *out,size_t capacity) {
 }
 bool equal(JsonVariantConst a,JsonVariantConst b) {return a==b;}
 bool one(NetworkService &network,const char *device,const char *book,bool uploadOnly) {
+    lastPolicy=ReaderSyncPolicy::Error::Protocol;
     char statePath[96],mirrorPath[96],digest[65],url[240];
     snprintf(statePath,sizeof(statePath),"/books/%s/reader-state.json",book);
     snprintf(mirrorPath,sizeof(mirrorPath),"/books/%s/reading-sync.json",book);
@@ -55,7 +56,16 @@ bool one(NetworkService &network,const char *device,const char *book,bool upload
         }
         page.clear();return !deserializeJson(page,body) || fail("reading-protocol");
     };
-    if(!fetch(0))return false;
+    if(!fetch(0)) {
+        // A legacy/local OPDS copy may not belong to this server's catalogue.
+        // Keep it and its offline progress untouched. Once a sync receipt exists,
+        // missing remote state remains an error: never discard pending edits.
+        if(result.httpCode==404 && !SD.exists(mirrorPath)) {
+            lastError[0]=0;lastPolicy=ReaderSyncPolicy::Error::None;
+            return true;
+        }
+        return false;
+    }
     const String account=page["account"]|"";
     if(account.length()!=64 || (mirror["account"].is<const char*>() && account!=(mirror["account"]|"")))return fail("reading-account-changed");
     mirror["account"]=account;

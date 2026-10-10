@@ -1,6 +1,6 @@
 # AbyssBook reader firmware
 
-Early **0.21.0-alpha7** firmware for the non-touch LILYGO T5 e-Paper S3
+Early **0.21.0-alpha8** firmware for the non-touch LILYGO T5 e-Paper S3
 (4.7-inch H716 panel, 16 MB flash, 8 MB PSRAM).
 
 Home, Library, Search, Collections and book details share the bookish design: logo, visible
@@ -145,8 +145,10 @@ saving a new text position can replace an older percentage-only position.
 The configured HTTPS address works over any supported Wi-Fi network with Internet
 access; Companion need not remain running. Device access can be revoked from its
 Pair reader panel. Replacing an account does not automatically migrate the old
-account's local state. Alpha7 USB pairing and state exchange still need acceptance
-on physical hardware; host tests and a live HTTPS server exchange are verified.
+account's local state. Alpha8 preserves older local books that are absent from the
+paired server and have never synchronized reading state. Windows USB pairing and
+a real HTTPS book download have been verified on a T5 e-Paper S3. Native macOS/Linux
+USB pairing and broader device acceptance remain unverified.
 
 ## Build and test
 

@@ -4,14 +4,14 @@ OctoFox Book brings together the AbyssBook e-ink reader, a self-hosted library a
 
 ## Early beta downloads
 
-[Download OctoFox Book 0.2.0-beta.3](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.3): server setup, portable Companion, AbyssBook alpha7 firmware, source and case files.
+[Download OctoFox Book 0.2.0-beta.4](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.2.0-beta.4): server setup, portable Companion, AbyssBook alpha8 firmware, source and case files.
 
 - [Library and server](library/): books, reading, narration, accounts, collections, backups and reader synchronization.
 - [Companion](companion/): find a server, open its administration panel and pair an AbyssBook by USB.
 - [Server Setup](server-installer/): separate server installer with automatic prerequisite preparation.
 - [Reader firmware](firmware/reader/): three-button navigation, Wi-Fi settings, English/Russian interface and deep sleep.
 
-This is an early beta. The alpha7 firmware builds and its server exchange is tested, but physical USB pairing and alpha7 device acceptance are still pending. The release notes distinguish packaged builds from platform/device acceptance.
+This is an early beta. Windows USB pairing, a real book download, two-way reading position and a website bookmark reaching the T5 reader have been verified. Full user acceptance and native macOS/Linux USB pairing remain pending. The release notes distinguish packaged builds from platform/device acceptance.
 
 ## OctoFox Library — English showcase
 
@@ -23,7 +23,7 @@ This is an early beta. The alpha7 firmware builds and its server exchange is tes
 
 [Фотографии живого прототипа](showcase/prototype-photos/README.md) — семь оригинальных снимков сборки, корпуса, кнопок и USB-C, с английскими подписями для страницы проекта.
 
-Корпус электронной читалки на LILYGO Screen-4.7-S3 V2.4. Исходники и инструкция прошивки находятся в [firmware/reader](firmware/reader/); alpha7 распространяется как предварительная версия.
+Корпус электронной читалки на LILYGO Screen-4.7-S3 V2.4. Исходники и инструкция прошивки находятся в [firmware/reader](firmware/reader/); alpha8 распространяется как предварительная версия.
 
 Состав электроники, количество компонентов, распиновка и сведения об устройстве —
 [ELECTRONICS.md](ELECTRONICS.md). Там также отмечено расхождение между выбранным

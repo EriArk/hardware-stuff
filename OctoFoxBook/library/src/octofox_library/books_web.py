@@ -1012,7 +1012,10 @@ class LibraryWeb(ReaderStateMixin, ReaderCollectionsMixin, UploadsMixin, Persona
                 )
             ]
 
-    def poll(self, owner, device, version=1, after=0):
+    def poll(self, owner, device, version=1, after=0, *, origin=None):
+        delivery_origin = self.origin if origin is None else origin
+        if delivery_origin not in self.network.allowed():
+            raise WebError(403, "Unconfigured library address")
         if not DEVICE_RE.fullmatch(device):
             raise WebError(400, "Invalid device identifier")
         if type(after) is not int or not 0 <= after < 2**63:
@@ -1063,8 +1066,8 @@ class LibraryWeb(ReaderStateMixin, ReaderCollectionsMixin, UploadsMixin, Persona
         # Tiny versioned protocol: never send the catalogue to an ESP32.
         return (
             f"1\t{row['id']}\topds-{row['book']}\t"
-            f"{self.origin}{download}\t"
-            f"{self.origin}{cover}\n"
+            f"{delivery_origin}{download}\t"
+            f"{delivery_origin}{cover}\n"
         ).encode()
 
     def acknowledge(self, owner, device, job, state, digest="", error=""):
@@ -1349,7 +1352,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 return self.send(200, json.dumps(value, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
             if get and path == "/reader-api/device/next":
                 value = self.app.poll(owner, device, int(query.get("v", ["1"])[0]),
-                                      int(query.get("after", ["0"])[0]))
+                                      int(query.get("after", ["0"])[0]), origin=self.request_origin())
                 return self.send(200 if value else 204, value, "text/plain; charset=utf-8")
             if not get and path == "/reader-api/device/ack":
                 data = self.body()

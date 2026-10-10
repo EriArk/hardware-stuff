@@ -479,6 +479,17 @@ class BooksWebTest(unittest.TestCase):
         self.assertEqual(self.app.poll("alice", "reader-ddeeff"), b"")
         self.assertEqual(self.app.poll("alice", "reader-aabbcc"), b"")
 
+    def test_device_delivery_uses_configured_request_address_not_install_address(self):
+        public = "https://reader.example"
+        self.app.enqueue("alice", "42", "default")
+        with patch.object(self.app.network, "allowed", return_value=[self.app.origin, public]):
+            with self.assertRaises(WebError):
+                self.app.poll("alice", "reader-aabbcc", origin="https://unconfigured.example")
+            self.assertEqual(self.app.deliveries("alice")[0]["state"], "queued")
+            wire = self.app.poll("alice", "reader-aabbcc", origin=public).decode().strip().split("\t")
+        self.assertTrue(wire[3].startswith(public + "/reader-api/"))
+        self.assertTrue(wire[4].startswith(public + "/reader-api/"))
+
     def test_receipt_is_scoped_and_requires_verified_digest(self):
         job = self.app.enqueue("alice", "42", "default")["id"]
         self.app.poll("alice", "reader-aabbcc")

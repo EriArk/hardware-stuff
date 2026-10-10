@@ -6,10 +6,11 @@ namespace AutomaticSync {bool cancelRequested(){return false;}}
 JsonDocument server;
 std::set<std::string> applied;
 bool loseReply=false,failGet=false;
+int getCode=200;
 bool NetworkService::verifiedLocalDigest(const char *,char out[65]){memset(out,'d',64);out[64]=0;return true;}
 bool NetworkService::syncRequest(const char *,const char *json,String &body,SyncRequestResult &r,uint32_t) {
  r.httpCode=200;body.clear();
- if(!json){if(failGet)return false;serializeJson(server,body);return true;}
+ if(!json){r.httpCode=getCode;if(failGet || getCode!=200)return false;serializeJson(server,body);return true;}
  JsonDocument op;assert(!deserializeJson(op,json));
  if(applied.insert(op["op"].as<const char*>()).second) {
   const char *kind=op["kind"];
@@ -33,6 +34,17 @@ int main(){
  server["bookmarks"].to<JsonArray>();server["next"]=0;server["finished"]=false;
  SD.files[stateFile]=R"({"schema":"abyss-reader-state","version":1,"book_id":"opds-42","layout":"test","current_page":1,"page_count":10,"logical":{"record":3,"byte":0},"bookmarks":[{"page":1,"logical":{"record":3,"byte":1},"title":"A bookmark"}]})";
  NetworkService network;
+ // Old files absent from a new server must not block its first book download.
+ // Both sync phases preserve the complete local state without sending anything.
+ const auto legacy=SD.files;
+ getCode=404;
+ assert(one(network,"reader-test","opds-42",true));
+ assert(one(network,"reader-test","opds-42",false));
+ assert(SD.files==legacy && applied.empty());
+ for(int code:{401,403,409,500,-1}) {
+  getCode=code;assert(!one(network,"reader-test","opds-42",true));assert(SD.files==legacy);
+ }
+ getCode=200;
  loseReply=true;assert(!one(network,"reader-test","opds-42",false));
  assert(applied.size()==1); // The server applied it, but its reply was lost.
  localPosition(7); // Owner kept reading before retrying.
@@ -45,5 +57,9 @@ int main(){
  assert(one(network,"reader-test","opds-42",false));assert(server["bookmarks"].size()==0);
  const auto before=SD.files[stateFile];server["account"]=std::string(64,'c');
  assert(!one(network,"reader-test","opds-42",false));assert(SD.files[stateFile]==before);
+ // A previously synchronized book is not a legacy copy: loss of remote state
+ // must still stop removal, preserving the receipt and any unsent progress.
+ const auto bound=SD.files;getCode=404;
+ assert(!one(network,"reader-test","opds-42",true));assert(SD.files==bound);
  return 0;
 }
