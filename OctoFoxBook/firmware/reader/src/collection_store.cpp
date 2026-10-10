@@ -29,6 +29,8 @@ constexpr const char *path="/reader/collections-v2.json";
 constexpr const char *part="/reader/collections-v2.json.part";
 constexpr const char *old="/reader/collections-v2.json.old";
 char lastError[64]{};
+ReaderSyncPolicy::Error lastPolicy=ReaderSyncPolicy::Error::Protocol;
+int lastHttpCode=0;
 bool loaded=false;
 bool fail(const char *message) { snprintf(lastError,sizeof(lastError),"%s",message);return false; }
 bool save(JsonDocument &next) {
@@ -67,6 +69,39 @@ bool queue(JsonDocument &d,const char *action,const char *collection,const char 
 }
 namespace Collections {
 const char *error(){return lastError;}
+ReaderSyncPolicy::Error policyError(){return lastPolicy;}
+int httpCode(){return lastHttpCode;}
+bool archiveProfile() {
+    // Main state is moved LAST. Interrupted cleanup cannot re-import a legacy
+    // favorite list into a new account or resurrect an old recovery file.
+    const char *sources[]={"/reader/favorites-v1.json", "/reader/favorites-v1.json.old",
+        "/reader/favorites-v1.json.part", "/sync-receipt.json", "/sync-receipt.json.part",
+        part, old, path};
+    constexpr size_t n=sizeof(sources)/sizeof(sources[0]);
+    if(!SD.exists("/trash") && !SD.mkdir("/trash"))return fail("profile-archive-mkdir");
+    char destination[96]{};char folder[64]{};
+    unsigned slot=0;
+    for(;slot<10000;++slot) {
+        snprintf(folder,sizeof(folder),"/trash/profile-%u",slot);
+        if(!SD.exists(folder))break;
+    }
+    if(slot==10000 || !SD.mkdir(folder))return fail("profile-archive-mkdir");
+    bool moved[n]{};
+    for(size_t i=0;i<n;++i) {
+        if(!SD.exists(sources[i]))continue;
+        snprintf(destination,sizeof(destination),"%s/%s",folder,strrchr(sources[i],'/')+1);
+        if(!SD.rename(sources[i],destination)) {
+            for(size_t j=i;j>0;--j)if(moved[j-1]) {
+                snprintf(destination,sizeof(destination),"%s/%s",folder,strrchr(sources[j-1],'/')+1);
+                SD.rename(destination,sources[j-1]);
+            }
+            loaded=false;state.clear();
+            return fail("profile-archive-rename");
+        }
+        moved[i]=true;
+    }
+    loaded=false;state.clear();lastError[0]=0;return true;
+}
 bool load() {
     if(loaded)return true;
     if(!StorageRecovery::recoverFile(path))return fail("collection-recovery");
@@ -124,10 +159,17 @@ bool toggle(size_t n,const char *b) {
 
 #ifdef ARDUINO
 bool sync(NetworkService &network,const char *device,bool uploadOnly) {
+    lastPolicy=ReaderSyncPolicy::Error::Protocol;lastHttpCode=0;
     if(!load())return false;
     char url[180];String response;SyncRequestResult result{};
+    auto request=[&](const char *body) {
+        const bool ok=network.syncRequest(url,body,response,result);
+        lastHttpCode=result.httpCode;
+        if(!ok)lastPolicy=result.error;
+        return ok;
+    };
     snprintf(url,sizeof(url),"/reader-api/device/collections?device=%s&offset=0",device);
-    if(!network.syncRequest(url,nullptr,response,result))return fail("collections-network");
+    if(!request(nullptr))return fail("collections-network");
     DOCUMENT(page);
     if(deserializeJson(page,response) || !page["account"].is<const char*>())return fail("collections-protocol");
     const String account=page["account"].as<const char*>();
@@ -137,9 +179,9 @@ bool sync(NetworkService &network,const char *device,bool uploadOnly) {
     if(!*previous){DOCUMENT(bound);bound.set(state);bound["account"]=account;if(!save(bound))return false;}
     while(state["pending"].size()) {
         if(AutomaticSync::cancelRequested())return fail("collections-cancelled");
-        String request;serializeJson(state["pending"][0],request);
+        String mutation;serializeJson(state["pending"][0],mutation);
         snprintf(url,sizeof(url),"/reader-api/device/collections?device=%s",device);
-        if(!network.syncRequest(url,request.c_str(),response,result))return fail("collections-upload");
+        if(!request(mutation.c_str()))return fail("collections-upload");
         DOCUMENT(ack);if(deserializeJson(ack,response) || !ack["id"].is<const char*>())return fail("collections-protocol");
         DOCUMENT(next);next.set(state);
         const String from=next["pending"][0]["id"].as<const char*>(),to=ack["id"].as<const char*>();
@@ -155,7 +197,7 @@ bool sync(NetworkService &network,const char *device,bool uploadOnly) {
     do {
         if(AutomaticSync::cancelRequested())return fail("collections-cancelled");
         snprintf(url,sizeof(url),"/reader-api/device/collections?device=%s&offset=%u",device,offset);
-        if(!network.syncRequest(url,nullptr,response,result) || deserializeJson(page,response))return fail("collections-download");
+        if(!request(nullptr) || deserializeJson(page,response))return fail("collections-download");
         if(account!=(page["account"]|""))return fail("collections-account-changed");
         String current=page["revision"]|"";
         if(!current.length() || (offset && current!=revision))return fail("collections-changed-retry");

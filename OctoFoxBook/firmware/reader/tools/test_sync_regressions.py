@@ -29,7 +29,14 @@ class SyncRegressionTests(unittest.TestCase):
 #include <cassert>
 #include <vector>
 #include <string>
+#include <atomic>
 #include "sync_policy.h"
+std::atomic<unsigned> wifiDisconnectReason{0};
+std::atomic<unsigned> wifiNoApEvents{0};
+using WiFiEvent_t=int;
+struct WiFiEventInfo_t { struct { unsigned reason; } wifi_sta_disconnected; };
+constexpr int ARDUINO_EVENT_WIFI_STA_DISCONNECTED=5, WIFI_ALL_CHANNEL_SCAN=1;
+struct { template<typename... Args> void printf(const char *, Args...) {} } Serial;
 uint32_t now = 0, cancelAt = UINT32_MAX;
 uint32_t millis() { return now; }
 void delay(uint32_t ms) { now += ms; }
@@ -49,16 +56,24 @@ struct ProvisioningStore {
 };
 struct FakeWifi {
     uint32_t homeDelay = UINT32_MAX, phoneDelay = UINT32_MAX, began = 0, wait = UINT32_MAX;
-    bool attempting = false, on = false;
+    bool attempting = false, on = false, sleeping = true;
+    int eventHandlers = 0, scanMethod = 0;
+    int reconnects = 0;
+    bool missFirstScan = false;
+    int onEvent(void (*)(WiFiEvent_t, WiFiEventInfo_t), int) { return ++eventHandlers; }
+    void removeEvent(int) { --eventHandlers; }
+    void setScanMethod(int value) { scanMethod=value; }
     std::vector<std::string> attempts;
     int status() { return attempting && wait != UINT32_MAX && now - began >= wait ? WL_CONNECTED : 0; }
     void begin(const char *ssid, const char *) {
         on = attempting = true; began = now; attempts.emplace_back(ssid);
         wait = attempts.back() == "home" ? homeDelay : phoneDelay;
+        if(missFirstScan){wait=UINT32_MAX;wifiNoApEvents=1;}
     }
+    void reconnect() { ++reconnects; began=now; wait=homeDelay; }
     void persistent(bool) {}
     void mode(int mode) { on = mode != 0; }
-    void setSleep(bool) {}
+    void setSleep(bool value) { sleeping=value; }
     void setAutoReconnect(bool) {}
     void setHostname(const char *) {}
     void disconnect(bool, bool) { attempting = false; }
@@ -93,6 +108,10 @@ int main() {
     WiFi.homeDelay = 8000;
     assert(network.connect(status, ReaderSyncPolicy::kWifiAttemptMs));
     assert(status.credentialSlot == 1 && WiFi.attempts.size() == 1 && now == 8000);
+    assert(!WiFi.sleeping && WiFi.eventHandlers==0 && WiFi.scanMethod==WIFI_ALL_CHANNEL_SCAN);
+    reset(); WiFi.homeDelay=1000; WiFi.missFirstScan=true;
+    assert(network.connect(status, ReaderSyncPolicy::kWifiAttemptMs));
+    assert(WiFi.reconnects==1 && status.credentialSlot==1 && now==2000 && WiFi.eventHandlers==0);
     reset(); WiFi.phoneDelay = 6000;
     assert(network.connect(status, ReaderSyncPolicy::kWifiAttemptMs));
     assert(status.credentialSlot == 2 && WiFi.attempts.size() == 2 && now >= 26000);
@@ -103,6 +122,7 @@ int main() {
     reset(); cancelAt = 1500;
     assert(!network.connect(status, ReaderSyncPolicy::kWifiAttemptMs));
     assert(now <= 1600 && WiFi.attempts.size() == 1 && !WiFi.on);
+    assert(WiFi.eventHandlers==0);
     reset(); WiFi.phoneDelay = 1000;
     assert(network.connect(status, ReaderSyncPolicy::kWifiAttemptMs, 2));
     assert(WiFi.attempts.size() == 1 && WiFi.attempts.front() == "phone");

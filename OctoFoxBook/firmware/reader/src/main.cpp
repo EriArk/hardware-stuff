@@ -65,7 +65,7 @@
 namespace {
 
 constexpr char kFirmwareName[] = "abyss-reader";
-constexpr char kFirmwareVersion[] = "0.9.0-rc.1";
+constexpr char kFirmwareVersion[] = "0.9.0-rc.3-dev";
 constexpr size_t kFramebufferBytes = EPD_WIDTH * EPD_HEIGHT / 2;
 constexpr int32_t kPortraitWidth = EPD_HEIGHT;
 constexpr int32_t kPortraitHeight = EPD_WIDTH;
@@ -7901,6 +7901,26 @@ void handleSerialCommand(char *line) {
     }
 
     if (handleProvisioningCommand(line) || handleFallbackWifiCommand(line)) {
+        return;
+    }
+
+    if (strcmp(line, "STORAGE PROFILE RESET CONFIRM") == 0) {
+        if (!diagnostics.sdMounted || BookPreparation::busy() || bookUpload.active() || provisioningActive) {
+            Serial.println("ERROR PROFILE_RESET reason=storage-busy"); return;
+        }
+        File books = SD.open("/books", FILE_READ);
+        if (SD.exists("/books") && (!books || !books.isDirectory())) {
+            Serial.println("ERROR PROFILE_RESET reason=books-unreadable"); return;
+        }
+        File entry = books ? books.openNextFile(FILE_READ) : File();
+        const bool notEmpty = bool(entry);
+        entry.close(); books.close();
+        if (notEmpty) { Serial.println("ERROR PROFILE_RESET reason=archive-books-first"); return; }
+        const bool ok = Collections::archiveProfile();
+        readerSession.active = false;
+        homeSession.loaded = false; localLibrarySession.loaded = false;
+        Serial.printf("STORAGE PROFILE RESET COMPLETE ok=%s recoverable=trash reason=%s\n",
+                      ok ? "true" : "false", ok ? "none" : Collections::error());
         return;
     }
 

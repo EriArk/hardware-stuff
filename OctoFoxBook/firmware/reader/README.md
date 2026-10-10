@@ -1,6 +1,6 @@
 # AbyssBook reader firmware
 
-Release candidate **0.9.0-rc.1** firmware for the non-touch LILYGO T5 e-Paper S3
+Development firmware **0.9.0-rc.3-dev** for the non-touch LILYGO T5 e-Paper S3
 (4.7-inch H716 panel, 16 MB flash, 8 MB PSRAM).
 
 Home, Library, Search, Collections and book details share the bookish design: logo, visible
@@ -21,6 +21,23 @@ known book counts or the response's byte length; preparation and requests with
 unknown totals remain indeterminate. Progress updates clear only the changing
 area, at most once per 1.5 seconds, with a ten-second waiting update. OK cancels
 safely and keeps books already saved.
+
+Collection synchronization preserves the underlying Wi-Fi, authentication and
+HTTP error instead of reporting every failure as an invalid server response.
+USB diagnostics include numeric Wi-Fi disconnect and TLS errors, not credentials.
+
+### Moving a reader to another account or server
+
+Pairing preserves local data. A local collection profile belonging to another
+account is deliberately rejected; it is never silently uploaded to the new one.
+For an explicitly approved clean migration, archive each old book with
+`BOOK REMOVE <id> CONFIRM`, then issue `STORAGE PROFILE RESET CONFIRM` over USB.
+The reset refuses to run while any entry remains in `/books` or storage is busy.
+It archives collection state, legacy favorites and pending sync receipts in
+`/trash/profile-<number>` without changing Wi-Fi or pairing credentials.
+Books remain recoverable in `/trash` as well. Requeue the wanted books on the
+new server, then use **Synchronize** (or `SYNC RESUME` followed by `SYNC NOW`).
+This is an operator recovery command, not an automatic account-change reset.
 
 ## Controls
 

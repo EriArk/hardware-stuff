@@ -7,6 +7,7 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <time.h>
+#include <atomic>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -19,6 +20,8 @@
 #include "wifi_credentials.h"
 
 namespace {
+std::atomic<unsigned> wifiDisconnectReason{0};
+std::atomic<unsigned> wifiNoApEvents{0};
 
 constexpr time_t kMinimumTrustedEpoch = 1700000000;
 constexpr size_t kMaximumOpdsResponseBytes = 192U * 1024U;
@@ -297,22 +300,44 @@ bool NetworkService::connect(NetworkStatus &status, uint32_t timeoutMs,
     }
 
     const uint32_t startedAt = millis();
+    const auto wifiDiagnostic = WiFi.onEvent([](WiFiEvent_t, WiFiEventInfo_t info) {
+        wifiDisconnectReason = info.wifi_sta_disconnected.reason;
+        if (info.wifi_sta_disconnected.reason == 201) ++wifiNoApEvents;
+    }, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
     WiFi.persistent(false);
     WiFi.mode(WIFI_STA);
-    WiFi.setSleep(true);
+    // The radio is only enabled for an explicit sync session. Keep it awake
+    // during association and transfers; disconnect() powers it off afterwards.
+    WiFi.setSleep(false);
     WiFi.setAutoReconnect(false);
+    WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
     WiFi.setHostname("abyss-reader");
     const auto tryCredential = [](const char *ssid, const char *password,
                                   uint32_t durationMs) {
+        wifiDisconnectReason = 0;
+        wifiNoApEvents = 0;
         WiFi.begin(ssid, password);
         const uint32_t attemptStartedAt = millis();
+        uint32_t retryAt = 0;
         while (millis() - attemptStartedAt < durationMs &&
                WiFi.status() != WL_CONNECTED) {
             if (AutomaticSync::cancelRequested()) return false;
+            // A transient scan miss otherwise leaves STA idle for the entire
+            // 20-second budget when automatic/background reconnect is disabled.
+            if (wifiNoApEvents.exchange(0)) retryAt = millis() + 1000;
+            if (retryAt && static_cast<int32_t>(millis() - retryAt) >= 0) {
+                retryAt = 0;
+                WiFi.reconnect();
+            }
             reportWorkProgress();
             delay(100);
         }
-        return WiFi.status() == WL_CONNECTED;
+        const bool connected = WiFi.status() == WL_CONNECTED;
+        // Numeric diagnostics only; SSIDs, passwords and addresses stay private.
+        Serial.printf("NETWORK WIFI_ATTEMPT connected=%s status=%d reason=%u duration_ms=%lu\n",
+                      connected ? "true" : "false", int(WiFi.status()), wifiDisconnectReason.load(),
+                      static_cast<unsigned long>(millis() - attemptStartedAt));
+        return connected;
     };
 
     if (!fallbackOnly &&
@@ -327,6 +352,7 @@ bool NetworkService::connect(NetworkStatus &status, uint32_t timeoutMs,
         }
     }
     memset(&fallback, 0, sizeof(fallback));
+    WiFi.removeEvent(wifiDiagnostic);
     status.connectDurationMs = millis() - startedAt;
     status.connected = WiFi.status() == WL_CONNECTED;
     if (!status.connected) {
@@ -461,6 +487,14 @@ bool NetworkService::syncRequest(const char *path, const char *json,
         result.httpCode = http.POST(reinterpret_cast<uint8_t *>(const_cast<char *>(json)), strlen(json));
     } else {
         result.httpCode = http.GET();
+    }
+    if (result.httpCode < 0) {
+        char tlsMessage[96]{};
+        const int tlsError = client.lastError(tlsMessage, sizeof(tlsMessage));
+        Serial.printf("NETWORK SYNC_HTTP code=%d tls=%d wifi=%d rssi=%d heap=%u largest=%u\n",
+                      result.httpCode, tlsError, int(WiFi.status()), int(WiFi.RSSI()),
+                      unsigned(heap_caps_get_free_size(MALLOC_CAP_INTERNAL)),
+                      unsigned(heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL)));
     }
     const int size = http.getSize();
     bool ok = result.httpCode == 204 || (result.httpCode == 200 && size >= 0 && size <= 2048);

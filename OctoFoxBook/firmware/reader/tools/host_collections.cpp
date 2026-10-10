@@ -29,5 +29,17 @@ int main(int argc,char**) {
     assert(SD.exists("/reader/favorites-v1.json"));
     assert(!SD.exists("/reader/collections-v2.json.old"));
     assert(!SD.exists("/reader/collections-v2.json.part"));
+    const auto current=SD.files.at(path);
+    SD.files["/sync-receipt.json"]="old lease";
+    SD.failingRename=path;
+    assert(!Collections::archiveProfile());
+    assert(SD.files.at(path)==current && SD.exists("/reader/favorites-v1.json"));
+    assert(SD.exists("/sync-receipt.json"));
+    SD.failingRename.clear();
+    assert(Collections::archiveProfile());
+    assert(!SD.exists(path) && !SD.exists("/reader/favorites-v1.json"));
+    assert(!SD.exists("/sync-receipt.json"));
+    assert(SD.files.at("/trash/profile-0/collections-v2.json")==current);
+    assert(Collections::load() && Collections::count()==1 && Collections::bookCount(0)==0);
     std::cout<<"COLLECTIONS_OK\n";
 }

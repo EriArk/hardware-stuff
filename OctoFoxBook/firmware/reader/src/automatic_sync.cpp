@@ -113,7 +113,8 @@ void worker(void *) {
             if (batch == 0) AutomaticSync::reportProgress(SyncProgress::Stage::CollectionsUpload);
             if (batch == 0 && !Collections::sync(network, identity, true)) {
                 hadFailures = true;
-                recordFailure(ReaderSyncPolicy::Error::Protocol);
+                Serial.printf("SYNC COLLECTIONS error=%s\n", Collections::error());
+                recordFailure(Collections::policyError(), Collections::httpCode());
                 break;
             }
             if (batch == 0 && !ReadingSync::run(network, identity, true)) {
@@ -249,7 +250,7 @@ void worker(void *) {
             }
             AutomaticSync::reportProgress(SyncProgress::Stage::CollectionsDownload);
             if(!Collections::sync(network,identity)) {
-                hadFailures=true;recordFailure(ReaderSyncPolicy::Error::Protocol);
+                hadFailures=true;recordFailure(Collections::policyError(), Collections::httpCode());
                 Serial.printf("SYNC COLLECTIONS error=%s\n",Collections::error());
             } else changed=true;
         }
