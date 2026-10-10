@@ -68,7 +68,7 @@ class DistributionTests(unittest.TestCase):
             book = json.load(response)
         book_id = book["id"]
         with client.open(self.base + f"/reader-api/books/{book_id}/read", timeout=5) as response:
-            self.assertIn("<p>", json.load(response)["html"])
+            self.assertRegex(json.load(response)["html"], r'<p(?:\s[^>]*)?>')
         saved = {"chapter": 0, "offset": 0.25, "anchor": {"block": 0, "char": 3}}
         with client.open(Request(self.base + f"/reader-api/books/{book_id}/state", json.dumps(saved).encode(),
                                  headers | {"Content-Type": "application/json"}), timeout=5) as response:

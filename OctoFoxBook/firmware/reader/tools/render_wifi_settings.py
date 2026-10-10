@@ -20,7 +20,8 @@ def render(output: Path):
         subprocess.run([shutil.which('g++'), '-std=c++17',
             '-I', str(ROOT/'tools/wifi_host_stubs'), '-I', str(ROOT/'include'),
             str(ROOT/'tools/host_wifi_ui.cpp'), str(ROOT/'src/wifi_setup.cpp'),
-            str(ROOT/'src/wifi_credentials.cpp'), '-o', str(binary)], check=True)
+            str(ROOT/'src/wifi_credentials.cpp'), str(ROOT/'src/bookish_ui.cpp'),
+            '-o', str(binary)], check=True)
         calls = subprocess.check_output([str(binary)], encoding='utf-8')
     fonts = [ImageFont.truetype(str(ROOT/f'assets/fonts/{family.lower()}/{family}[wght].ttf'), size)
              for family, size in [('Arimo',10),('Arimo',18),('Arimo',22),('Lora',25),('Lora',31),('Lora',39)]]

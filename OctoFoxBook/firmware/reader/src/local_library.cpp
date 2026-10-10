@@ -1,3 +1,4 @@
+#include "i18n.h"
 #include "local_library.h"
 #include "work_progress.h"
 
@@ -84,7 +85,7 @@ bool loadEntry(const char *bookId, LocalBookEntry &entry,
     } else {
         snprintf(entry.title, sizeof(entry.title), "%s", bookId);
         snprintf(entry.author, sizeof(entry.author),
-                 "Подготовится при открытии");
+                 I18n::tr("Подготовится при открытии"));
     }
 
     ReaderPaginationInfo paginationInfo{};

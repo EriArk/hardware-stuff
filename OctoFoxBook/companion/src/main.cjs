@@ -15,6 +15,26 @@ function resize(){if(remote){const [width,height]=window.getContentSize();remote
 function closeRemote(){generation++;clearInterval(refresh);if(remote){window.contentView.removeChildView(remote);remote.webContents.close();remote=null;}active=null;}
 function trusted(event){if(event.sender!==window?.webContents||event.senderFrame?.url!==localPage)throw Error('Unavailable.');}
 function register(name,fn){ipcMain.handle('companion:'+name,async(event,...args)=>{trusted(event);try{return await fn(...args);}catch(error){return {error:error.message||'Could not connect. Try again.'};}});}
+async function readerRequest(action,data){
+ if(!remote||!active)throw Error('Connect to your library first.');
+ const routes={info:'/companion-api/readers',create:'/companion-api/readers',revoke:'/companion-api/readers/revoke'};
+ if(!Object.hasOwn(routes,action))throw Error('Unknown reader action.');
+ const run=generation,origin=active.origin,isolated=remote.webContents.session;
+ const headers={Origin:origin};
+ if(active.ticket)headers['X-OctoFox-Native']=active.ticket;
+ const me=await isolated.fetch(origin+'/companion-api/me',{credentials:'include',headers});
+ if(!me.ok)throw Error('Sign in to Companion as the library owner first.');
+ const session=await me.json();
+ if(run!==generation)throw Error('The library connection changed.');
+ const body=action==='info'?undefined:JSON.stringify(data);
+ if(body&&body.length>4096)throw Error('Pairing request is too large.');
+ const result=await isolated.fetch(origin+routes[action],{credentials:'include',method:body?'POST':'GET',
+  headers:{...headers,'Content-Type':'application/json','X-CSRF-Token':session.csrf},body});
+ const value=await result.json();
+ if(!result.ok)throw Error(value.error||'Could not pair the reader.');
+ if(run!==generation)throw Error('The library connection changed.');
+ return value;
+}
 async function connect(id){
  const server=records.get(id);if(!server)throw Error('Search again to find this library.');
  closeRemote();const run=generation;active={...server};status({phase:'connecting',server:publicRecord(server)});
@@ -73,11 +93,31 @@ async function scan(){
 app.whenReady().then(()=>{
  fs.mkdirSync(app.getPath('userData'),{recursive:true,mode:0o700});
  window=new BrowserWindow({width:1180,height:860,minWidth:680,minHeight:540,show:!hidden,backgroundColor:'#100d10',title:'OctoFox Companion',autoHideMenuBar:true,icon:path.join(__dirname,'../assets/icon.png'),
-  webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,backgroundThrottling:false,webSecurity:true}});
+  webPreferences:{preload:path.join(__dirname,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,backgroundThrottling:false,webSecurity:true,offscreen:hidden}});
  window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
+ const localSession=window.webContents.session;
+ localSession.setPermissionCheckHandler((wc,permission)=>wc===window?.webContents&&permission==='serial'&&wc.getURL()===localPage);
+ localSession.setPermissionRequestHandler((wc,permission,callback)=>callback(wc===window?.webContents&&permission==='serial'&&wc.getURL()===localPage));
+ localSession.setDevicePermissionHandler(details=>details.deviceType==='serial'&&details.origin==='file://');
+ localSession.on('select-serial-port',(event,ports,wc,callback)=>{
+  event.preventDefault();
+  if(wc!==window?.webContents||wc.getURL()!==localPage){callback('');return;}
+  const matches=ports.filter(p=>parseInt(p.vendorId,16)===0x303a&&parseInt(p.productId,16)===0x1001);
+  // Do not guess between two physical readers. The OS chooser is filtered to
+  // the supported USB identity, and the firmware is checked again over serial.
+  callback(matches.length===1?matches[0].portId:'');
+ });
  window.webContents.on('will-navigate',event=>event.preventDefault());
  window.on('resize',resize);window.on('closed',()=>{clearInterval(refresh);if(remote&&!remote.webContents.isDestroyed())remote.webContents.close();remote=null;window=null;});
  register('scan',scan);register('connect',connect);
+ register('reader',readerRequest);
+ register('pair-panel',visible=>{
+  if(typeof visible==='boolean'&&remote){
+   if(visible)window.contentView.removeChildView(remote);
+   else {window.contentView.addChildView(remote);resize();}
+  }
+  return {};
+ });
  register('manual',async value=>{if(typeof value!=='string'||value.length>300)throw Error('Enter a library address.');const origin=discovery.address(value),host=new URL(origin).hostname;
   const local=discovery.localIPv4(host)||host==='localhost';
   const found=local?await discovery.scan({hosts:[host==='localhost'?'127.0.0.1':host]}):[];

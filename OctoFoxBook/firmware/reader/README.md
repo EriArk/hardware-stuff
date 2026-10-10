@@ -1,6 +1,6 @@
 # AbyssBook reader firmware
 
-Early **0.21.0-alpha6** firmware for the non-touch LILYGO T5 e-Paper S3
+Early **0.21.0-alpha7** firmware for the non-touch LILYGO T5 e-Paper S3
 (4.7-inch H716 panel, 16 MB flash, 8 MB PSRAM).
 
 Home, Library, Search, Collections and book details share the bookish design: logo, visible
@@ -27,8 +27,8 @@ enters deep sleep, and the opposite level wakes it. This optional configuration
 has not been physically accepted yet. UP=GPIO39, DOWN=GPIO48, OK=GPIO45,
 Sleep=GPIO10; switches connect to GND. Do not hold GPIO45 at reset.
 
-There is no light-sleep mode. Manual sleep and the existing 30-minute idle
-timeout both save the reading context and enter deep sleep. Waking restarts
+There is no light-sleep mode. Manual sleep and the configurable idle timeout
+(30 minutes by default) both save the reading context and enter deep sleep. Waking restarts
 the processor and restores the context; the wake press is consumed.
 
 Wi-Fi starts for an explicitly requested synchronization or a scan/connection
@@ -40,7 +40,7 @@ and local book transfer remain available without Wi-Fi.
 
 Home retains a Continue card and up to two recent / newly added rows. Moving
 selection to a newly added book changes the lower section so the focused item
-always remains visible. Sync and Settings are the bottom actions. Hold OK to choose a tab with
+always remains visible. Sync and Settings are at the bottom of Library, outside Home. Hold OK to choose a tab with
 UP/DOWN and confirm it with OK.
 
 Tabs are a separate top navigation level, not an item in the Home list.
@@ -56,9 +56,20 @@ current section underneath the header. Lists display four larger rows at a time
 and scroll to keep the selected row visible. Local search accepts a first
 Cyrillic or Latin letter, or a digit, matching title, author or series.
 
+## Settings and language
+
+Open **Library → Settings**. Every settings page has a visible **Back** row.
+Available sections are Reading (text size and line spacing), Screen (reading
+and interface cleanup intervals, clear now), Sleep (5/15/30/60 minutes),
+Language, Wi-Fi, Library connection and About.
+
+English is the default; Russian is available in **Language**. The selection
+persists across restarts. Book text, titles and personal collection names keep
+their original language. Firmware updates preserve existing saved preferences.
+
 ## Wi-Fi settings
 
-On Home or at the bottom of Library, select **Настройки (Settings)**, press OK,
+At the bottom of Library, select **Settings**, press OK,
 then open **Wi-Fi**. Library also has a **Синхронизировать (Sync)** row at the bottom.
 Choose a nearby 2.4 GHz network, enter its password and select **Подключить
 (Connect)**. The device saves the network only after a successful association
@@ -104,10 +115,38 @@ The optional `tools/render_wifi_settings.py OUTPUT_DIRECTORY` uses the productio
 layout and bundled fonts to create host previews (requires Pillow); these do
 not demonstrate physical E-Ink quality or successful radio association.
 
-Text uses HIGH updates and periodic hard cleanup after 24 page turns; simple
+By default, text uses HIGH updates and periodic hard cleanup after 24 page turns; simple
 menus use FAST with cleanup after 12 navigation steps. Home and book lists use
 HIGH, with hard cleanup on transitions. Framebuffer captures show intended
 pixels and cannot establish physical ghosting or contrast.
+
+## Pairing and reading-state synchronization
+
+In the updated desktop Companion, sign in as the server owner and open **Pair
+reader**. Connect the awake reader by USB, select its account and your configured
+public HTTPS library address, then pair it. The current signed-in account needs
+no second password; another reader account requires its password once. Companion
+writes a separate revocable device key, not the account password, and preserves
+the reader's Wi-Fi settings. Configure Wi-Fi on the reader before the first sync.
+
+**Library → Sync** exchanges books, favorites, collections, reading position,
+finished status and bookmarks. Positions use logical text anchors rather than
+page numbers, so font changes do not shift the saved place. Bookmarks support
+up to 500 entries per book. Local USB-only books stay local.
+
+If both the website and device moved since the last exchange, the device's
+position becomes current and the previous website position is kept as a bookmark.
+Failed requests can be retried without duplicating bookmark changes. The server
+checks the book content and account before applying state. An incompatible book
+copy, unsupported anchor or older percentage-only position stops the exchange
+for review rather than guessing a place. Opening the book on the website and
+saving a new text position can replace an older percentage-only position.
+
+The configured HTTPS address works over any supported Wi-Fi network with Internet
+access; Companion need not remain running. Device access can be revoked from its
+Pair reader panel. Replacing an account does not automatically migrate the old
+account's local state. Alpha7 USB pairing and state exchange still need acceptance
+on physical hardware; host tests and a live HTTPS server exchange are verified.
 
 ## Build and test
 

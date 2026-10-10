@@ -9,25 +9,19 @@ constexpr size_t kReadingCapacity = 3; // Continue + two older books.
 constexpr size_t kAddedCapacity = 2;
 constexpr size_t kFirstBook = 0;
 
-enum class Action { Sync, Settings, Continue, ReadingCard, AddedCard, Invalid };
-inline size_t syncSelection(size_t reading, size_t added) { return kFirstBook + reading + added; }
-inline size_t settingsSelection(size_t reading, size_t added) { return syncSelection(reading, added) + 1; }
-inline size_t actionCount(size_t reading, size_t added) { return settingsSelection(reading, added) + 1; }
+enum class Action { Continue, ReadingCard, AddedCard, Invalid };
+inline size_t actionCount(size_t reading, size_t added) { return reading + added; }
 inline Action action(size_t selected, size_t reading, size_t added) {
     if (selected >= actionCount(reading, added)) return Action::Invalid;
-    if (selected == syncSelection(reading, added)) return Action::Sync;
-    if (selected == settingsSelection(reading, added)) return Action::Settings;
     if (selected < kFirstBook + reading)
         return selected == kFirstBook ? Action::Continue : Action::ReadingCard;
     return Action::AddedCard;
 }
 inline size_t initialSelection(size_t reading, size_t added) {
-    return reading + added ? kFirstBook : syncSelection(reading, added);
+    (void)reading; (void)added; return kFirstBook;
 }
 inline const char *actionName(Action value) {
     switch (value) {
-        case Action::Sync: return "sync";
-        case Action::Settings: return "settings";
         case Action::Continue: return "continue";
         case Action::ReadingCard: return "recent-card";
         case Action::AddedCard: return "added-card";

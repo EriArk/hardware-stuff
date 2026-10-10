@@ -49,6 +49,8 @@ from octofox_library.web_collections import COLLECTIONS, collection_filter
 from octofox_library.web_uploads import UploadsMixin
 from octofox_library.web_personal_collections import PersonalCollectionsMixin
 from octofox_library.web_reader_collections import ReaderCollectionsMixin
+from octofox_library.web_reader_state import ReaderStateMixin
+from octofox_library.reader_anchors import annotate
 from octofox_library.web_errors import WebError
 from octofox_library.web_speech import BookSpeech, SpeechError
 from octofox_library.companion import Companion
@@ -140,8 +142,10 @@ def fb2_chapters(payload: bytes) -> list[dict]:
         raise WebError(422, "Не удалось прочитать FB2") from error
     if root.tag.rsplit("}", 1)[-1] != "FictionBook":
         raise WebError(422, "Ожидалась книга в формате FB2")
+    annotate(root)
     tags = {
         "p": "p",
+        "text-author": "span",
         "v": "p",
         "subtitle": "h3",
         "title": "h2",
@@ -164,7 +168,9 @@ def fb2_chapters(payload: bytes) -> list[dict]:
             render(child) + html.escape(child.tail or "") for child in node
         )
         tag = tags.get(name)
-        return f"<{tag}>{inside}</{tag}>" if tag else inside
+        record = node.get("data-abyss-record")
+        attr = f' data-abyss-record="{record}"' if record else ""
+        return f"<{tag}{attr}>{inside}</{tag}>" if tag else inside
 
     chapters = []
     for body in root:
@@ -201,7 +207,7 @@ class Session:
     expires: float
 
 
-class LibraryWeb(ReaderCollectionsMixin, UploadsMixin, PersonalCollectionsMixin):
+class LibraryWeb(ReaderStateMixin, ReaderCollectionsMixin, UploadsMixin, PersonalCollectionsMixin):
     def __init__(self, database: Path, upstream: str, origin: str):
         self.database, self.origin = database, origin.rstrip("/")
         database.parent.mkdir(parents=True, exist_ok=True)
@@ -249,6 +255,9 @@ class LibraryWeb(ReaderCollectionsMixin, UploadsMixin, PersonalCollectionsMixin)
                 CREATE TABLE IF NOT EXISTS favorite_books (
                     owner TEXT NOT NULL, book TEXT NOT NULL, added REAL NOT NULL,
                     PRIMARY KEY(owner,book));
+                CREATE TABLE IF NOT EXISTS reader_state_ops (
+                    owner TEXT NOT NULL, device TEXT NOT NULL, op TEXT NOT NULL, fingerprint TEXT NOT NULL,
+                    PRIMARY KEY(owner,device,op));
                 CREATE TABLE IF NOT EXISTS reader_profile_sync (
                     owner TEXT NOT NULL, device TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
                     PRIMARY KEY(owner,device));
@@ -354,7 +363,7 @@ class LibraryWeb(ReaderCollectionsMixin, UploadsMixin, PersonalCollectionsMixin)
         finally:
             db.close()
 
-    def authenticate(self, authorization: str) -> str:
+    def authenticate(self, authorization: str, *, device_allowed=False, device=None) -> str:
         try:
             if not authorization.startswith("Basic ") or len(authorization) > 1024:
                 raise ValueError()
@@ -364,6 +373,7 @@ class LibraryWeb(ReaderCollectionsMixin, UploadsMixin, PersonalCollectionsMixin)
                 raise ValueError()
         except (ValueError, UnicodeError) as error:
             raise WebError(401, "Неверный логин или пароль библиотеки") from error
+        owner = self.companion.pairing.resolve(owner, password, allowed=device_allowed, device=device)
         key = hashlib.sha256(authorization.encode()).hexdigest()
         self.companion.accounts.guard(owner)
         with self.lock:
@@ -1049,11 +1059,12 @@ class LibraryWeb(ReaderCollectionsMixin, UploadsMixin, PersonalCollectionsMixin)
             return f"2\t{row['id']}\topds-{row['book']}\tremove\n".encode()
         prefix = f"/reader-api/uploads/{row['book']}" if self.upload_path(owner, row["book"]) else f"{PREFIX}/{row['book']}"
         download = f"{prefix}/download" if prefix.startswith('/reader-api/uploads/') else f"/reader-api/compatible/{row['book']}/download"
+        cover = f"{prefix}/cover" if prefix.startswith('/reader-api/uploads/') else f"/reader-api/device-cover/{row['book']}"
         # Tiny versioned protocol: never send the catalogue to an ESP32.
         return (
             f"1\t{row['id']}\topds-{row['book']}\t"
             f"{self.origin}{download}\t"
-            f"{self.origin}{prefix}/cover\n"
+            f"{self.origin}{cover}\n"
         ).encode()
 
     def acknowledge(self, owner, device, job, state, digest="", error=""):
@@ -1314,11 +1325,20 @@ class WebHandler(BaseHTTPRequestHandler):
             }
             return self.send(200, localization.asset(name, localization.language(self.headers)), mime[Path(name).suffix])
         if path.startswith("/reader-api/device/"):
-            self.app.throttle("device:" + self.client_address[0], limit=120)
-            owner = self.app.authenticate(self.headers.get("Authorization", ""))
+            self.app.throttle("device:" + self.client_address[0], limit=1200)
             device = query.get("device", [""])[0]
+            owner = self.app.authenticate(self.headers.get("Authorization", ""), device_allowed=True, device=device)
             if not DEVICE_RE.fullmatch(device):
                 raise WebError(400, "Invalid device identifier")
+            if path == "/reader-api/device/reading":
+                session = Session(owner, self.headers.get("Authorization", ""), "", time.time()+60)
+                try:
+                    cursor = int(query.get("cursor", ["0"])[0])
+                except ValueError:
+                    raise WebError(400, "Invalid state cursor")
+                value = self.app.reader_state(session, device, query.get("book", [""])[0],
+                    query.get("digest", [""])[0], None if get else self.body(), cursor)
+                return self.send(200, json.dumps(value, ensure_ascii=False, separators=(',', ':')).encode('utf-8'))
             if path == "/reader-api/device/collections":
                 try:
                     offset = int(query.get("offset", ["0"])[0])
@@ -1343,11 +1363,22 @@ class WebHandler(BaseHTTPRequestHandler):
                 )
                 return self.send(200, {"ok": True})
             raise WebError(404, "Not found")
+        device_cover = re.fullmatch(r'/reader-api/device-cover/(\d+)', path)
+        if get and device_cover:
+            authorization = self.headers.get('Authorization', '')
+            owner = self.app.authenticate(authorization, device_allowed=True)
+            self.app.book(owner, device_cover[1])
+            with self.app.client.open(f'/{device_cover[1]}/cover', (), authorization) as response:
+                data = response.read(4*1024*1024+1)
+                mime = response.headers.get_content_type()
+            if len(data)>4*1024*1024 or mime not in {'image/png','image/jpeg','image/webp'}:
+                raise WebError(404, 'Cover not available')
+            return self.send(200, data, mime)
         upload_asset = re.fullmatch(r"/reader-api/uploads/(\d+)/(download|cover)", path)
         compatible = re.fullmatch(r'/reader-api/compatible/(\d+)/download', path)
         if get and compatible:
             authorization = self.headers.get('Authorization', '')
-            session = (Session(self.app.authenticate(authorization), authorization, '', time.time() + 60)
+            session = (Session(self.app.authenticate(authorization, device_allowed=True), authorization, '', time.time() + 60)
                        if authorization else self.session()[1])
             if not self.app.download_gate.acquire(blocking=False):
                 raise WebError(429, 'Попробуйте через несколько секунд')
@@ -1358,7 +1389,7 @@ class WebHandler(BaseHTTPRequestHandler):
             finally:
                 self.app.download_gate.release()
         if get and upload_asset:
-            owner = (self.app.authenticate(self.headers["Authorization"])
+            owner = (self.app.authenticate(self.headers["Authorization"], device_allowed=True)
                      if self.headers.get("Authorization") else self.session()[1].owner)
             book_id, action = upload_asset.groups()
             private = self.app.upload_path(owner, book_id)

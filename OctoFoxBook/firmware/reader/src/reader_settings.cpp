@@ -1,5 +1,6 @@
 #include "reader_settings.h"
 #include "storage_recovery.h"
+#include "display_preferences.h"
 
 #include <ArduinoJson.h>
 #include <SD.h>
@@ -72,6 +73,20 @@ bool ReaderSettingsStore::load(ReaderSettings &settings) {
     }
     settings.textSize = static_cast<ReaderTextSize>(textSize);
     settings.lineSpacing = static_cast<ReaderLineSpacing>(lineSpacing);
+    const unsigned language = document["language"] | 0U;
+    const unsigned sleep = document["sleep_minutes"] | 30U;
+    const unsigned readingClear = document["reading_clear_every"] | 24U;
+    const unsigned uiClear = document["ui_clear_every"] | 4U;
+    if (language > 1 || (sleep != 5 && sleep != 15 && sleep != 30 && sleep != 60) ||
+        (readingClear != 8 && readingClear != 12 && readingClear != 24) ||
+        (uiClear != 1 && uiClear != 2 && uiClear != 4)) {
+        setError(settings, "settings-invalid");
+        return false;
+    }
+    settings.language = static_cast<I18n::Language>(language);
+    settings.sleepMinutes = sleep;
+    settings.readingClearEvery = readingClear;
+    settings.uiClearEvery = uiClear;
     apply(settings);
     return true;
 }
@@ -90,6 +105,10 @@ bool ReaderSettingsStore::save(const ReaderSettings &settings) {
     document["schema"] = "abyss-reader-settings";
     document["version"] = 1;
     document["text_size"] = static_cast<uint8_t>(settings.textSize);
+    document["language"] = static_cast<uint8_t>(settings.language);
+    document["sleep_minutes"] = settings.sleepMinutes;
+    document["reading_clear_every"] = settings.readingClearEvery;
+    document["ui_clear_every"] = settings.uiClearEvery;
     document["line_spacing"] =
         static_cast<uint8_t>(settings.lineSpacing);
     const bool written = serializeJsonPretty(document, output) > 0;
@@ -103,5 +122,7 @@ bool ReaderSettingsStore::save(const ReaderSettings &settings) {
 }
 
 void ReaderSettingsStore::apply(const ReaderSettings &settings) {
+    I18n::language = settings.language;
+    DisplayPreferences::uiClearEvery = settings.uiClearEvery;
     setReaderLayout(settings.textSize, settings.lineSpacing);
 }

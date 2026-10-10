@@ -84,12 +84,14 @@ bool validWifiCredential(const WifiCredential &credential) {
 
 bool ProvisioningStore::validate(const ProvisioningConfig &config,
                                  char *error, size_t errorCapacity) {
-    if (!printableValue(config.wifiSsid, sizeof(config.wifiSsid), false)) {
+    // Pairing and choosing Wi-Fi are independent. A reader can receive its
+    // library key over USB before the user selects a network on the device.
+    if (!printableValue(config.wifiSsid, sizeof(config.wifiSsid), true)) {
         setError(error, errorCapacity, "invalid-wifi-ssid");
         return false;
     }
     if (!printableValue(config.wifiPassword, sizeof(config.wifiPassword),
-                        false)) {
+                        true) || (!config.wifiSsid[0] && config.wifiPassword[0])) {
         setError(error, errorCapacity, "invalid-wifi-password");
         return false;
     }

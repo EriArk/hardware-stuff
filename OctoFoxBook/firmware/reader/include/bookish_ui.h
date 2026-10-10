@@ -1,3 +1,4 @@
+#include "i18n.h"
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
@@ -56,8 +57,9 @@ struct List {
     const char *subtitle = "";
     const char *back = "";
     bool backFocused = false;
-    const char *emptyTitle = "Здесь пока нет книг";
-    const char *emptyHint = "Выберите другую подборку.";
+    const char *navigationHint = nullptr;
+    const char *emptyTitle = I18n::tr("Здесь пока нет книг");
+    const char *emptyHint = I18n::tr("Выберите другую подборку.");
     const char *emptyHint2 = "";
     ListRow rows[kListRows];
     size_t rowCount = 0;
@@ -68,8 +70,8 @@ void list(Canvas &c, const List &view);
 struct Card {
     Book book;
     unsigned activeTab = 1, focus = 0;
-    const char *primary = "Читать";
-    const char *series = "Без серии";
+    const char *primary = I18n::tr("Читать");
+    const char *series = I18n::tr("Без серии");
     bool favorite = false;
 };
 void card(Canvas &c, const Card &view);

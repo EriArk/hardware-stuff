@@ -24,6 +24,29 @@ For a new server, enter your name, email and the username/password you want to u
 
 The app remembers the library and keeps its browser sign-in. It does not save your password separately. The server can expire a session or require sign-in again after a restart. **Switch library** returns to the chooser; **Search again** checks for running servers. **Connect by address** also accepts an existing HTTPS library address.
 
+## Pair an AbyssBook reader
+
+Requires the updated server and AbyssBook **0.21.0-alpha7** firmware. Sign in as
+the server owner, connect the awake reader by USB and select **Pair reader** in
+the app's top bar. Connect one reader at a time.
+
+Choose its account and a public HTTPS address already configured for the library.
+For your current signed-in account, no second password is needed. For another
+account, enter that account's password once. Pairing creates a separate device
+key and writes it to the reader while preserving its Wi-Fi settings. The account
+password is not stored on the reader. Each device key can be revoked in this panel.
+
+On the reader, open **Library → Settings → Wi-Fi**, then **Library → Sync**.
+Books, favorites, collections, reading position and bookmarks synchronize through
+the HTTPS server, including away from home. Companion can be closed after pairing.
+If both sides changed position, the device position becomes current and the
+previous website position remains as a bookmark.
+
+USB pairing belongs to the bundled local app screen. The server page has no USB
+or native bridge access. This development implementation has passed serial-protocol
+tests and a live server check; physical USB pairing still needs device acceptance.
+The earlier beta download above does not include these new development features.
+
 ## Server requirements
 
 The server needs the desktop discovery update in the adjacent [library](../library/) folder. The app connects to an already running server; it does not install Docker or start a stopped server.

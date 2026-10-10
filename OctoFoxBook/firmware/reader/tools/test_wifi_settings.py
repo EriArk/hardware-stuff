@@ -16,7 +16,7 @@ class WifiSettingsTests(unittest.TestCase):
             build = subprocess.run([compiler, '-std=c++17', '-Wall', '-Wextra',
                 '-I', str(ROOT/'tools/wifi_host_stubs'), '-I', str(ROOT/'include'),
                 str(ROOT/'tools/host_wifi_ui.cpp'), str(ROOT/'src/wifi_setup.cpp'),
-                str(ROOT/'src/wifi_credentials.cpp'), '-o', str(exe)], capture_output=True, text=True)
+                str(ROOT/'src/wifi_credentials.cpp'), str(ROOT/'src/bookish_ui.cpp'), '-o', str(exe)], capture_output=True, text=True)
             self.assertEqual(build.returncode, 0, build.stderr)
             result = subprocess.run([str(exe)], capture_output=True, text=True, encoding='utf-8')
             self.assertEqual(result.returncode, 0, result.stderr)

@@ -1,3 +1,4 @@
+#include "i18n.h"
 #include "collection_store.h"
 #include <ArduinoJson.h>
 #include <SD.h>
@@ -100,7 +101,7 @@ bool load() {
 }
 size_t count(){return load()?state["shelves"].size():0;}
 const char *id(size_t n){return n<count()?state["shelves"][n]["id"]|"":"";}
-const char *name(size_t n){return n<count()?state["shelves"][n]["name"]|"":"";}
+const char *name(size_t n){return n<count() ? (!strcmp(id(n),"favorite") ? I18n::tr("Избранное") : state["shelves"][n]["name"]|"") : "";}
 size_t bookCount(size_t n){return n<count()?state["shelves"][n]["books"].size():0;}
 const char *book(size_t n,size_t i){return i<bookCount(n)?state["shelves"][n]["books"][i]|"":"";}
 bool contains(size_t n,const char *b){for(size_t i=0;i<bookCount(n);++i)if(!strcmp(book(n,i),b))return true;return false;}

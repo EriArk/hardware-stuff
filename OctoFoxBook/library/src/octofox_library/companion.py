@@ -14,6 +14,7 @@ from .backups import Backups
 from .companion_accounts import AccountControls
 from .opds_facade import UpstreamFailure
 from .web_errors import WebError
+from .reader_pairing import ReaderPairing
 
 SESSION_SECONDS = 3600
 
@@ -67,6 +68,7 @@ class Companion:
         self.mutations = threading.Lock()
         self.sessions = OrderedDict()
         self.accounts = AccountControls(self)
+        self.pairing = ReaderPairing(self)
         self.key_path = app.database.parent / 'companion-setup-key'
         try:
             fd = os.open(self.key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -224,6 +226,14 @@ class Companion:
         user = self.admin(session)  # Recheck upstream privileges, including after role changes.
         if path == '/companion-api/backups' or path.startswith('/companion-api/backups/'):
             return self.backups.route(handler, path, user)
+        if path == '/companion-api/readers':
+            if get:
+                return handler.send(200, self.pairing.list() | {'origins': self.app.network.allowed(), 'currentAccount': user['username']})
+            self.app.throttle('reader-pair:' + str(user['id']), limit=12)
+            with self.mutations:
+                return handler.send(200, self.pairing.create(handler.body(), session.access))
+        if not get and path == '/companion-api/readers/revoke':
+            return handler.send(200, self.pairing.revoke(handler.body().get('username')))
         if path == '/companion-api/network':
             if get:
                 return handler.send(200, self.app.network.info())

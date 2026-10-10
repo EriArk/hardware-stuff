@@ -1,4 +1,5 @@
 #include "collection_store.h"
+#include "reading_sync.h"
 #include "automatic_sync.h"
 #include "wifi_setup.h"
 
@@ -110,6 +111,10 @@ void worker(void *) {
                 hadFailures = true;
                 recordFailure(ReaderSyncPolicy::Error::Protocol);
                 break;
+            }
+            if (batch == 0 && !ReadingSync::run(network, identity, true)) {
+                hadFailures = true; recordFailure(ReadingSync::policyError());
+                Serial.printf("SYNC READING error=%s\n", ReadingSync::error()); break;
             }
             char path[128]{};
             // Each job is attempted once per manual pass. Failed jobs stay queued
@@ -227,6 +232,10 @@ void worker(void *) {
             deliveredCount = delivered;
         }
         if(complete && !paused.load() && !cancelled.load()) {
+            if(!ReadingSync::run(network,identity)) {
+                hadFailures=true;recordFailure(ReadingSync::policyError());
+                Serial.printf("SYNC READING error=%s\n",ReadingSync::error());
+            }
             if(!Collections::sync(network,identity)) {
                 hadFailures=true;recordFailure(ReaderSyncPolicy::Error::Protocol);
                 Serial.printf("SYNC COLLECTIONS error=%s\n",Collections::error());

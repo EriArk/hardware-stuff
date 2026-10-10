@@ -12,6 +12,24 @@
 
 namespace {
 
+struct StateRam : ArduinoJson::Allocator {
+    void *allocate(size_t n) override {
+#ifdef ARDUINO
+        return heap_caps_malloc(n, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+#else
+        return malloc(n);
+#endif
+    }
+    void *reallocate(void *p, size_t n) override {
+#ifdef ARDUINO
+        return heap_caps_realloc(p, n, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+#else
+        return realloc(p, n);
+#endif
+    }
+    void deallocate(void *p) override { free(p); }
+} stateRam;
+
 constexpr char kPagesSignature[] = "ABYSS_FB2_PAGES\t1";
 constexpr char kChaptersSignature[] = "ABYSS_FB2_CHAPTERS\t2";
 constexpr char kIndexMagic[8] = {'A', 'B', 'P', 'G', 'I', 'D', 'X', '1'};
@@ -106,15 +124,31 @@ bool loadStateDocument(const char *bookId, uint32_t pageCount,
     const uint32_t version = document["version"].as<uint32_t>();
     const uint32_t page = document["current_page"] | 0U;
     const uint32_t savedPageCount = document["page_count"] | 0U;
-    return !jsonError && schema != nullptr && stateBookId != nullptr &&
-           layout != nullptr && strcmp(schema, "abyss-reader-state") == 0 &&
-           version == 1 && strcmp(stateBookId, bookId) == 0 &&
-           strcmp(layout, readerLayout().id) == 0 && page > 0 &&
-           page <= pageCount &&
-           savedPageCount == pageCount;
+    if (jsonError || schema == nullptr || stateBookId == nullptr ||
+        layout == nullptr || strcmp(schema, "abyss-reader-state") ||
+        version != 1 || strcmp(stateBookId, bookId)) return false;
+    if (strcmp(layout, readerLayout().id) || savedPageCount != pageCount) {
+        ReaderPageIndexEntry logical{};
+        logical.sourceRecord = document["logical"]["record"] | 0U;
+        logical.sourceByte = document["logical"]["byte"] | 0U;
+        uint32_t mapped = 1;
+        if (!ReaderPagination::pageForLogical(bookId, logical, mapped)) return false;
+        document["current_page"] = mapped;
+        for (JsonObject mark : document["bookmarks"].as<JsonArray>()) {
+            logical.sourceRecord = mark["logical"]["record"] | 0U;
+            logical.sourceByte = mark["logical"]["byte"] | 0U;
+            if (!ReaderPagination::pageForLogical(bookId, logical, mapped)) return false;
+            mark["page"] = mapped;
+        }
+        document["layout"] = readerLayout().id;
+        document["page_count"] = pageCount;
+        return true;
+    }
+    return page > 0 && page <= pageCount;
 }
 
 bool publishStateDocument(const char *bookId, JsonDocument &document) {
+    if (document.overflowed()) return false;
     char partialPath[104]{};
     char finalPath[96]{};
     char oldPath[104]{};
@@ -128,7 +162,7 @@ bool publishStateDocument(const char *bookId, JsonDocument &document) {
     if (!output) {
         return false;
     }
-    const bool written = serializeJsonPretty(document, output) > 0;
+    const bool written = serializeJsonPretty(document, output) == measureJsonPretty(document);
     output.flush();
     output.close();
     if (!written || !publishFile(partialPath, finalPath, oldPath)) {
@@ -914,7 +948,7 @@ bool ReaderPagination::adjacentChapter(const char *bookId, uint32_t page,
 bool ReaderPagination::loadProgress(const char *bookId, uint32_t pageCount,
                                     ReaderProgress &progress) {
     progress = ReaderProgress{};
-    JsonDocument document;
+    JsonDocument document(&stateRam);
     if (!loadStateDocument(bookId, pageCount, document)) {
         setError(progress, "invalid-state");
         return false;
@@ -946,7 +980,7 @@ bool ReaderPagination::loadPortableState(const char *bookId,
         setError(state, "state-not-found");
         return false;
     }
-    JsonDocument document;
+    JsonDocument document(&stateRam);
     const DeserializationError jsonError = deserializeJson(document, input);
     input.close();
     const char *schema = document["schema"].as<const char *>();
@@ -982,7 +1016,8 @@ bool ReaderPagination::loadPortableState(const char *bookId,
             continue;
         }
         snprintf(candidate.title, sizeof(candidate.title), "%s", title);
-        state.bookmarks[state.bookmarkCount++] = candidate;
+        state.bookmarks.push_back(candidate);
+        ++state.bookmarkCount;
     }
     return true;
 }
@@ -995,18 +1030,27 @@ bool ReaderPagination::saveProgress(
         setError(progress, "page-out-of-range");
         return false;
     }
-    JsonDocument document;
+    JsonDocument document(&stateRam);
     if (!loadStateDocument(bookId, pageCount, document)) {
+        char path[96]{};
+        makeStatePath(bookId, "", path, sizeof(path));
+        // Corrupt/unsupported existing state is never replaced by an empty
+        // document: that would silently discard bookmarks and sync identities.
+        if (SD.exists(path)) { setError(progress, "invalid-existing-state"); return false; }
         document.clear();
     }
+    const bool samePage = (document["current_page"] | 0U) == page &&
+                          (document["logical"]["record"] | 0U) != 0;
     document["schema"] = "abyss-reader-state";
     document["version"] = 1;
     document["book_id"] = bookId;
     document["layout"] = readerLayout().id;
     document["current_page"] = page;
     document["page_count"] = pageCount;
-    document["logical"]["record"] = logical.sourceRecord;
-    document["logical"]["byte"] = logical.sourceByte;
+    if (!samePage) {
+        document["logical"]["record"] = logical.sourceRecord;
+        document["logical"]["byte"] = logical.sourceByte;
+    }
     if (!publishStateDocument(bookId, document)) {
         setError(progress, "state-publish-failed");
         return false;
@@ -1015,14 +1059,15 @@ bool ReaderPagination::saveProgress(
     progress.finished = document["finished"] | false;
     progress.currentPage = page;
     progress.pageCount = pageCount;
-    progress.logical = logical;
+    progress.logical.sourceRecord = document["logical"]["record"] | 0U;
+    progress.logical.sourceByte = document["logical"]["byte"] | 0U;
     return true;
 }
 
 bool ReaderPagination::loadUserState(const char *bookId, uint32_t pageCount,
                                      ReaderUserState &state) {
     state = ReaderUserState{};
-    JsonDocument document;
+    JsonDocument document(&stateRam);
     if (!loadStateDocument(bookId, pageCount, document)) {
         setError(state, "invalid-state");
         return false;
@@ -1044,7 +1089,8 @@ bool ReaderPagination::loadUserState(const char *bookId, uint32_t pageCount,
             continue;
         }
         snprintf(candidate.title, sizeof(candidate.title), "%s", title);
-        state.bookmarks[state.bookmarkCount++] = candidate;
+        state.bookmarks.push_back(candidate);
+        ++state.bookmarkCount;
     }
     return true;
 }
@@ -1059,7 +1105,7 @@ bool ReaderPagination::toggleBookmark(
         setError(state, "invalid-bookmark");
         return false;
     }
-    JsonDocument document;
+    JsonDocument document(&stateRam);
     if (!loadStateDocument(bookId, pageCount, document)) {
         setError(state, "invalid-state");
         return false;
@@ -1104,7 +1150,7 @@ bool ReaderPagination::setFinished(const char *bookId, uint32_t pageCount,
                                    bool finished,
                                    ReaderUserState &state) {
     state = ReaderUserState{};
-    JsonDocument document;
+    JsonDocument document(&stateRam);
     if (!loadStateDocument(bookId, pageCount, document)) {
         setError(state, "invalid-state");
         return false;

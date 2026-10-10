@@ -1,3 +1,4 @@
+#include "i18n.h"
 #include <Arduino.h>
 #include <SD.h>
 #include <SPI.h>
@@ -61,7 +62,7 @@
 namespace {
 
 constexpr char kFirmwareName[] = "abyss-reader";
-constexpr char kFirmwareVersion[] = "0.21.0-alpha6";
+constexpr char kFirmwareVersion[] = "0.21.0-alpha7";
 constexpr size_t kFramebufferBytes = EPD_WIDTH * EPD_HEIGHT / 2;
 constexpr int32_t kPortraitWidth = EPD_HEIGHT;
 constexpr int32_t kPortraitHeight = EPD_WIDTH;
@@ -77,7 +78,6 @@ constexpr uint32_t kDoublePressMs = 350;
 constexpr uint32_t kNavigationCoalesceMs = 0;
 constexpr uint32_t kIdlePreparationDelayMs = 5000;
 constexpr uint32_t kPreparationRetryDelayMs = 5U * 60U * 1000U;
-constexpr uint32_t kAutoSleepMs = 30U * 60U * 1000U;
 constexpr uint32_t kSleepContextMagic = 0x41535953U;
 constexpr uint16_t kSleepContextVersion = 1;
 // UP/DOWN/OK are momentary. Sleep is currently momentary; optional latching build.
@@ -477,7 +477,6 @@ TopLevelTab activeTopLevelTab = TopLevelTab::Home;
 TopLevelTab readerReturnTab = TopLevelTab::OnDevice;
 DisplayRefreshResult lastDisplayRefresh{};
 bool hasDisplayRefresh = false;
-constexpr uint8_t kReaderTurnsPerClean = 24;
 constexpr uint8_t kUiNavigationClicksPerClean = 12;
 uint8_t readerTurnsSinceClean = 0;
 uint8_t uiNavigationClicksSinceClean = 0;
@@ -627,8 +626,8 @@ void scheduleScreenTransitionCleanup(UiScreen target, const char *reason) {
 }
 
 void noteReaderPageTurn() {
-    if (++readerTurnsSinceClean >= kReaderTurnsPerClean) {
-        scheduleGhostCleanup("reader-page-24");
+    if (++readerTurnsSinceClean >= activeReaderSettings.readingClearEvery) {
+        scheduleGhostCleanup("reader-page-interval");
     }
 }
 
@@ -1230,7 +1229,7 @@ size_t drawWrappedParagraph(uint8_t *scratch, const GFXfont *font,
                             uint8_t background = 15) {
     lineAdvance = max(lineAdvance, static_cast<int32_t>(font->advance_y) + 2);
     const char *source =
-        text == nullptr || text[0] == '\0' ? "АННОТАЦИЯ НЕ УКАЗАНА" : text;
+        text == nullptr || text[0] == '\0' ? I18n::tr("АННОТАЦИЯ НЕ УКАЗАНА") : text;
     char line[256]{};
     char word[160]{};
     size_t lineCount = 0;
@@ -1362,35 +1361,35 @@ uint32_t localBookProgressPercent(const LocalBookEntry &entry) {
 void formatLocalBookStatus(const LocalBookEntry &entry, char *target,
                            size_t capacity) {
     if (entry.finished) {
-        snprintf(target, capacity, "ПРОЧИТАНА");
+        snprintf(target, capacity, I18n::tr("ПРОЧИТАНА"));
     } else if (entry.hasProgress) {
         snprintf(target, capacity, "%lu%%  %lu/%lu",
                  static_cast<unsigned long>(localBookProgressPercent(entry)),
                  static_cast<unsigned long>(entry.currentPage),
                  static_cast<unsigned long>(entry.pageCount));
     } else if (!entry.metadataReady) {
-        snprintf(target, capacity, "НОВАЯ");
+        snprintf(target, capacity, I18n::tr("НОВАЯ"));
     } else if (!entry.paginationReady) {
-        snprintf(target, capacity, "ПОДГОТОВИТЬ");
+        snprintf(target, capacity, I18n::tr("ПОДГОТОВИТЬ"));
     } else {
-        snprintf(target, capacity, "НЕ НАЧАТА");
+        snprintf(target, capacity, I18n::tr("НЕ НАЧАТА"));
     }
 }
 
 const char *topLevelTabName(TopLevelTab tab) {
     switch (tab) {
         case TopLevelTab::Home:
-            return "ГЛАВНАЯ";
+            return I18n::tr("ГЛАВНАЯ");
         case TopLevelTab::OnDevice:
-            return "НА УСТРОЙСТВЕ";
+            return I18n::tr("НА УСТРОЙСТВЕ");
         case TopLevelTab::Catalog:
-            return "КАТАЛОГ";
+            return I18n::tr("КАТАЛОГ");
         case TopLevelTab::Search:
-            return "ПОИСК";
+            return I18n::tr("ПОИСК");
         case TopLevelTab::Favorites:
-            return "ИЗБРАННОЕ";
+            return I18n::tr("ИЗБРАННОЕ");
     }
-    return "РАЗДЕЛ";
+    return I18n::tr("РАЗДЕЛ");
 }
 
 const char *topLevelTabCode(TopLevelTab tab) {
@@ -1437,7 +1436,6 @@ bool appendHomeEntry(const LocalBookEntry *allEntries, size_t allCount,
 
 bool loadHomeSession() {
     char previousBookId[33]{};
-    const bool wasLoaded = homeSession.loaded;
     const auto previousAction = HomeLayout::action(homeSession.selected, homeSession.count, homeSession.addedCount);
     if (homeSession.loaded && (previousAction == HomeLayout::Action::Continue || previousAction == HomeLayout::Action::ReadingCard)) {
         snprintf(previousBookId, sizeof(previousBookId), "%s",
@@ -1489,10 +1487,6 @@ bool loadHomeSession() {
     heap_caps_free(allEntries);
 
     homeSession.selected = HomeLayout::initialSelection(homeSession.count, homeSession.addedCount);
-    if (wasLoaded && previousAction == HomeLayout::Action::Sync)
-        homeSession.selected = HomeLayout::syncSelection(homeSession.count, homeSession.addedCount);
-    else if (wasLoaded && previousAction == HomeLayout::Action::Settings)
-        homeSession.selected = HomeLayout::settingsSelection(homeSession.count, homeSession.addedCount);
     if (previousBookId[0] != '\0') {
         bool restored = false;
         for (size_t index = 0; index < homeSession.count; ++index) {
@@ -1572,17 +1566,17 @@ bool renderTopLevelPlaceholderFrame(TopLevelTab tab) {
     }
     memset(framebuffer, 0xFF, kFramebufferBytes);
     drawMainTabHeader(scratch, topLevelTabName(tab));
-    drawPortraitText(scratch, &UiCondensed9, "ЕДИНАЯ ВЕРТИКАЛЬНАЯ НАВИГАЦИЯ",
+    drawPortraitText(scratch, &UiCondensed9, I18n::tr("ЕДИНАЯ ВЕРТИКАЛЬНАЯ НАВИГАЦИЯ"),
                      28, 92, 4);
     fillPortraitRect(26, 105, 478, 2, 0);
     drawPortraitRoundedRect(26, 132, 478, 404, 16, 12, 15, 1);
-    drawPortraitText(scratch, &UiCondensed9, "РАЗДЕЛ ПОДКЛЮЧЕН", 52, 182, 5);
+    drawPortraitText(scratch, &UiCondensed9, I18n::tr("РАЗДЕЛ ПОДКЛЮЧЕН"), 52, 182, 5);
     drawPortraitText(scratch, &UiCondensed22Medium, topLevelTabName(tab), 52, 250);
     fillPortraitRect(52, 278, 390, 2, 10);
     drawPortraitText(scratch, &UiCondensed13,
                      tab == TopLevelTab::Favorites
-                         ? "ЛОКАЛЬНЫЕ ДАННЫЕ ЧИТАЛКИ"
-                         : "ДАННЫЕ ПОЯВЯТСЯ ПОСЛЕ СВЯЗИ С OPDS",
+                         ? I18n::tr("ЛОКАЛЬНЫЕ ДАННЫЕ ЧИТАЛКИ")
+                         : I18n::tr("ДАННЫЕ ПОЯВЯТСЯ ПОСЛЕ СВЯЗИ С OPDS"),
                      52, 338, 3);
     drawTopLevelTabRail(scratch, tab);
     heap_caps_free(scratch);
@@ -1640,8 +1634,8 @@ constexpr SearchRangeDefinition kSearchRanges[] = {
 const char *searchScopeLabel(SearchScope scope) {
     const size_t index = static_cast<size_t>(scope);
     return index < sizeof(kSearchScopeLabels) / sizeof(kSearchScopeLabels[0])
-               ? kSearchScopeLabels[index]
-               : "ВСЕ РЕЗУЛЬТАТЫ";
+               ? I18n::tr(kSearchScopeLabels[index])
+               : I18n::tr("ВСЕ РЕЗУЛЬТАТЫ");
 }
 
 size_t searchRowCount() {
@@ -1663,7 +1657,7 @@ const char *searchRowLabel(size_t index) {
     if (searchSession.phase == SearchPhase::Scope) {
         return index < sizeof(kSearchScopeLabels) /
                            sizeof(kSearchScopeLabels[0])
-                   ? kSearchScopeLabels[index]
+                   ? I18n::tr(kSearchScopeLabels[index])
                    : "";
     }
     if (searchSession.phase == SearchPhase::Range) {
@@ -1699,15 +1693,15 @@ void normalizeSearchSelection() {
 bool renderSearchFrame(int tabFocus = -1) {
     BookishUI::List v{};
     v.activeTab = 2; v.tabFocus = tabFocus;
-    v.title = "Найдём книгу";
+    v.title = I18n::tr("Найдём книгу");
     v.subtitle = searchSession.phase == SearchPhase::Letter
-        ? "Первая буква названия, автора или серии." : "Поиск среди книг на устройстве.";
-    v.back = searchSession.phase == SearchPhase::Letter ? "< К алфавиту" : "";
+        ? I18n::tr("Первая буква названия, автора или серии.") : I18n::tr("Поиск среди книг на устройстве.");
+    v.back = searchSession.phase == SearchPhase::Letter ? I18n::tr("< К алфавиту") : "";
     v.total = searchRowCount(); v.selected = searchSession.selected;
     for (size_t i = searchSession.firstVisible; i < v.total && v.rowCount < BookishUI::kListRows; ++i) {
         auto &r = v.rows[v.rowCount++];
         r.title = searchRowLabel(i);
-        r.subtitle = searchSession.phase == SearchPhase::Letter ? "Книги на эту букву" : "Выбрать первую букву";
+        r.subtitle = searchSession.phase == SearchPhase::Letter ? I18n::tr("Книги на эту букву") : I18n::tr("Выбрать первую букву");
         r.selected = i == searchSession.selected;
     }
     return renderBookishList(v);
@@ -1809,8 +1803,8 @@ CatalogRow catalogRowAt(size_t index) {
             row.kind = CatalogRowKind::BulkDownload;
             row.title = catalogSession.relation ==
                                 CatalogSession::Relation::Series
-                            ? "ДОКАЧАТЬ СЕРИЮ"
-                            : "СКАЧАТЬ КНИГИ АВТОРА";
+                            ? I18n::tr("ДОКАЧАТЬ СЕРИЮ")
+                            : I18n::tr("СКАЧАТЬ КНИГИ АВТОРА");
             return row;
         }
         ++cursor;
@@ -1819,7 +1813,7 @@ CatalogRow catalogRowAt(size_t index) {
         if (index == cursor) {
             row.kind = CatalogRowKind::PreviousPage;
             row.href = catalogSession.feed->previousHref;
-            row.title = "ПРЕДЫДУЩАЯ СТРАНИЦА";
+            row.title = I18n::tr("ПРЕДЫДУЩАЯ СТРАНИЦА");
             return row;
         }
         ++cursor;
@@ -1837,7 +1831,7 @@ CatalogRow catalogRowAt(size_t index) {
     if (catalogSession.feed->nextHref[0] != '\0' && index == cursor) {
         row.kind = CatalogRowKind::NextPage;
         row.href = catalogSession.feed->nextHref;
-        row.title = "СЛЕДУЮЩАЯ СТРАНИЦА";
+        row.title = I18n::tr("СЛЕДУЮЩАЯ СТРАНИЦА");
     }
     return row;
 }
@@ -1881,12 +1875,12 @@ bool renderCatalogFrame() {
     const size_t count = catalogRowCount();
     if (count == 0) {
         drawPortraitRect(26, 132, 478, 220, 8, 2);
-        drawPortraitText(scratch, &UiCondensed13, "В КАТАЛОГЕ НЕТ ЗАПИСЕЙ", 72,
+        drawPortraitText(scratch, &UiCondensed13, I18n::tr("В КАТАЛОГЕ НЕТ ЗАПИСЕЙ"), 72,
                          222);
         drawPortraitText(scratch, &UiCondensed9,
                          catalogSession.feed->error[0] == '\0'
-                             ? "ОБНОВИТЕ РАЗДЕЛ ИЛИ ВЕРНИТЕСЬ НАЗАД"
-                             : "СЕТЬ НЕДОСТУПНА — ПОВТОРИТЕ ПОЗЖЕ",
+                             ? I18n::tr("ОБНОВИТЕ РАЗДЕЛ ИЛИ ВЕРНИТЕСЬ НАЗАД")
+                             : I18n::tr("СЕТЬ НЕДОСТУПНА — ПОВТОРИТЕ ПОЗЖЕ"),
                          54, 268, 5);
     } else {
         constexpr int32_t rowX = 26;
@@ -1915,7 +1909,7 @@ bool renderCatalogFrame() {
             const CatalogRow row = catalogRowAt(index);
             PortraitTextLines titleLines{};
             wrapPortraitText(&UiCondensed14Bold,
-                             row.title == nullptr ? "ЗАПИСЬ" : row.title,
+                             row.title == nullptr ? I18n::tr("ЗАПИСЬ") : row.title,
                              394, 2, titleLines);
             const int32_t titleBaseline =
                 titleLines.count <= 1 ? y + 34 : y + 24;
@@ -1923,36 +1917,36 @@ bool renderCatalogFrame() {
                                   rowX + 72, titleBaseline, 18, foreground,
                                   background);
 
-            const char *detail = "СТРАНИЦА КАТАЛОГА";
+            const char *detail = I18n::tr("СТРАНИЦА КАТАЛОГА");
             const char *status = row.kind == CatalogRowKind::PreviousPage
-                                     ? "НАЗАД"
+                                     ? I18n::tr("НАЗАД")
                                  : row.kind == CatalogRowKind::BulkDownload
-                                     ? "ПАКЕТ"
-                                     : "ДАЛЕЕ";
+                                     ? I18n::tr("ПАКЕТ")
+                                     : I18n::tr("ДАЛЕЕ");
             char bulkDetail[64]{};
             if (row.kind == CatalogRowKind::BulkDownload) {
                 const size_t missing = catalogMissingRelationBooks();
                 if (missing == 0) {
                     snprintf(bulkDetail, sizeof(bulkDetail),
-                             "ВСЕ КНИГИ УЖЕ НА КАРТЕ");
+                             I18n::tr("ВСЕ КНИГИ УЖЕ НА КАРТЕ"));
                 } else {
                     snprintf(bulkDetail, sizeof(bulkDetail),
-                             "ДО %lu НЕДОСТАЮЩИХ КНИГ",
+                             I18n::tr("ДО %lu НЕДОСТАЮЩИХ КНИГ"),
                              static_cast<unsigned long>(missing));
                 }
                 detail = bulkDetail;
-                status = missing == 0 ? "ГОТОВО" : "ВЫБРАТЬ";
+                status = missing == 0 ? I18n::tr("ГОТОВО") : I18n::tr("ВЫБРАТЬ");
             }
             if (row.kind == CatalogRowKind::Entry && row.entry != nullptr) {
                 if (row.entry->kind == OpdsEntryKind::Book) {
-                    detail = row.entry->author[0] == '\0' ? "КНИГА"
+                    detail = row.entry->author[0] == '\0' ? I18n::tr("КНИГА")
                                                           : row.entry->author;
-                    status = "КНИГА";
+                    status = I18n::tr("КНИГА");
                 } else {
                     detail = row.entry->summary[0] == '\0'
-                                 ? "РАЗДЕЛ КАТАЛОГА"
+                                 ? I18n::tr("РАЗДЕЛ КАТАЛОГА")
                                  : row.entry->summary;
-                    status = "РАЗДЕЛ";
+                    status = I18n::tr("РАЗДЕЛ");
                 }
             }
             char fittedDetail[128]{};
@@ -2123,8 +2117,8 @@ const char *localSectionLabel(LocalLibrarySection section) {
     const size_t index = static_cast<size_t>(section);
     return index < sizeof(kLocalSectionLabels) /
                        sizeof(kLocalSectionLabels[0])
-               ? kLocalSectionLabels[index]
-               : "РЕЗУЛЬТАТЫ";
+               ? I18n::tr(kLocalSectionLabels[index])
+               : I18n::tr("РЕЗУЛЬТАТЫ");
 }
 
 bool localSectionIsGrouping(LocalLibrarySection section) {
@@ -2136,12 +2130,12 @@ bool localSectionIsGrouping(LocalLibrarySection section) {
 const char *localGroupValue(const LocalBookEntry &entry,
                             LocalLibrarySection section) {
     if (section == LocalLibrarySection::Authors) {
-        return entry.author[0] == '\0' ? "БЕЗ АВТОРА" : entry.author;
+        return entry.author[0] == '\0' ? I18n::tr("БЕЗ АВТОРА") : entry.author;
     }
     if (section == LocalLibrarySection::Series) {
-        return entry.series[0] == '\0' ? "БЕЗ СЕРИИ" : entry.series;
+        return entry.series[0] == '\0' ? I18n::tr("БЕЗ СЕРИИ") : entry.series;
     }
-    return entry.genre[0] == '\0' ? "БЕЗ ЖАНРА" : entry.genre;
+    return entry.genre[0] == '\0' ? I18n::tr("БЕЗ ЖАНРА") : entry.genre;
 }
 
 uint32_t foldedFirstCodePoint(const char *text) {
@@ -2459,35 +2453,35 @@ bool renderLocalLibraryFrame(int tabFocus = -1) {
     const bool root = localLibrarySession.phase == LocalLibraryPhase::Sections;
     const bool groups = localLibrarySession.phase == LocalLibraryPhase::Groups;
     const bool search = localLibrarySession.section == LocalLibrarySection::Search;
-    v.title = root ? "Ваша библиотека" : search ? "Результаты поиска" : localSectionLabel(localLibrarySession.section);
+    v.title = root ? I18n::tr("Ваша библиотека") : search ? I18n::tr("Результаты поиска") : localSectionLabel(localLibrarySession.section);
     char summary[160]{};
-    if (root) snprintf(summary, sizeof(summary), "На устройстве: %lu · выберите подборку",
+    if (root) snprintf(summary, sizeof(summary), I18n::tr("На устройстве: %lu · выберите подборку"),
         static_cast<unsigned long>(localLibrarySession.info.loadedCount));
-    else if (search) snprintf(summary, sizeof(summary), "На «%s» · найдено: %lu",
+    else if (search) snprintf(summary, sizeof(summary), I18n::tr("На «%s» · найдено: %lu"),
         localLibrarySession.searchPrefix, static_cast<unsigned long>(localLibrarySession.visibleCount));
     else if (!groups && localSectionIsGrouping(localLibrarySession.section))
         snprintf(summary, sizeof(summary), "%s", localLibrarySession.groupLabel);
-    else snprintf(summary, sizeof(summary), "%s: %lu", groups ? "Подборок" : "Книг",
+    else snprintf(summary, sizeof(summary), "%s: %lu", groups ? I18n::tr("Подборок") : I18n::tr("Книг"),
         static_cast<unsigned long>(localLibraryRowCount()));
     v.subtitle = summary;
-    v.back = root ? "" : search ? "< Выбрать другую букву" :
-        !groups && localSectionIsGrouping(localLibrarySession.section) ? "< К списку подборок" : "< К разделам библиотеки";
-    v.emptyTitle = search ? "Ничего не найдено" : "Подборка пока пуста";
-    v.emptyHint = search ? "Попробуйте другую первую букву." : "Здесь появятся подходящие книги.";
-    v.emptyHint2 = "UP — к возврату · OK — назад";
+    v.back = root ? "" : search ? I18n::tr("< Выбрать другую букву") :
+        !groups && localSectionIsGrouping(localLibrarySession.section) ? I18n::tr("< К списку подборок") : I18n::tr("< К разделам библиотеки");
+    v.emptyTitle = search ? I18n::tr("Ничего не найдено") : I18n::tr("Подборка пока пуста");
+    v.emptyHint = search ? I18n::tr("Попробуйте другую первую букву.") : I18n::tr("Здесь появятся подходящие книги.");
+    v.emptyHint2 = I18n::tr("UP — к возврату · OK — назад");
     v.total = localLibraryRowCount(); v.selected = localLibrarySession.selected;
     char details[BookishUI::kListRows][80]{};
-    const char *hints[] = {"Все загруженные книги", "Последние пополнения", "Истории, которые вы начали",
-        "Откройте что-нибудь новое", "Прочитанные истории", "Книги любимых писателей",
-        "Истории с продолжением", "Подберите книгу по настроению", "Обмен книгами и коллекциями с сервером", "Wi-Fi и подключение"};
+    const char *hints[] = {I18n::tr("Все загруженные книги"), I18n::tr("Последние пополнения"), I18n::tr("Истории, которые вы начали"),
+        I18n::tr("Откройте что-нибудь новое"), I18n::tr("Прочитанные истории"), I18n::tr("Книги любимых писателей"),
+        I18n::tr("Истории с продолжением"), I18n::tr("Подберите книгу по настроению"), I18n::tr("Обмен книгами и коллекциями с сервером"), I18n::tr("Wi-Fi и подключение")};
     for (size_t i = localLibrarySession.firstVisible; i < v.total && v.rowCount < BookishUI::kListRows; ++i) {
         const size_t row = v.rowCount++;
         auto &r = v.rows[row]; r.selected = i == localLibrarySession.selected;
         if (root || groups) {
             r.title = root ? localSectionLabel(static_cast<LocalLibrarySection>(i)) : localLibrarySession.groups[i];
-            r.subtitle = root ? hints[i] : "Открыть подборку";
-            if (root && i >= 8) { r.detail = i == 8 ? (AutomaticSync::busy() ? "OK — отменить" : AutomaticSync::status()==AutomaticSync::Status::Failed ? ReaderSyncPolicy::errorLabel(AutomaticSync::error()) : AutomaticSync::status()==AutomaticSync::Status::Complete ? "Библиотека обновлена" : "OK — начать") : "OK — открыть"; continue; }
-            snprintf(details[row], sizeof(details[row]), "Книг: %lu", static_cast<unsigned long>(root
+            r.subtitle = root ? hints[i] : I18n::tr("Открыть подборку");
+            if (root && i >= 8) { r.detail = i == 8 ? (AutomaticSync::busy() ? I18n::tr("OK — отменить") : AutomaticSync::status()==AutomaticSync::Status::Failed ? ReaderSyncPolicy::errorLabel(AutomaticSync::error()) : AutomaticSync::status()==AutomaticSync::Status::Complete ? I18n::tr("Библиотека обновлена") : I18n::tr("OK — начать")) : I18n::tr("OK — открыть"); continue; }
+            snprintf(details[row], sizeof(details[row]), I18n::tr("Книг: %lu"), static_cast<unsigned long>(root
                 ? localSectionBookCount(static_cast<LocalLibrarySection>(i)) : localGroupBookCount(r.title)));
         } else {
             const auto *entry = localVisibleEntry(i);
@@ -2521,48 +2515,48 @@ const char *longOperationEyebrow(LongOperationKind kind) {
 
 const char *longOperationTitle(const LongOperationModel &model) {
     if (model.failed) {
-        return "НУЖНО ВНИМАНИЕ";
+        return I18n::tr("НУЖНО ВНИМАНИЕ");
     }
     switch (model.kind) {
         case LongOperationKind::StartupRecovery:
-            return "ВОССТАНАВЛИВАЮ";
+            return I18n::tr("ВОССТАНАВЛИВАЮ");
         case LongOperationKind::Network:
-            return "ПОДКЛЮЧАЮСЬ";
+            return I18n::tr("ПОДКЛЮЧАЮСЬ");
         case LongOperationKind::BookDownload:
-            return "ЗАГРУЖАЮ КНИГУ";
+            return I18n::tr("ЗАГРУЖАЮ КНИГУ");
         case LongOperationKind::BookPreparation:
-            return "ГОТОВЛЮ КНИГУ";
+            return I18n::tr("ГОТОВЛЮ КНИГУ");
         case LongOperationKind::CoverIndexRebuild:
-            return "ОБНОВЛЯЮ БИБЛИОТЕКУ";
+            return I18n::tr("ОБНОВЛЯЮ БИБЛИОТЕКУ");
         case LongOperationKind::Ota:
-            return "ОБНОВЛЯЮ СИСТЕМУ";
+            return I18n::tr("ОБНОВЛЯЮ СИСТЕМУ");
     }
-    return "ПОДОЖДИТЕ";
+    return I18n::tr("ПОДОЖДИТЕ");
 }
 
 const char *longOperationPhase(LongOperationKind kind, size_t index,
                                bool cacheReady) {
-    static constexpr const char *startup[] = {
-        "ПРОВЕРКА ХРАНИЛИЩА", "ВОССТАНОВЛЕНИЕ СОСТОЯНИЯ",
-        "ОТКРЫТИЕ БИБЛИОТЕКИ"};
-    static constexpr const char *network[] = {
-        "ЗАЩИЩЁННОЕ СОЕДИНЕНИЕ", "ПРОВЕРКА КАТАЛОГА",
-        "ОТКЛЮЧЕНИЕ РАДИО"};
-    static constexpr const char *download[] = {
-        "ЗАЩИЩЁННОЕ СОЕДИНЕНИЕ", "ПРОВЕРКА FB2 И SHA-256",
-        "АТОМАРНАЯ ЗАПИСЬ"};
-    static constexpr const char *preparation[] = {
-        "РАЗБОР И НОРМАЛИЗАЦИЯ FB2", "РАЗБИЕНИЕ НА СТРАНИЦЫ",
-        "ОГЛАВЛЕНИЕ И ПОЗИЦИИ"};
-    static constexpr const char *cachedPreparation[] = {
-        "ПРОВЕРКА ТЕКСТОВОГО КЕША", "РАЗБИЕНИЕ НА СТРАНИЦЫ",
-        "ОГЛАВЛЕНИЕ И ПОЗИЦИИ"};
-    static constexpr const char *indexPhases[] = {
-        "ПРОВЕРКА ОБЛОЖЕК", "ОБНОВЛЕНИЕ МЕТАДАННЫХ",
-        "ПУБЛИКАЦИЯ ИНДЕКСА"};
-    static constexpr const char *ota[] = {
-        "ПРОВЕРКА ПОДПИСИ", "ЗАПИСЬ В РЕЗЕРВНЫЙ СЛОТ",
-        "ПОДГОТОВКА БЕЗОПАСНОГО ЗАПУСКА"};
+    const char *startup[] = {
+        I18n::tr("ПРОВЕРКА ХРАНИЛИЩА"), I18n::tr("ВОССТАНОВЛЕНИЕ СОСТОЯНИЯ"),
+        I18n::tr("ОТКРЫТИЕ БИБЛИОТЕКИ")};
+    const char *network[] = {
+        I18n::tr("ЗАЩИЩЁННОЕ СОЕДИНЕНИЕ"), I18n::tr("ПРОВЕРКА КАТАЛОГА"),
+        I18n::tr("ОТКЛЮЧЕНИЕ РАДИО")};
+    const char *download[] = {
+        I18n::tr("ЗАЩИЩЁННОЕ СОЕДИНЕНИЕ"), I18n::tr("ПРОВЕРКА FB2 И SHA-256"),
+        I18n::tr("АТОМАРНАЯ ЗАПИСЬ")};
+    const char *preparation[] = {
+        I18n::tr("РАЗБОР И НОРМАЛИЗАЦИЯ FB2"), I18n::tr("РАЗБИЕНИЕ НА СТРАНИЦЫ"),
+        I18n::tr("ОГЛАВЛЕНИЕ И ПОЗИЦИИ")};
+    const char *cachedPreparation[] = {
+        I18n::tr("ПРОВЕРКА ТЕКСТОВОГО КЕША"), I18n::tr("РАЗБИЕНИЕ НА СТРАНИЦЫ"),
+        I18n::tr("ОГЛАВЛЕНИЕ И ПОЗИЦИИ")};
+    const char *indexPhases[] = {
+        I18n::tr("ПРОВЕРКА ОБЛОЖЕК"), I18n::tr("ОБНОВЛЕНИЕ МЕТАДАННЫХ"),
+        I18n::tr("ПУБЛИКАЦИЯ ИНДЕКСА")};
+    const char *ota[] = {
+        I18n::tr("ПРОВЕРКА ПОДПИСИ"), I18n::tr("ЗАПИСЬ В РЕЗЕРВНЫЙ СЛОТ"),
+        I18n::tr("ПОДГОТОВКА БЕЗОПАСНОГО ЗАПУСКА")};
 
     const char *const *phases = preparation;
     switch (kind) {
@@ -2591,19 +2585,19 @@ const char *longOperationPhase(LongOperationKind kind, size_t index,
 const char *longOperationNote(LongOperationKind kind) {
     switch (kind) {
         case LongOperationKind::StartupRecovery:
-            return "ВАШИ КНИГИ И ПОЗИЦИИ СОХРАНЕНЫ";
+            return I18n::tr("ВАШИ КНИГИ И ПОЗИЦИИ СОХРАНЕНЫ");
         case LongOperationKind::Network:
-            return "WI-FI ОТКЛЮЧИТСЯ ПОСЛЕ ОПЕРАЦИИ";
+            return I18n::tr("WI-FI ОТКЛЮЧИТСЯ ПОСЛЕ ОПЕРАЦИИ");
         case LongOperationKind::BookDownload:
-            return "ФАЙЛ ПОЯВИТСЯ ТОЛЬКО ПОСЛЕ ПРОВЕРКИ";
+            return I18n::tr("ФАЙЛ ПОЯВИТСЯ ТОЛЬКО ПОСЛЕ ПРОВЕРКИ");
         case LongOperationKind::BookPreparation:
-            return "ПОВТОРНОЕ ОТКРЫТИЕ БУДЕТ БЫСТРЫМ";
+            return I18n::tr("ПОВТОРНОЕ ОТКРЫТИЕ БУДЕТ БЫСТРЫМ");
         case LongOperationKind::CoverIndexRebuild:
-            return "ИСХОДНЫЕ КНИГИ НЕ ИЗМЕНЯЮТСЯ";
+            return I18n::tr("ИСХОДНЫЕ КНИГИ НЕ ИЗМЕНЯЮТСЯ");
         case LongOperationKind::Ota:
-            return "ПРЕДЫДУЩАЯ ВЕРСИЯ ОСТАНЕТСЯ РЕЗЕРВНОЙ";
+            return I18n::tr("ПРЕДЫДУЩАЯ ВЕРСИЯ ОСТАНЕТСЯ РЕЗЕРВНОЙ");
     }
-    return "ОПЕРАЦИЯ ВЫПОЛНЯЕТСЯ БЕЗ ОЦЕНКИ ВРЕМЕНИ";
+    return I18n::tr("ОПЕРАЦИЯ ВЫПОЛНЯЕТСЯ БЕЗ ОЦЕНКИ ВРЕМЕНИ");
 }
 
 bool renderLongOperationFrame(const LongOperationModel &model) {
@@ -2618,8 +2612,8 @@ bool renderLongOperationFrame(const LongOperationModel &model) {
                      longOperationTitle(model));
 
     drawPortraitText(scratch, &UiCondensed9,
-                     model.failed ? "ОПЕРАЦИЯ БЕЗОПАСНО ПРИОСТАНОВЛЕНА"
-                                  : "СТАТИЧНЫЙ ЭКРАН · БЕЗ ЛОЖНОГО ПРОГРЕССА",
+                     model.failed ? I18n::tr("ОПЕРАЦИЯ БЕЗОПАСНО ПРИОСТАНОВЛЕНА")
+                                  : I18n::tr("СТАТИЧНЫЙ ЭКРАН · БЕЗ ЛОЖНОГО ПРОГРЕССА"),
                      30, 154, 5);
     fillPortraitRect(26, 166, 488, 2, 0);
 
@@ -2628,7 +2622,7 @@ bool renderLongOperationFrame(const LongOperationModel &model) {
     wrapPortraitText(&UiCondensed14Bold,
                      model.subject != nullptr && model.subject[0] != '\0'
                          ? model.subject
-                         : "ПОДГОТОВКА",
+                         : I18n::tr("ПОДГОТОВКА"),
                      428, 3, subjectLines);
     drawPortraitTextLines(scratch, &UiCondensed14Bold, subjectLines, 50,
                           subjectLines.count <= 1 ? 246 : 226, 20, 0, 15);
@@ -2655,7 +2649,7 @@ bool renderLongOperationFrame(const LongOperationModel &model) {
                                                 index == 1 ? "2" : "3"),
                          58, y + 32, 15, model.failed ? 7 : 0);
         drawPortraitText(scratch, &UiCondensed9,
-                         model.failed ? "ОЖИДАЕТ БЕЗОПАСНОГО ПОВТОРА"
+                         model.failed ? I18n::tr("ОЖИДАЕТ БЕЗОПАСНОГО ПОВТОРА")
                                       : longOperationPhase(
                                             model.kind, index,
                                             model.cacheReady),
@@ -2667,13 +2661,13 @@ bool renderLongOperationFrame(const LongOperationModel &model) {
         char fittedError[96]{};
         fitPortraitText(&UiCondensed9,
                         model.error == nullptr || model.error[0] == '\0'
-                            ? "НЕИЗВЕСТНАЯ ОШИБКА"
+                            ? I18n::tr("НЕИЗВЕСТНАЯ ОШИБКА")
                             : model.error,
                         424, fittedError, sizeof(fittedError));
-        drawPortraitText(scratch, &UiCondensed9, "ПРИЧИНА", 50, 704, 6);
+        drawPortraitText(scratch, &UiCondensed9, I18n::tr("ПРИЧИНА"), 50, 704, 6);
         drawPortraitText(scratch, &UiCondensed9, fittedError, 50, 750, 0);
         fillPortraitRect(26, 826, 488, 72, 0);
-        drawPortraitText(scratch, &UiCondensed13, "ПОВТОРИТЬ", 198, 872, 15,
+        drawPortraitText(scratch, &UiCondensed13, I18n::tr("ПОВТОРИТЬ"), 198, 872, 15,
                          0);
     } else {
         fillPortraitRect(26, 684, 488, 144, 0);
@@ -2683,13 +2677,13 @@ bool renderLongOperationFrame(const LongOperationModel &model) {
         drawPortraitTextLines(scratch, &UiCondensed13, noteLines, 58, 740, 22,
                               15, 0);
         drawPortraitText(scratch, &UiCondensed9,
-                         "МОЖНО ОСТАВИТЬ УСТРОЙСТВО РАБОТАТЬ", 58, 794, 11,
+                         I18n::tr("МОЖНО ОСТАВИТЬ УСТРОЙСТВО РАБОТАТЬ"), 58, 794, 11,
                          0);
     }
 
     drawPortraitText(scratch, &UiCondensed9,
-                     model.failed ? "СОСТОЯНИЕ СОХРАНЕНО"
-                                  : "НЕ ВЫКЛЮЧАЙТЕ ПИТАНИЕ",
+                     model.failed ? I18n::tr("СОСТОЯНИЕ СОХРАНЕНО")
+                                  : I18n::tr("НЕ ВЫКЛЮЧАЙТЕ ПИТАНИЕ"),
                      30, 916, 5);
     drawPortraitText(scratch, &UiCondensed9, "ATOMIC // SAFE", 388, 916, 8);
 
@@ -2702,7 +2696,7 @@ bool renderBookDownloadFrame(const BookDownloadJob &job, bool failed,
     LongOperationModel model{};
     model.kind = LongOperationKind::BookDownload;
     model.subject = job.title;
-    model.detail = job.author[0] == '\0' ? "АВТОР НЕ УКАЗАН" : job.author;
+    model.detail = job.author[0] == '\0' ? I18n::tr("АВТОР НЕ УКАЗАН") : job.author;
     model.identifier = job.bookId;
     model.error = error;
     model.failed = failed;
@@ -2739,7 +2733,7 @@ bool renderBookPreparationFrame(const char *bookId, const char *title,
     LongOperationModel model{};
     model.kind = LongOperationKind::BookPreparation;
     model.subject = title != nullptr && title[0] != '\0' ? title : bookId;
-    model.detail = "ПЕРВЫЙ ЗАПУСК КНИГИ";
+    model.detail = I18n::tr("ПЕРВЫЙ ЗАПУСК КНИГИ");
     model.identifier = bookId;
     model.cacheReady = cacheReady;
     return renderLongOperationFrame(model);
@@ -2995,15 +2989,15 @@ void drawBookCardAction(uint8_t *scratch, BookCardFocus focus,
 bool renderBookCardFrame() {
     if(!bookCardSession.active)return false;
     if(bookCardSession.favoritePickerOpen) {
-        BookishUI::List v{}; v.activeTab=3;v.title="В коллекции";v.subtitle="OK — добавить или убрать книгу.";
+        BookishUI::List v{}; v.activeTab=3;v.title=I18n::tr("В коллекции");v.subtitle=I18n::tr("OK — добавить или убрать книгу.");
         v.total=Collections::count()+2;v.selected=bookCardSession.collectionSelection;
         const size_t first=(v.selected/BookishUI::kListRows)*BookishUI::kListRows;
         static size_t previous=SIZE_MAX;if(first!=previous)scheduleGhostCleanup("collection-picker-page");previous=first;
         for(size_t i=first;i<v.total && v.rowCount<BookishUI::kListRows;++i) {
             auto &r=v.rows[v.rowCount++];r.selected=i==v.selected;
-            if(i==0){r.title="< Готово";r.subtitle="Вернуться к книге";}
-            else if(i==Collections::count()+1){r.title="+ Новая коллекция";r.subtitle="Создать свою подборку";}
-            else {r.title=Collections::name(i-1);r.subtitle=Collections::contains(i-1,bookCardSession.bookId)?"✓ Книга добавлена":"Книга не добавлена";}
+            if(i==0){r.title=I18n::tr("< Готово");r.subtitle=I18n::tr("Вернуться к книге");}
+            else if(i==Collections::count()+1){r.title=I18n::tr("+ Новая коллекция");r.subtitle=I18n::tr("Создать свою подборку");}
+            else {r.title=Collections::name(i-1);r.subtitle=Collections::contains(i-1,bookCardSession.bookId)?I18n::tr("Книга добавлена"):I18n::tr("Книга не добавлена");}
         }
         return renderBookishList(v);
     }
@@ -3012,10 +3006,10 @@ bool renderBookCardFrame() {
     memset(framebuffer,0xff,kFramebufferBytes);ReaderBookishCanvas c(scratch);BookishUI::Card v{};
     for(unsigned i=0;i<kVisibleTabCount;++i)if(kVisibleTabs[i]==activeTopLevelTab)v.activeTab=i;
     char status[64]{};formatLocalBookStatus(bookCardSession.localEntry,status,sizeof(status));
-    v.book={bookCardSession.bookId,bookCardTitle(),bookCardAuthor(),bookCardSession.local?status:"Нет на устройстве",
+    v.book={bookCardSession.bookId,bookCardTitle(),bookCardAuthor(),bookCardSession.local?status:I18n::tr("Нет на устройстве"),
         static_cast<uint8_t>(bookCardSession.local?localBookProgressPercent(bookCardSession.localEntry):0),false};
-    v.primary=bookCardSession.preparing?"Подготовка…":bookCardSession.localCopyPresent?"Читать":"Выбрать на сайте";
-    v.series=*bookCardSeries()?bookCardSeries():"Серия не указана";
+    v.primary=bookCardSession.preparing?I18n::tr("Подготовка…"):bookCardSession.localCopyPresent?I18n::tr("Читать"):I18n::tr("Выбрать на сайте");
+    v.series=*bookCardSeries()?bookCardSeries():I18n::tr("Серия не указана");
     v.focus=static_cast<unsigned>(bookCardSession.focus);v.favorite=Collections::contains(0,bookCardSession.bookId);
     BookishUI::card(c,v);heap_caps_free(scratch);return true;
 }
@@ -3059,7 +3053,7 @@ bool renderAnnotationFrame() {
     }
     memset(framebuffer, 0xFF, kFramebufferBytes);
     ReaderBookishCanvas c(scratch); BookishUI::header(c,static_cast<unsigned>(bookCardSession.returnTab)==4?3:1);
-    c.text(BookishUI::Font::Hero,"Аннотация",30,212,480);
+    c.text(BookishUI::Font::Hero,I18n::tr("Аннотация"),30,212,480);
     constexpr size_t kLinesPerPage = 17;
     const size_t totalLines = drawWrappedParagraph(
         nullptr, &BookishArimo22, bookCardAnnotation(), 42, 287, 456, 34, 0,
@@ -3071,7 +3065,7 @@ bool renderAnnotationFrame() {
         bookCardSession.annotationPage,
         static_cast<uint8_t>(min(static_cast<size_t>(255), totalPages - 1)));
     drawPortraitRoundedRect(24, 251, 492, 640, 14, 12, 15, 1);
-    c.text(BookishUI::Font::Control,"OK — к книге",30,937,350);
+    c.text(BookishUI::Font::Control,I18n::tr("OK — к книге"),30,937,350);
     drawWrappedParagraph(
         scratch, &BookishArimo22, bookCardAnnotation(), 42, 287, 456, 34,
         static_cast<size_t>(bookCardSession.annotationPage) * kLinesPerPage,
@@ -3180,23 +3174,23 @@ bool renderFavoritesFrame(int tabFocus = -1) {
     if(!Collections::load())return false;
     BookishUI::List v{}; v.activeTab=3;v.tabFocus=tabFocus;
     const bool folders=favoritesSession.phase==FavoritesPhase::Folders;
-    v.title=folders?"Ваши коллекции":Collections::name(favoritesSession.folder);
-    v.subtitle=folders?"Избранное и ваши подборки.":"Собранные вами истории.";
-    v.back=folders?"":"< Ко всем коллекциям";
-    v.emptyTitle="Здесь пока нет книг";v.emptyHint="Добавляйте книги из их карточек.";v.emptyHint2="Или синхронизируйте с библиотекой.";
+    v.title=folders?I18n::tr("Ваши коллекции"):Collections::name(favoritesSession.folder);
+    v.subtitle=folders?I18n::tr("Избранное и ваши подборки."):I18n::tr("Собранные вами истории.");
+    v.back=folders?"":I18n::tr("< Ко всем коллекциям");
+    v.emptyTitle=I18n::tr("Здесь пока нет книг");v.emptyHint=I18n::tr("Добавляйте книги из их карточек.");v.emptyHint2=I18n::tr("Или синхронизируйте с библиотекой.");
     v.total=folders?Collections::count()+1:favoriteFolderCount(favoritesSession.folder);
     v.selected=favoritesSession.selected;
     char details[BookishUI::kListRows][64]{}; FavoriteEntry entries[BookishUI::kListRows]{};
     for(size_t i=favoritesSession.firstVisible;i<v.total && v.rowCount<BookishUI::kListRows;++i) {
         size_t row=v.rowCount++;auto &r=v.rows[row];r.selected=i==favoritesSession.selected;
         if(folders) {
-            if(i==Collections::count()) {r.title="+ Новая коллекция";r.subtitle="Дайте имя своей подборке";continue;}
-            r.title=Collections::name(i);r.subtitle=i==0?"Самые любимые книги":"Ваша подборка";
-            snprintf(details[row],sizeof(details[row]),"Книг: %lu",static_cast<unsigned long>(Collections::bookCount(i)));r.detail=details[row];
+            if(i==Collections::count()) {r.title=I18n::tr("+ Новая коллекция");r.subtitle=I18n::tr("Дайте имя своей подборке");continue;}
+            r.title=Collections::name(i);r.subtitle=i==0?I18n::tr("Самые любимые книги"):I18n::tr("Ваша подборка");
+            snprintf(details[row],sizeof(details[row]),I18n::tr("Книг: %lu"),static_cast<unsigned long>(Collections::bookCount(i)));r.detail=details[row];
         } else {
             auto *entry=favoriteFolderEntry(favoritesSession.folder,i);if(!entry){--v.rowCount;continue;}
             entries[row]=*entry;r.title=entries[row].title;r.subtitle=entries[row].author;r.coverId=entries[row].bookId;r.book=true;
-            r.detail=entry->local?"На устройстве":"Нет на устройстве";
+            r.detail=entry->local?I18n::tr("На устройстве"):I18n::tr("Нет на устройстве");
         }
     }
     return renderBookishList(v);
@@ -3428,7 +3422,7 @@ bool renderReaderPage(const char *bookId, uint32_t page, uint16_t &lineCount,
     }
 
     char pageLabel[32]{};
-    snprintf(pageLabel, sizeof(pageLabel), "СТР. %lu",
+    snprintf(pageLabel, sizeof(pageLabel), I18n::tr("СТР. %lu"),
              static_cast<unsigned long>(page));
     fillPortraitRect(34, 902, 472, 1, 10);
     drawPortraitText(scratch, &UiCondensed9, pageLabel, 34, 936, 5);
@@ -3782,21 +3776,21 @@ bool displayReaderPage(uint32_t page, const char *reason) {
 const char *readerMenuLabel(ReaderMenuFocus focus) {
     switch (focus) {
         case ReaderMenuFocus::Contents:
-            return "ОГЛАВЛЕНИЕ";
+            return I18n::tr("ОГЛАВЛЕНИЕ");
         case ReaderMenuFocus::Bookmarks:
-            return "ЗАКЛАДКИ";
+            return I18n::tr("ЗАКЛАДКИ");
         case ReaderMenuFocus::BookInfo:
-            return "О КНИГЕ";
+            return I18n::tr("О КНИГЕ");
         case ReaderMenuFocus::ReadingSettings:
-            return "НАСТРОЙКИ ЧТЕНИЯ";
+            return I18n::tr("НАСТРОЙКИ ЧТЕНИЯ");
         case ReaderMenuFocus::Favorite:
-            return "В ИЗБРАННОЕ";
+            return I18n::tr("В ИЗБРАННОЕ");
         case ReaderMenuFocus::MarkRead:
-            return "ОТМЕТИТЬ ПРОЧИТАННОЙ";
+            return I18n::tr("ОТМЕТИТЬ ПРОЧИТАННОЙ");
         case ReaderMenuFocus::Close:
-            return "ЗАКРЫТЬ КНИГУ";
+            return I18n::tr("ЗАКРЫТЬ КНИГУ");
     }
-    return "ДЕЙСТВИЕ";
+    return I18n::tr("ДЕЙСТВИЕ");
 }
 
 void drawReaderMenuIcon(ReaderMenuFocus focus, int32_t centerX,
@@ -3875,7 +3869,7 @@ bool renderReaderMenuFrame() {
                                                : metadata.title,
                     390, eyebrow, sizeof(eyebrow));
     memset(framebuffer, 0xFF, kFramebufferBytes);
-    drawScreenChrome(scratch, eyebrow, "МЕНЮ ЧТЕНИЯ");
+    drawScreenChrome(scratch, eyebrow, I18n::tr("МЕНЮ ЧТЕНИЯ"));
     char position[48]{};
     snprintf(position, sizeof(position), "%lu / %lu",
              static_cast<unsigned long>(readerSession.currentPage),
@@ -3900,7 +3894,7 @@ bool renderReaderMenuFrame() {
         drawReaderMenuIcon(focus, 68, y + 44, foreground, background);
         const char *label =
             focus == ReaderMenuFocus::MarkRead && userState.finished
-                ? "ОТМЕТИТЬ НЕПРОЧИТАННОЙ"
+                ? I18n::tr("ОТМЕТИТЬ НЕПРОЧИТАННОЙ")
                 : readerMenuLabel(focus);
         drawPortraitText(scratch, &UiCondensed14Bold, label, 108, y + 53,
                          foreground, background);
@@ -3946,9 +3940,9 @@ bool renderContentsFrame() {
                                                : metadata.title,
                     430, eyebrow, sizeof(eyebrow));
     memset(framebuffer, 0xFF, kFramebufferBytes);
-    drawScreenChrome(scratch, eyebrow, "ОГЛАВЛЕНИЕ");
+    drawScreenChrome(scratch, eyebrow, I18n::tr("ОГЛАВЛЕНИЕ"));
     char summary[48]{};
-    snprintf(summary, sizeof(summary), "%lu ГЛАВ",
+    snprintf(summary, sizeof(summary), I18n::tr("%lu ГЛАВ"),
              static_cast<unsigned long>(readerSession.chapterCount));
     drawPortraitText(scratch, &UiCondensed9, summary, 30, 145, 4);
     fillPortraitRect(28, 158, 484, 2, 0);
@@ -4068,9 +4062,9 @@ bool renderReaderBookmarksFrame() {
                                                : metadata.title,
                     430, eyebrow, sizeof(eyebrow));
     memset(framebuffer, 0xFF, kFramebufferBytes);
-    drawScreenChrome(scratch, eyebrow, "ЗАКЛАДКИ");
+    drawScreenChrome(scratch, eyebrow, I18n::tr("ЗАКЛАДКИ"));
     char summary[48]{};
-    snprintf(summary, sizeof(summary), "%lu СОХРАНЕНО",
+    snprintf(summary, sizeof(summary), I18n::tr("%lu СОХРАНЕНО"),
              static_cast<unsigned long>(
                  readerBookmarksSession.state.bookmarkCount));
     drawPortraitText(scratch, &UiCondensed9, summary, 30, 145, 4);
@@ -4093,12 +4087,12 @@ bool renderReaderBookmarksFrame() {
                                foreground, background);
             const char *action =
                 currentPageBookmarked(readerBookmarksSession.state)
-                    ? "УДАЛИТЬ ЗАКЛАДКУ ЗДЕСЬ"
-                    : "ДОБАВИТЬ ТЕКУЩУЮ СТРАНИЦУ";
+                    ? I18n::tr("УДАЛИТЬ ЗАКЛАДКУ ЗДЕСЬ")
+                    : I18n::tr("ДОБАВИТЬ ТЕКУЩУЮ СТРАНИЦУ");
             drawPortraitText(scratch, &UiCondensed13, action, 92, y + 34,
                              foreground, background);
             char page[32]{};
-            snprintf(page, sizeof(page), "СТР. %lu",
+            snprintf(page, sizeof(page), I18n::tr("СТР. %lu"),
                      static_cast<unsigned long>(readerSession.currentPage));
             drawPortraitText(scratch, &UiCondensed9, page, 92, y + 59,
                              selected ? 11 : 5, background);
@@ -4253,7 +4247,7 @@ void processReaderBookmarksActions() {
                                          chapter)) {
         snprintf(label, sizeof(label), "%s", chapter.title);
     } else {
-        snprintf(label, sizeof(label), "СТРАНИЦА %lu",
+        snprintf(label, sizeof(label), I18n::tr("СТРАНИЦА %lu"),
                  static_cast<unsigned long>(readerSession.currentPage));
     }
     bool added = false;
@@ -4275,25 +4269,25 @@ void processReaderBookmarksActions() {
 const char *readerTextSizeLabel(ReaderTextSize value) {
     switch (value) {
         case ReaderTextSize::Small:
-            return "КОМПАКТНЫЙ";
+            return I18n::tr("КОМПАКТНЫЙ");
         case ReaderTextSize::Large:
-            return "КРУПНЫЙ";
+            return I18n::tr("КРУПНЫЙ");
         case ReaderTextSize::Medium:
-            return "ОБЫЧНЫЙ";
+            return I18n::tr("ОБЫЧНЫЙ");
     }
-    return "ОБЫЧНЫЙ";
+    return I18n::tr("ОБЫЧНЫЙ");
 }
 
 const char *readerLineSpacingLabel(ReaderLineSpacing value) {
     switch (value) {
         case ReaderLineSpacing::Compact:
-            return "ПЛОТНЫЙ";
+            return I18n::tr("ПЛОТНЫЙ");
         case ReaderLineSpacing::Airy:
-            return "ВОЗДУШНЫЙ";
+            return I18n::tr("ВОЗДУШНЫЙ");
         case ReaderLineSpacing::Normal:
-            return "ОБЫЧНЫЙ";
+            return I18n::tr("ОБЫЧНЫЙ");
     }
-    return "ОБЫЧНЫЙ";
+    return I18n::tr("ОБЫЧНЫЙ");
 }
 
 const char *orderedSelectorLabel(OrderedSelectorKind kind, uint8_t value) {
@@ -4311,11 +4305,11 @@ bool renderReadingSettingsFrame() {
         return false;
     }
     memset(framebuffer, 0xFF, kFramebufferBytes);
-    drawScreenChrome(scratch, "ABYSS // READER", "ЧТЕНИЕ");
-    drawPortraitText(scratch, &UiCondensed9, "ВИД СТРАНИЦЫ", 30, 148, 5);
+    drawScreenChrome(scratch, "ABYSS // READER", I18n::tr("ЧТЕНИЕ"));
+    drawPortraitText(scratch, &UiCondensed9, I18n::tr("ВИД СТРАНИЦЫ"), 30, 148, 5);
     fillPortraitRect(28, 160, 484, 2, 0);
 
-    const char *labels[2] = {"РАЗМЕР ТЕКСТА", "МЕЖСТРОЧНЫЙ ИНТЕРВАЛ"};
+    const char *labels[2] = {I18n::tr("РАЗМЕР ТЕКСТА"), I18n::tr("МЕЖСТРОЧНЫЙ ИНТЕРВАЛ")};
     const char *values[2] = {
         readerTextSizeLabel(readingSettingsSession.settings.textSize),
         readerLineSpacingLabel(readingSettingsSession.settings.lineSpacing),
@@ -4337,7 +4331,7 @@ bool renderReadingSettingsFrame() {
                          selected ? 11 : 5, background);
     }
     drawPortraitText(scratch, &UiCondensed9,
-                     "ИЗМЕНЕНИЯ ПЕРЕСЧИТАЮТ СТРАНИЦЫ, ПОЗИЦИЯ СОХРАНИТСЯ",
+                     I18n::tr("ИЗМЕНЕНИЯ ПЕРЕСЧИТАЮТ СТРАНИЦЫ, ПОЗИЦИЯ СОХРАНИТСЯ"),
                      30, 884, 6);
     heap_caps_free(scratch);
     return true;
@@ -4384,10 +4378,10 @@ bool renderOrderedSelectorFrame() {
     memset(framebuffer, 0xFF, kFramebufferBytes);
     const char *title = orderedSelectorSession.kind ==
                                 OrderedSelectorKind::TextSize
-                            ? "РАЗМЕР ТЕКСТА"
-                            : "ИНТЕРВАЛ";
+                            ? I18n::tr("РАЗМЕР ТЕКСТА")
+                            : I18n::tr("ИНТЕРВАЛ");
     drawScreenChrome(scratch, "ABYSS // READER", title);
-    drawPortraitText(scratch, &UiCondensed9, "ВЫБЕРИТЕ ЗНАЧЕНИЕ", 30, 148,
+    drawPortraitText(scratch, &UiCondensed9, I18n::tr("ВЫБЕРИТЕ ЗНАЧЕНИЕ"), 30, 148,
                      5);
     fillPortraitRect(28, 160, 484, 2, 0);
 
@@ -4436,34 +4430,13 @@ bool displayOrderedSelector(const char *reason) {
     return true;
 }
 
-bool restorePortableReaderUserState(const ReaderUserState &portable,
+bool restorePortableReaderUserState(const ReaderUserState &,
                                     uint32_t pageCount) {
+    // State loading remaps all bookmarks together, retaining IDs and exact
+    // text anchors even when multiple bookmarks share a page after reflow.
     ReaderUserState state{};
-    if (portable.finished &&
-        !ReaderPagination::setFinished(readerSession.bookId, pageCount, true,
-                                       state)) {
-        return false;
-    }
-    for (size_t index = 0; index < portable.bookmarkCount; ++index) {
-        uint32_t page = 1;
-        if (!ReaderPagination::pageForLogical(
-                readerSession.bookId, portable.bookmarks[index].logical,
-                page)) {
-            return false;
-        }
-        ReaderPageIndexEntry logical{};
-        if (!ReaderPagination::pageEntry(readerSession.bookId, page,
-                                         logical)) {
-            return false;
-        }
-        bool added = false;
-        if (!ReaderPagination::toggleBookmark(
-                readerSession.bookId, page, pageCount, logical,
-                portable.bookmarks[index].title, added, state)) {
-            return false;
-        }
-    }
-    return true;
+    return ReaderPagination::loadUserState(readerSession.bookId, pageCount, state);
+
 }
 
 bool applyOrderedReaderSetting() {
@@ -5865,6 +5838,7 @@ void processTopLevelActions() {
         }
         int32_t target = static_cast<int32_t>(homeSession.selected) + homeDelta;
         if (target < 0) { displaySections(); return; }
+        if (!HomeLayout::actionCount(homeSession.count, homeSession.addedCount)) { displaySections(); return; }
         target = max(0, target);
         target = min(target, static_cast<int32_t>(HomeLayout::actionCount(homeSession.count, homeSession.addedCount) - 1));
         if (static_cast<size_t>(target) == homeSession.selected) {
@@ -5881,22 +5855,6 @@ void processTopLevelActions() {
     if (pendingHomeBookOpen) {
         pendingHomeBookOpen = false;
         const auto action = HomeLayout::action(homeSession.selected, homeSession.count, homeSession.addedCount);
-        if (uiScreen == UiScreen::Home && action == HomeLayout::Action::Sync) {
-            if (AutomaticSync::request(provisioningActive || bookUpload.active() ||
-                                        BookPreparation::busy() || pendingPowerSleep)) {
-                busyFrame = 0;
-                busyPainted = false;
-                busyNextFrameAt = 0;
-                displayHome(false, "manual-sync");
-            } else {
-                displayHome(false, "manual-sync-rejected");
-            }
-            return;
-        }
-        if (uiScreen == UiScreen::Home && action == HomeLayout::Action::Settings) {
-            openWifiSettings();
-            return;
-        }
         if (uiScreen != UiScreen::Home || action == HomeLayout::Action::Invalid) {
             Serial.println("ERROR HOME_OPEN_BOOK reason=no-selection");
             return;
@@ -5986,10 +5944,10 @@ bool renderBulkDownloadConfirmFrame() {
     const bool series = bulkDownloadSession->relation ==
                         CatalogSession::Relation::Series;
     drawScreenChrome(scratch, "ABYSS // BOUNDED ACQUISITION",
-                     series ? "ДОКАЧАТЬ СЕРИЮ" : "КНИГИ АВТОРА");
+                     series ? I18n::tr("ДОКАЧАТЬ СЕРИЮ") : I18n::tr("КНИГИ АВТОРА"));
 
     drawPortraitText(scratch, &UiCondensed9,
-                     "ТОЛЬКО НЕДОСТАЮЩИЕ · ТЕКУЩАЯ СТРАНИЦА", 30, 154, 5);
+                     I18n::tr("ТОЛЬКО НЕДОСТАЮЩИЕ · ТЕКУЩАЯ СТРАНИЦА"), 30, 154, 5);
     fillPortraitRect(26, 166, 488, 2, 0);
     drawPortraitRoundedRect(26, 194, 488, 244, 18, 12, 15, 1);
 
@@ -6000,15 +5958,15 @@ bool renderBulkDownloadConfirmFrame() {
                           22, 0, 15);
     char summary[96]{};
     snprintf(summary, sizeof(summary),
-             "К ЗАГРУЗКЕ // %02lu    БЕЗОПАСНЫЙ ЛИМИТ // %02lu",
+             I18n::tr("К ЗАГРУЗКЕ // %02lu    БЕЗОПАСНЫЙ ЛИМИТ // %02lu"),
              static_cast<unsigned long>(bulkDownloadSession->count),
              static_cast<unsigned long>(kBulkDownloadLimit));
     drawPortraitText(scratch, &UiCondensed9, summary, 50, 350, 4);
     drawPortraitText(scratch, &UiCondensed9,
-                     "КАЖДАЯ КНИГА ПУБЛИКУЕТСЯ ОТДЕЛЬНО И АТОМАРНО", 50,
+                     I18n::tr("КАЖДАЯ КНИГА ПУБЛИКУЕТСЯ ОТДЕЛЬНО И АТОМАРНО"), 50,
                      394, 6);
 
-    const char *labels[2] = {"СКАЧАТЬ", "ОТМЕНА"};
+    const char *labels[2] = {I18n::tr("СКАЧАТЬ"), I18n::tr("ОТМЕНА")};
     for (size_t index = 0; index < 2; ++index) {
         const int32_t y = 500 + static_cast<int32_t>(index) * 118;
         const bool selected = bulkDownloadSession->selected == index;
@@ -6026,9 +5984,9 @@ bool renderBulkDownloadConfirmFrame() {
     }
     fillPortraitRect(26, 786, 488, 2, 0);
     drawPortraitText(scratch, &UiCondensed9,
-                     "ОПЕРАЦИЮ МОЖНО БЕЗОПАСНО ПОВТОРИТЬ", 30, 838, 5);
+                     I18n::tr("ОПЕРАЦИЮ МОЖНО БЕЗОПАСНО ПОВТОРИТЬ"), 30, 838, 5);
     drawPortraitText(scratch, &UiCondensed9,
-                     "УЖЕ ЗАГРУЖЕННЫЕ КНИГИ НЕ ИЗМЕНЯЮТСЯ", 30, 878, 7);
+                     I18n::tr("УЖЕ ЗАГРУЖЕННЫЕ КНИГИ НЕ ИЗМЕНЯЮТСЯ"), 30, 878, 7);
 
     heap_caps_free(scratch);
     return true;
@@ -6060,13 +6018,13 @@ bool displayBulkDownloadProgress() {
         return false;
     }
     char detail[96]{};
-    snprintf(detail, sizeof(detail), "%lu КНИГ · ПОСЛЕДОВАТЕЛЬНАЯ ЗАГРУЗКА",
+    snprintf(detail, sizeof(detail), I18n::tr("%lu КНИГ · ПОСЛЕДОВАТЕЛЬНАЯ ЗАГРУЗКА"),
              static_cast<unsigned long>(bulkDownloadSession->count));
     LongOperationModel model{};
     model.kind = LongOperationKind::BookDownload;
     model.subject = bulkDownloadSession->label;
     model.detail = detail;
-    model.identifier = "ТЕКУЩАЯ СТРАНИЦА КАТАЛОГА";
+    model.identifier = I18n::tr("ТЕКУЩАЯ СТРАНИЦА КАТАЛОГА");
     if (!renderLongOperationFrame(model)) {
         return false;
     }
@@ -7188,7 +7146,7 @@ bool renderSleepFrame(const char *reason) {
     }
 
     memset(framebuffer, 0xFF, kFramebufferBytes);
-    drawScreenChrome(scratch, "ABYSS // READER", "ПАУЗА");
+    drawScreenChrome(scratch, "ABYSS // READER", I18n::tr("ПАУЗА"));
 
     char bookId[33]{};
     Fb2CacheInfo metadata{};
@@ -7213,7 +7171,7 @@ bool renderSleepFrame(const char *reason) {
 
         const char *title = hasMetadata && metadata.title[0] != '\0'
                                 ? metadata.title
-                                : "ТЕКУЩАЯ КНИГА";
+                                : I18n::tr("ТЕКУЩАЯ КНИГА");
         PortraitTextLines titleLines{};
         wrapPortraitText(&UiCondensed16Bold, title, 460, 3, titleLines);
         const int32_t firstBaseline =
@@ -7235,23 +7193,23 @@ bool renderSleepFrame(const char *reason) {
                              max(54, (kPortraitWidth - width) / 2), 758, 5);
         }
     } else {
-        drawPortraitText(scratch, &UiCondensed9, "ДОМАШНЯЯ БИБЛИОТЕКА", 54,
+        drawPortraitText(scratch, &UiCondensed9, I18n::tr("ДОМАШНЯЯ БИБЛИОТЕКА"), 54,
                          238, 6);
         drawPortraitText(scratch, &UiCondensed22Medium, "ABYSS", 54, 328);
         fillPortraitRoundedRect(54, 370, 432, 168, 22, 0);
-        drawPortraitText(scratch, &UiCondensed16Bold, "ЧИТАЛКА", 92, 444, 15,
+        drawPortraitText(scratch, &UiCondensed16Bold, I18n::tr("ЧИТАЛКА"), 92, 444, 15,
                          0);
-        drawPortraitText(scratch, &UiCondensed13, "КНИГИ ЖДУТ ВАС", 92, 494,
+        drawPortraitText(scratch, &UiCondensed13, I18n::tr("КНИГИ ЖДУТ ВАС"), 92, 494,
                          11, 0);
     }
 
     fillPortraitRect(36, 842, 468, 1, 11);
     drawPortraitCircle(61, 886, 15, 5, 15, 2);
     drawPortraitLine(61, 869, 61, 886, 5, 3);
-    drawPortraitText(scratch, &UiCondensed13, "СПЯЩИЙ РЕЖИМ", 92, 892, 4);
+    drawPortraitText(scratch, &UiCondensed13, I18n::tr("СПЯЩИЙ РЕЖИМ"), 92, 892, 4);
     drawPortraitText(scratch, &UiCondensed9,
-                     hasCover ? "ОБЛОЖКА СОХРАНЕНА НА ЭКРАНЕ"
-                              : "ДО ВСТРЕЧИ СЛЕДУЮЩЕЙ ГЛАВЕ",
+                     hasCover ? I18n::tr("ОБЛОЖКА СОХРАНЕНА НА ЭКРАНЕ")
+                              : I18n::tr("ДО ВСТРЕЧИ СЛЕДУЮЩЕЙ ГЛАВЕ"),
                      92, 924, 7);
 
     CoverCache::release(cover);
@@ -7344,7 +7302,7 @@ void printPowerStatus() {
         "wake_pin=%u wake_level=%s context_valid=%s switch=%s level=%d\n",
         static_cast<unsigned>(uiScreen),
         static_cast<unsigned long>(idleBeforeLastCommand),
-        static_cast<unsigned long>(kAutoSleepMs),
+        static_cast<unsigned long>((activeReaderSettings.sleepMinutes * 60U * 1000U)),
         static_cast<unsigned>(kPowerPin),
         kSleepLatching && digitalRead(kPowerPin) == LOW ? "high" : "low",
         validSleepContext() ? "true" : "false",
@@ -7469,7 +7427,7 @@ void processAutoSleep() {
         provisioningActive || uiActionPending()) {
         return;
     }
-    if (millis() - lastActivityAt >= kAutoSleepMs) {
+    if (millis() - lastActivityAt >= (activeReaderSettings.sleepMinutes * 60U * 1000U)) {
         enterDeepSleep("idle-30m");
     }
 }
@@ -7652,6 +7610,22 @@ bool handleProvisioningCommand(char *line) {
         }
     };
 
+    if (strcmp(line, "PROVISION PAIR BEGIN") == 0) {
+        char error[64]{};
+        memset(&stagedProvisioning, 0, sizeof(stagedProvisioning));
+        ProvisioningStore::load(stagedProvisioning, error, sizeof(error));
+        WifiCredential wifi{};
+        if (WifiCredentials::load(wifi)) {
+            memcpy(stagedProvisioning.wifiSsid, wifi.ssid, sizeof(wifi.ssid));
+            memcpy(stagedProvisioning.wifiPassword, wifi.password, sizeof(wifi.password));
+        }
+        WifiCredentials::wipe(&wifi, sizeof(wifi));
+        stagedProvisioningMask = 0x03;
+        provisioningActive = true;
+        wipeCommand();
+        Serial.printf("PROVISION PAIR READY device=%s\n", AutomaticSync::deviceId());
+        return true;
+    }
     if (strcmp(line, "PROVISION BEGIN") == 0) {
         memset(&stagedProvisioning, 0, sizeof(stagedProvisioning));
         stagedProvisioningMask = 0;
@@ -8924,7 +8898,7 @@ void loop() {
     bool prepared = false, cancelled = false;
     if (BookPreparation::takeResult(prepared, cancelled)) {
         snprintf(operationNotice, sizeof(operationNotice), "%s",
-            prepared ? "" : cancelled ? "ПОДГОТОВКА ОТМЕНЕНА" : "НЕ УДАЛОСЬ ПОДГОТОВИТЬ КНИГУ");
+            prepared ? "" : cancelled ? I18n::tr("ПОДГОТОВКА ОТМЕНЕНА") : I18n::tr("НЕ УДАЛОСЬ ПОДГОТОВИТЬ КНИГУ"));
         if (preparingSettings) {
             preparingSettings = false;
             ReaderSettingsStore::apply(beforePreparationSettings);

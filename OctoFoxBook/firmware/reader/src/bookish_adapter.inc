@@ -131,8 +131,6 @@ bool renderBookishHome(int tabFocus = -1) {
             view.rows[i] = book(homeSession.entries[i + 1], HomeLayout::kFirstBook + i + 1, i + 1);
     }
     view.empty = homeSession.localBookCount == 0;
-    view.syncSelected = action == HomeLayout::Action::Sync && tabFocus < 0;
-    view.settingsSelected = action == HomeLayout::Action::Settings && tabFocus < 0;
     view.syncing = AutomaticSync::busy();
     view.tabFocus = tabFocus;
     if (tabFocus >= 0)
@@ -141,11 +139,11 @@ bool renderBookishHome(int tabFocus = -1) {
     const char *notice = "";
     switch (AutomaticSync::status()) {
         case AutomaticSync::Status::Failed: notice = ReaderSyncPolicy::errorLabel(AutomaticSync::error()); break;
-        case AutomaticSync::Status::Cancelling: notice = "Завершаю синхронизацию…"; break;
-        case AutomaticSync::Status::Complete: notice = "Библиотека обновлена"; break;
-        case AutomaticSync::Status::More: notice = "Есть ещё книги — продолжите синхронизацию"; break;
-        case AutomaticSync::Status::Cancelled: notice = "Синхронизация отменена"; break;
-        case AutomaticSync::Status::Running: notice = "Синхронизация…"; break;
+        case AutomaticSync::Status::Cancelling: notice = I18n::tr("Завершаю синхронизацию…"); break;
+        case AutomaticSync::Status::Complete: notice = I18n::tr("Библиотека обновлена"); break;
+        case AutomaticSync::Status::More: notice = I18n::tr("Есть ещё книги — продолжите синхронизацию"); break;
+        case AutomaticSync::Status::Cancelled: notice = I18n::tr("Синхронизация отменена"); break;
+        case AutomaticSync::Status::Running: notice = I18n::tr("Синхронизация…"); break;
         default: break;
     }
     view.notice = operationNotice[0] ? operationNotice : notice;

@@ -78,7 +78,7 @@ class ReaderCollectionsTests(PersonalCollectionTests):
             with urlopen(Request(url, headers={'Authorization': 'Basic device-test'}), timeout=3) as response:
                 body = response.read(); self.assertLessEqual(len(body), 1900)
                 self.assertIn(['s', 'local-id', 'Русская коллекция'], json.loads(body)['records'])
-            auth.assert_called_with('Basic device-test')
+                auth.assert_called_with('Basic device-test', device_allowed=True, device='reader-a')
         with patch.object(self.app, 'authenticate', side_effect=WebError(401, 'Unauthorized')):
             with self.assertRaises(HTTPError) as error: urlopen(url, timeout=3)
             self.assertEqual(error.exception.code, 401)

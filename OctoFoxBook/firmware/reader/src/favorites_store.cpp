@@ -1,3 +1,4 @@
+#include "i18n.h"
 #include "favorites_store.h"
 #include "storage_recovery.h"
 
@@ -210,11 +211,11 @@ bool FavoritesStore::find(const FavoriteCollection &collection,
 const char *FavoritesStore::folderLabel(FavoriteFolder folder) {
     switch (folder) {
         case FavoriteFolder::WantToRead:
-            return "ХОЧУ ПРОЧИТАТЬ";
+            return I18n::tr("ХОЧУ ПРОЧИТАТЬ");
         case FavoriteFolder::Favorite:
-            return "ЛЮБИМЫЕ";
+            return I18n::tr("ЛЮБИМЫЕ");
         case FavoriteFolder::Later:
-            return "НА ПОТОМ";
+            return I18n::tr("НА ПОТОМ");
     }
-    return "ИЗБРАННОЕ";
+    return I18n::tr("ИЗБРАННОЕ");
 }

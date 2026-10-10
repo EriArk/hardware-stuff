@@ -40,13 +40,12 @@ int main() {
     assert(newest(b.data(),3,out,0)==0);
     for(size_t reading=0;reading<=kReadingCapacity;++reading)
       for(size_t added=0;added<=kAddedCapacity;++added) {
-        assert(action(0,reading,added)==(reading ? Action::Continue : added ? Action::AddedCard : Action::Sync));
-        assert(action(syncSelection(reading,added),reading,added)==Action::Sync);
+        assert(action(0,reading,added)==(reading ? Action::Continue : added ? Action::AddedCard : Action::Invalid));
         const size_t total=actionCount(reading,added);
-        assert(initialSelection(reading,added)<total);
-        assert(syncSelection(reading,added)==total-2);
-        assert(action(settingsSelection(reading,added),reading,added)==Action::Settings);
-        for(size_t i=kFirstBook;i<total-2;++i) {
+        assert(!total || initialSelection(reading,added)<total);
+        assert(total==reading+added);
+        assert(action(total,reading,added)==Action::Invalid);
+        for(size_t i=kFirstBook;i<total;++i) {
             const auto a=action(i,reading,added);
             if(i<kFirstBook+reading) assert(a==(i==kFirstBook ? Action::Continue : Action::ReadingCard));
             else assert(a==Action::AddedCard);

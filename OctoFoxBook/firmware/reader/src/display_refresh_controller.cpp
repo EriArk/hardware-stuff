@@ -1,4 +1,5 @@
 #include "display_refresh_controller.h"
+#include "display_preferences.h"
 
 #include <Arduino.h>
 #include <atomic>
@@ -98,7 +99,7 @@ void paintFrames(void *) {
             const auto mode = queuedMode;
             // Antialiased UI/cover frames need HIGH and a shorter cleanup
             // cadence than continuous reading. Count completed paints, not keys.
-            const bool clear = queuedClear || (queuedMode == DisplayRefreshMode::QualityFull && uiPaintsSinceClear >= 3);
+            const bool clear = queuedClear || (queuedMode == DisplayRefreshMode::QualityFull && uiPaintsSinceClear + 1 >= DisplayPreferences::uiClearEvery.load());
             const Rect_t clearRegion = queuedClearRegion;
             const uint32_t sequence = queuedSequence;
             const uint32_t submitted = queuedAt;

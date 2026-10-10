@@ -6,5 +6,7 @@ contextBridge.exposeInMainWorld('companion',Object.freeze({
  manual:value=>ipcRenderer.invoke('companion:manual',value),
  disconnect:()=>ipcRenderer.invoke('companion:disconnect'),
  navigate:where=>ipcRenderer.invoke('companion:navigate',where),
+ reader:(action,data)=>ipcRenderer.invoke('companion:reader',action,data),
+ pairPanel:visible=>ipcRenderer.invoke('companion:pair-panel',visible),
  status:callback=>ipcRenderer.on('companion:status',(_event,value)=>callback(value))
 }));

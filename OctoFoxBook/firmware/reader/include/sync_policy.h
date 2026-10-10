@@ -1,3 +1,4 @@
+#include "i18n.h"
 #pragma once
 
 #include <stdint.h>
@@ -7,7 +8,7 @@
 namespace ReaderSyncPolicy {
 enum class Error : uint8_t {
     None, Busy, Memory, Configuration, Wifi, Clock, Authentication,
-    Transport, Http, Protocol, Storage, Preparation
+    Transport, Http, Protocol, Storage, Preparation, ReadingState
 };
 
 constexpr uint32_t kWifiAttemptMs = 20000;
@@ -68,24 +69,26 @@ inline const char *errorCode(Error error) {
         case Error::Protocol: return "invalid-sync-response";
         case Error::Storage: return "sd-write-or-verification-failed";
         case Error::Preparation: return "book-preparation-failed";
+        case Error::ReadingState: return "reading-state-needs-review";
     }
     return "unknown";
 }
 
 inline const char *errorLabel(Error error) {
     switch (error) {
-        case Error::Busy: return "ЗАНЯТО · ПОВТОРИТЕ ПОЗЖЕ";
-        case Error::Memory: return "НЕ ХВАТАЕТ ПАМЯТИ";
-        case Error::Configuration: return "НУЖНА НАСТРОЙКА ПОДКЛЮЧЕНИЯ";
-        case Error::Wifi: return "НЕТ ПОДКЛЮЧЕНИЯ К WI-FI";
-        case Error::Clock: return "НЕ УДАЛОСЬ ОБНОВИТЬ ВРЕМЯ";
-        case Error::Authentication: return "ПРОВЕРЬТЕ ЛОГИН И ПАРОЛЬ";
-        case Error::Transport: return "ОШИБКА HTTPS ИЛИ СЕТИ";
-        case Error::Http: return "СЕРВЕР ВЕРНУЛ ОШИБКУ";
-        case Error::Protocol: return "НЕВЕРНЫЙ ОТВЕТ СЕРВЕРА";
-        case Error::Storage: return "ОШИБКА ЗАПИСИ НА SD";
-        case Error::Preparation: return "НЕ УДАЛОСЬ ПОДГОТОВИТЬ КНИГУ";
-        default: return "НЕ УДАЛОСЬ · ПОВТОРИТЕ";
+        case Error::Busy: return I18n::tr("ЗАНЯТО · ПОВТОРИТЕ ПОЗЖЕ");
+        case Error::Memory: return I18n::tr("НЕ ХВАТАЕТ ПАМЯТИ");
+        case Error::Configuration: return I18n::tr("НУЖНА НАСТРОЙКА ПОДКЛЮЧЕНИЯ");
+        case Error::Wifi: return I18n::tr("НЕТ ПОДКЛЮЧЕНИЯ К WI-FI");
+        case Error::Clock: return I18n::tr("НЕ УДАЛОСЬ ОБНОВИТЬ ВРЕМЯ");
+        case Error::Authentication: return I18n::text("CHECK DEVICE PAIRING", "ПРОВЕРЬТЕ ПРИВЯЗКУ");
+        case Error::Transport: return I18n::tr("ОШИБКА HTTPS ИЛИ СЕТИ");
+        case Error::Http: return I18n::tr("СЕРВЕР ВЕРНУЛ ОШИБКУ");
+        case Error::Protocol: return I18n::tr("НЕВЕРНЫЙ ОТВЕТ СЕРВЕРА");
+        case Error::Storage: return I18n::tr("ОШИБКА ЗАПИСИ НА SD");
+        case Error::Preparation: return I18n::tr("НЕ УДАЛОСЬ ПОДГОТОВИТЬ КНИГУ");
+        case Error::ReadingState: return I18n::text("READING STATE NEEDS REVIEW", "ПРОВЕРЬТЕ СОСТОЯНИЕ КНИГИ");
+        default: return I18n::tr("НЕ УДАЛОСЬ · ПОВТОРИТЕ");
     }
 }
 }

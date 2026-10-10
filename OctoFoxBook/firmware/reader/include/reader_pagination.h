@@ -1,6 +1,8 @@
 #pragma once
 
 #include <Arduino.h>
+#include <vector>
+#include "reader_state_allocator.h"
 
 struct ReaderPaginationInfo {
     bool ok = false;
@@ -33,7 +35,7 @@ struct ReaderProgress {
     char error[64]{};
 };
 
-constexpr size_t kReaderBookmarkCapacity = 16;
+constexpr size_t kReaderBookmarkCapacity = 500;
 
 struct ReaderBookmark {
     uint32_t page = 0;
@@ -45,7 +47,7 @@ struct ReaderUserState {
     bool found = false;
     bool finished = false;
     size_t bookmarkCount = 0;
-    ReaderBookmark bookmarks[kReaderBookmarkCapacity]{};
+    std::vector<ReaderBookmark, ReaderStateAllocator<ReaderBookmark>> bookmarks;
     char error[64]{};
 };
 

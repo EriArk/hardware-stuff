@@ -56,7 +56,7 @@ bool load(WifiCredential &out) {
         memcpy(out.password, legacy.wifiPassword, sizeof(out.password));
     }
     wipe(&legacy, sizeof(legacy));
-    return ok;
+    return ok && valid(out);
 }
 bool save(const WifiCredential &credential) {
     if (!valid(credential)) return false;
