@@ -1,6 +1,6 @@
 # AbyssBook reader firmware
 
-Early **0.21.0-alpha9** firmware for the non-touch LILYGO T5 e-Paper S3
+Early **0.21.0-alpha10** firmware for the non-touch LILYGO T5 e-Paper S3
 (4.7-inch H716 panel, 16 MB flash, 8 MB PSRAM).
 
 Home, Library, Search, Collections and book details share the bookish design: logo, visible
@@ -10,6 +10,10 @@ local search, annotations and collections retain their functions. Reading menus
 still use the previous visual design. Interface redraws use HIGH quality, with
 cleanup on content changes and after four UI paints; continuous text reading
 keeps its separate refresh policy.
+
+Lists turn a whole page when the selection passes the last or first visible row.
+Rows stay in place within a page; a shorter final page does not shift earlier items.
+Each page change requests a display cleanup.
 
 ## Controls
 

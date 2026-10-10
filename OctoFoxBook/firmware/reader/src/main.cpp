@@ -7,6 +7,7 @@
 #include <atomic>
 #include <Preferences.h>
 #include "battery_policy.h"
+#include "list_paging.h"
 #include "text_keyboard.h"
 #include "wifi_credentials.h"
 #include "wifi_setup.h"
@@ -64,7 +65,7 @@
 namespace {
 
 constexpr char kFirmwareName[] = "abyss-reader";
-constexpr char kFirmwareVersion[] = "0.21.0-alpha9";
+constexpr char kFirmwareVersion[] = "0.21.0-alpha10";
 constexpr size_t kFramebufferBytes = EPD_WIDTH * EPD_HEIGHT / 2;
 constexpr int32_t kPortraitWidth = EPD_HEIGHT;
 constexpr int32_t kPortraitHeight = EPD_WIDTH;
@@ -1687,13 +1688,8 @@ void normalizeSearchSelection() {
         return;
     }
     searchSession.selected = min(searchSession.selected, count - 1);
-    if (searchSession.selected < searchSession.firstVisible) {
-        searchSession.firstVisible = searchSession.selected;
-    } else if (searchSession.selected >=
-               searchSession.firstVisible + kSearchRowsPerScreen) {
-        searchSession.firstVisible =
-            searchSession.selected - kSearchRowsPerScreen + 1;
-    }
+    searchSession.firstVisible =
+        listPageStart(searchSession.selected, kSearchRowsPerScreen);
 }
 
 bool renderSearchFrame(int tabFocus = -1) {
@@ -1723,7 +1719,7 @@ bool displaySearch(bool reset, const char *reason) {
     searchSession.scope = SearchScope::Local;
     if (searchSession.phase == SearchPhase::Scope) searchSession.phase = SearchPhase::Range;
     normalizeSearchSelection();
-    if (renderedFirst != searchSession.firstVisible) scheduleGhostCleanup("list-scroll");
+    if (renderedFirst != searchSession.firstVisible) scheduleGhostCleanup("list-page");
     renderedFirst = searchSession.firstVisible;
     if (!renderSearchFrame()) {
         Serial.println("ERROR SEARCH_OPEN reason=frame-build-failed");
@@ -1850,13 +1846,8 @@ void normalizeCatalogSelection() {
         return;
     }
     catalogSession.selected = min(catalogSession.selected, count - 1);
-    if (catalogSession.selected < catalogSession.firstVisible) {
-        catalogSession.firstVisible = catalogSession.selected;
-    } else if (catalogSession.selected >=
-               catalogSession.firstVisible + kCatalogRowsPerScreen) {
-        catalogSession.firstVisible =
-            catalogSession.selected - kCatalogRowsPerScreen + 1;
-    }
+    catalogSession.firstVisible =
+        listPageStart(catalogSession.selected, kCatalogRowsPerScreen);
 }
 
 bool renderCatalogFrame() {
@@ -1982,7 +1973,10 @@ bool renderCatalogFrame() {
 }
 
 bool refreshCatalogFrame(const char *reason) {
+    static size_t renderedFirst = SIZE_MAX;
     normalizeCatalogSelection();
+    if (renderedFirst != catalogSession.firstVisible) scheduleGhostCleanup("list-page");
+    renderedFirst = catalogSession.firstVisible;
     if (!renderCatalogFrame()) {
         Serial.println("ERROR CATALOG_OPEN reason=frame-build-failed");
         return false;
@@ -2869,17 +2863,11 @@ bool displayLocalLibrary(bool rescan, const char *reason) {
         localLibrarySession.selected =
             min(localLibrarySession.selected,
                 static_cast<size_t>(rowCount - 1));
-        if (localLibrarySession.selected < localLibrarySession.firstVisible) {
-            localLibrarySession.firstVisible = localLibrarySession.selected;
-        } else if (localLibrarySession.selected >=
-                   localLibrarySession.firstVisible +
-                       kLibraryRowsPerScreen) {
-            localLibrarySession.firstVisible =
-                localLibrarySession.selected - kLibraryRowsPerScreen + 1;
-        }
+        localLibrarySession.firstVisible =
+            listPageStart(localLibrarySession.selected, kLibraryRowsPerScreen);
     }
 
-    if (renderedFirst != localLibrarySession.firstVisible) scheduleGhostCleanup("list-scroll");
+    if (renderedFirst != localLibrarySession.firstVisible) scheduleGhostCleanup("list-page");
     renderedFirst = localLibrarySession.firstVisible;
     if (!renderLocalLibraryFrame()) {
         Serial.println("ERROR LIBRARY_OPEN reason=frame-build-failed");
@@ -2887,7 +2875,7 @@ bool displayLocalLibrary(bool rescan, const char *reason) {
     }
     Serial.printf(
         "LIBRARY READY books=%lu rows=%lu phase=%u section=%u prepared=%lu "
-        "selected=%lu omitted=%lu layout_ms=%lu reason=%s\n",
+        "selected=%lu omitted=%lu layout_ms=%lu reason=%s first=%lu\n",
         static_cast<unsigned long>(localLibrarySession.info.loadedCount),
         static_cast<unsigned long>(rowCount),
         static_cast<unsigned>(localLibrarySession.phase),
@@ -2896,7 +2884,7 @@ bool displayLocalLibrary(bool rescan, const char *reason) {
         static_cast<unsigned long>(
             rowCount == 0 ? 0 : localLibrarySession.selected + 1),
         static_cast<unsigned long>(localLibrarySession.info.omittedCount),
-        static_cast<unsigned long>(millis() - startedAt), reason);
+        static_cast<unsigned long>(millis() - startedAt), reason, static_cast<unsigned long>(localLibrarySession.firstVisible));
     Serial.flush();
 
     scheduleScreenTransitionCleanup(UiScreen::LocalLibrary,
@@ -3141,13 +3129,8 @@ void normalizeFavoritesSelection() {
     }
     favoritesSession.selected = min(favoritesSession.selected, count - 1);
     constexpr size_t kRows = BookishUI::kListRows;
-    if (favoritesSession.selected < favoritesSession.firstVisible) {
-        favoritesSession.firstVisible = favoritesSession.selected;
-    } else if (favoritesSession.selected >=
-               favoritesSession.firstVisible + kRows) {
-        favoritesSession.firstVisible =
-            favoritesSession.selected - kRows + 1;
-    }
+    favoritesSession.firstVisible =
+        listPageStart(favoritesSession.selected, kRows);
 }
 
 void drawFavoriteFolderArtwork(uint8_t *scratch, FavoriteFolder folder,
@@ -3211,7 +3194,7 @@ bool displayFavorites(bool reload, const char *reason) {
         return false;
     }
     normalizeFavoritesSelection();
-    if (renderedFirst != favoritesSession.firstVisible) scheduleGhostCleanup("list-scroll");
+    if (renderedFirst != favoritesSession.firstVisible) scheduleGhostCleanup("list-page");
     renderedFirst = favoritesSession.firstVisible;
     if (!renderFavoritesFrame()) {
         Serial.println("ERROR FAVORITES_OPEN reason=frame-build-failed");
@@ -4006,6 +3989,7 @@ bool renderContentsFrame() {
 }
 
 bool displayContents(bool resetSelection, const char *reason) {
+    static size_t renderedFirst = SIZE_MAX;
     constexpr uint32_t kRowsPerScreen = 8;
     if (!readerSession.active || readerSession.chapterCount == 0) {
         Serial.println("ERROR CONTENTS reason=no-chapters");
@@ -4020,8 +4004,10 @@ bool displayContents(bool resetSelection, const char *reason) {
                 ? current.ordinal - 1
                 : 0;
         contentsSession.firstVisible =
-            (contentsSession.selected / kRowsPerScreen) * kRowsPerScreen;
+            listPageStart(contentsSession.selected, kRowsPerScreen);
     }
+    if (renderedFirst != contentsSession.firstVisible) scheduleGhostCleanup("list-page");
+    renderedFirst = contentsSession.firstVisible;
     if (!renderContentsFrame()) {
         Serial.println("ERROR CONTENTS reason=frame-build-failed");
         return false;
@@ -4133,6 +4119,7 @@ bool renderReaderBookmarksFrame() {
 }
 
 bool displayReaderBookmarks(bool resetSelection, const char *reason) {
+    static size_t renderedFirst = SIZE_MAX;
     constexpr size_t kRowsPerScreen = 8;
     ReaderUserState state{};
     if (!readerSession.active || !ReaderPagination::loadUserState(
@@ -4149,16 +4136,11 @@ bool displayReaderBookmarks(bool resetSelection, const char *reason) {
         const size_t itemCount = state.bookmarkCount + 1;
         readerBookmarksSession.selected =
             min(readerBookmarksSession.selected, itemCount - 1);
-        if (readerBookmarksSession.selected <
-            readerBookmarksSession.firstVisible) {
-            readerBookmarksSession.firstVisible =
-                readerBookmarksSession.selected;
-        } else if (readerBookmarksSession.selected >=
-                   readerBookmarksSession.firstVisible + kRowsPerScreen) {
-            readerBookmarksSession.firstVisible =
-                readerBookmarksSession.selected - kRowsPerScreen + 1;
-        }
+        readerBookmarksSession.firstVisible =
+            listPageStart(readerBookmarksSession.selected, kRowsPerScreen);
     }
+    if (renderedFirst != readerBookmarksSession.firstVisible) scheduleGhostCleanup("list-page");
+    renderedFirst = readerBookmarksSession.firstVisible;
     if (!renderReaderBookmarksFrame()) {
         Serial.println("ERROR READER_BOOKMARKS reason=frame-build-failed");
         return false;
@@ -4213,16 +4195,8 @@ void processReaderBookmarksActions() {
         if (target !=
             static_cast<int32_t>(readerBookmarksSession.selected)) {
             readerBookmarksSession.selected = static_cast<size_t>(target);
-            if (readerBookmarksSession.selected <
-                readerBookmarksSession.firstVisible) {
-                readerBookmarksSession.firstVisible =
-                    readerBookmarksSession.selected;
-            } else if (readerBookmarksSession.selected >=
-                       readerBookmarksSession.firstVisible +
-                           kRowsPerScreen) {
-                readerBookmarksSession.firstVisible =
-                    readerBookmarksSession.selected - kRowsPerScreen + 1;
-            }
+            readerBookmarksSession.firstVisible =
+                listPageStart(readerBookmarksSession.selected, kRowsPerScreen);
             displayReaderBookmarks(false, "selection");
         }
         return;
@@ -4788,13 +4762,8 @@ void processContentsActions() {
                    static_cast<int32_t>(contentsSession.selected) + delta));
         if (target != static_cast<int32_t>(contentsSession.selected)) {
             contentsSession.selected = static_cast<uint32_t>(target);
-            if (contentsSession.selected < contentsSession.firstVisible) {
-                contentsSession.firstVisible = contentsSession.selected;
-            } else if (contentsSession.selected >=
-                       contentsSession.firstVisible + kRowsPerScreen) {
-                contentsSession.firstVisible =
-                    contentsSession.selected - kRowsPerScreen + 1;
-            }
+            contentsSession.firstVisible =
+                listPageStart(contentsSession.selected, kRowsPerScreen);
             displayContents(false, "selection");
         }
         return;
