@@ -37,8 +37,11 @@ test('size validation and bounded retry leave useful per-file errors', async () 
 test('batch picker, compact collection controls and external module ship with cache busting', () => {
   const html = fs.readFileSync('src/octofox_library/web/index.html', 'utf8');
   assert.match(html, /id="uploadFile"[^>]*multiple/);
-  assert(html.includes('/personal-library.js?v=2'));
-  assert(html.indexOf('/personal-library.js?v=2') < html.indexOf('/app.js?v=41'));
+  const personalAsset = html.match(/\/personal-library\.js\?v=(\d+)/);
+  const appAsset = html.match(/\/app\.js\?v=(\d+)/);
+  assert(personalAsset && Number(personalAsset[1]) >= 3);
+  assert(appAsset && Number(appAsset[1]) >= 42);
+  assert(personalAsset.index < appAsset.index);
   for (const id of ['personalCollection','personalCollectionsDialog','personalCollectionForm','uploadErrors']) assert(html.includes(`id="${id}"`));
 });
 

@@ -283,7 +283,9 @@ test('pagination CSS and markup retain separate accessible TOC and cache-busted 
   assert(top.includes('class="icon-button reader-toc"'));
   assert(!bottom.includes('chapterSelect') && !bottom.includes('Оглавление'));
   assert(css.includes('.reader-toc select') && css.includes('inset: 0; width: 100%; height: 100%;'));
-  assert(html.includes('/app.js?v=41') && html.includes('/styles.css?v=41'));
+  const appVersion = Number(html.match(/\/app\.js\?v=(\d+)/)?.[1]);
+  const cssVersion = Number(html.match(/\/styles\.css\?v=(\d+)/)?.[1]);
+  assert(appVersion >= 42 && cssVersion >= 42);
   assert(source.includes('new ResizeObserver(repaginateReader)'));
   assert(source.includes('document.fonts?.addEventListener("loadingdone", () =>'));
   assert(source.includes('state.reader?.bookPages?.invalidate()'));

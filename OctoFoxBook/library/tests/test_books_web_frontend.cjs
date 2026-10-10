@@ -75,7 +75,7 @@ assert(css.includes('inset: auto 0 0;'));
 assert(source.includes('<div class="tile-caption">${caption}</div>'));
 assert(css.includes('--tile-title-size: 16px;'), 'Desktop title track scales with its font');
 assert(css.includes('gap: 14px 12px;'));
-assert(html.includes('/styles.css?v=41'), 'Installed web apps must request the updated CSS');
+assert(Number(html.match(/\/styles\.css\?v=(\d+)/)?.[1]) >= 42, 'Installed web apps must request the updated CSS');
 const fallbackLabel = css.match(/\.cover-fallback-content\s*\{([^}]+)\}/)[1];
 assert(!/background|border-radius|box-shadow/.test(fallbackLabel), 'No backing panel on decorative covers');
 assert(/\.cover-fallback-content svg\s*\{[^}]*width: 44px;[^}]*height: 44px;/.test(css));
