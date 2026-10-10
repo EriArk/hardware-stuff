@@ -75,4 +75,5 @@ struct Card {
     bool favorite = false;
 };
 void card(Canvas &c, const Card &view);
+void batteryNotice(Canvas &c, unsigned percent, bool critical);
 }

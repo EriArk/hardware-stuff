@@ -5,6 +5,8 @@
 #include <Wire.h>
 #include <WiFi.h>
 #include <atomic>
+#include <Preferences.h>
+#include "battery_policy.h"
 #include "text_keyboard.h"
 #include "wifi_credentials.h"
 #include "wifi_setup.h"
@@ -62,17 +64,14 @@
 namespace {
 
 constexpr char kFirmwareName[] = "abyss-reader";
-constexpr char kFirmwareVersion[] = "0.21.0-alpha8";
+constexpr char kFirmwareVersion[] = "0.21.0-alpha9";
 constexpr size_t kFramebufferBytes = EPD_WIDTH * EPD_HEIGHT / 2;
 constexpr int32_t kPortraitWidth = EPD_HEIGHT;
 constexpr int32_t kPortraitHeight = EPD_WIDTH;
 constexpr size_t kPsramTestBytes = 1024 * 1024;
 constexpr uint32_t kDebounceMs = 20;
 constexpr uint32_t kLongPressMs = 800;
-#ifndef ABYSS_SLEEP_LATCHING
-#define ABYSS_SLEEP_LATCHING 0
-#endif
-constexpr bool kSleepLatching = ABYSS_SLEEP_LATCHING != 0;
+std::atomic<bool> sleepSwitchLatching{false};
 constexpr uint32_t kPanelCleanHoldMs = 6000;
 constexpr uint32_t kDoublePressMs = 350;
 constexpr uint32_t kNavigationCoalesceMs = 0;
@@ -80,7 +79,7 @@ constexpr uint32_t kIdlePreparationDelayMs = 5000;
 constexpr uint32_t kPreparationRetryDelayMs = 5U * 60U * 1000U;
 constexpr uint32_t kSleepContextMagic = 0x41535953U;
 constexpr uint16_t kSleepContextVersion = 1;
-// UP/DOWN/OK are momentary. Sleep is currently momentary; optional latching build.
+// UP/DOWN/OK are momentary. Sleep type is a persistent runtime preference (momentary by default).
 // Side pad -> switch -> GND.
 // GPIO45 is an ESP32-S3 strapping pin, so CENTER must not be held at reset.
 constexpr uint8_t kUpPin = 39;      // side pad CS
@@ -491,6 +490,11 @@ QueueHandle_t physicalInputs = nullptr;
 TaskHandle_t uiTaskHandle = nullptr;
 TaskHandle_t inputTaskHandle = nullptr;
 bool pendingPowerSleep = false;
+bool pendingTabsOpen = false;
+BatteryPolicy batteryPolicy;
+bool batteryWarningPending=false, batteryWarningVisible=false;
+bool batteryProtectionRequested=false, batteryResumeLoaded=false;
+uint8_t *batteryUnderlay=nullptr;
 uint8_t *framebuffer = nullptr;
 bool displayInitialized = false;
 char preparingBookId[33]{};
@@ -610,6 +614,8 @@ bool continueBulkDownload();
 bool uiActionPending();
 void processPanelCleanAction();
 void processPowerAction();
+void updateBatteryPolicy();
+void dismissBatteryWarning();
 void enterDeepSleep(const char *reason, uint32_t timerWakeSeconds = 0);
 
 void scheduleGhostCleanup(const char *reason) {
@@ -4343,6 +4349,7 @@ bool displayReadingSettings(bool reload, const char *reason) {
         if (ReaderSettingsStore::load(loaded)) {
             activeReaderSettings = loaded;
         }
+        sleepSwitchLatching.store(activeReaderSettings.sleepLatching);
         readingSettingsSession.settings = activeReaderSettings;
     }
     if (!renderReadingSettingsFrame()) {
@@ -5655,7 +5662,23 @@ bool renderCurrentTabFocus(int focus) {
     static UiScreen source = UiScreen::Home;
     if (uiScreen != UiScreen::Sections) source = uiScreen;
     switch (activeTopLevelTab) {
-        case TopLevelTab::OnDevice: return renderLocalLibraryFrame(focus);
+        case TopLevelTab::OnDevice:
+            if (localLibrarySession.owner != TopLevelTab::OnDevice) {
+                localLibrarySession.owner = TopLevelTab::OnDevice;
+                localLibrarySession.phase = savedLibraryTab.phase;
+                localLibrarySession.section = savedLibraryTab.section;
+                snprintf(localLibrarySession.groupLabel, sizeof(localLibrarySession.groupLabel), "%s", savedLibraryTab.group);
+                snprintf(localLibrarySession.searchPrefix, sizeof(localLibrarySession.searchPrefix), "%s", savedLibraryTab.prefix);
+                rebuildLocalLibraryView();
+                localLibrarySession.selected = savedLibraryTab.selected;
+                localLibrarySession.firstVisible = savedLibraryTab.firstVisible;
+            }
+            if (!localLibrarySession.loaded) {
+                if (!LocalLibrary::scan(localLibrarySession.entries, kLocalLibraryCapacity, localLibrarySession.info)) return false;
+                localLibrarySession.loaded = true;
+                rebuildLocalLibraryView();
+            }
+            return renderLocalLibraryFrame(focus);
         case TopLevelTab::Search:
             if (localLibrarySession.owner == TopLevelTab::Search &&
                 (source == UiScreen::LocalLibrary || source == UiScreen::BookCard))
@@ -5690,6 +5713,7 @@ bool handleTabNavigation(const char *button, const char *gesture) {
     const bool held = strcmp(gesture, "LONG") == 0;
     const bool click = strcmp(gesture, "SHORT") == 0;
     if (uiScreen == UiScreen::Sections) {
+        if (ok && !strcmp(gesture, "DOUBLE")) { displayTopLevelTab(activeTopLevelTab, false, "tabs-back"); return true; }
         if (ok && click) displayTopLevelTab(kVisibleTabs[sectionSelection], false, "sections-select");
         else if (click && (!strcmp(button, "UP") || !strcmp(button, "DOWN"))) {
             sectionSelection = (sectionSelection + (!strcmp(button, "UP") ? kVisibleTabCount - 1 : 1)) % kVisibleTabCount;
@@ -5699,21 +5723,8 @@ bool handleTabNavigation(const char *button, const char *gesture) {
         return true; // Holding OK at the highest level stays there.
     }
     if (!ok || !held) return false;
-    switch (uiScreen) {
-        case UiScreen::Home:
-        case UiScreen::LocalLibrary:
-        case UiScreen::TopLevel:
-        case UiScreen::Catalog:
-        case UiScreen::Search:
-        case UiScreen::Favorites:
-        case UiScreen::Reader:
-        case UiScreen::BookCard:
-        case UiScreen::Annotation:
-            displaySections();
-            return true;
-        default:
-            return false; // Editors and subordinate dialogs retain Back.
-    }
+    displaySections();
+    return true;
 }
 
 bool handleSectionBackFocus(const char *button, const char *gesture) {
@@ -5791,7 +5802,13 @@ void processTopLevelActions() {
         closeBulkDownloadSession();
         bookCardSession.active = false;
         scheduleGhostCleanup("top-level-open");
-        displayTopLevelTab(target, true, "input");
+        if (pendingTabsOpen) {
+            pendingTabsOpen = false;
+            activeTopLevelTab = target;
+            if (target == TopLevelTab::Home && !homeSession.loaded) loadHomeSession();
+            if (target == TopLevelTab::Favorites && !favoritesSession.loaded) loadFavoritesSession();
+            displaySections();
+        } else displayTopLevelTab(target, true, "input");
         return;
     }
 
@@ -6691,7 +6708,8 @@ void measureBattery() {
     diagnostics.batteryMillivolts = (millivoltTotal / sampleCount) * 2U;
     diagnostics.batteryPercent =
         batteryPercentFromMillivolts(diagnostics.batteryMillivolts);
-    nextBatterySampleAt = millis() + 60000U;
+    nextBatterySampleAt = millis() + 5000U;
+    updateBatteryPolicy();
     batterySampleCount = 0;
     batteryRawTotal = batteryMvTotal = 0;
 }
@@ -6711,7 +6729,8 @@ void pollBatteryTelemetry() {
             batteryPercentFromMillivolts(diagnostics.batteryMillivolts);
         batterySampleCount = 0;
         batteryRawTotal = batteryMvTotal = 0;
-        nextBatterySampleAt = millis() + 60000U;
+        nextBatterySampleAt = millis() + 5000U;
+        updateBatteryPolicy();
     } else {
         nextBatterySampleAt = millis() + 3U;
     }
@@ -6752,6 +6771,30 @@ void printDiagnostics() {
         static_cast<unsigned long>(bootCount));
 }
 
+// One parent action per double click. Editors handle their own sub-level first.
+void queueBackAction() {
+    switch(uiScreen) {
+        case UiScreen::Reader: pendingTopLevelTarget=readerReturnTab;pendingTopLevelOpen=true;break;
+        case UiScreen::ReaderMenu: pendingReaderMenuBack=true;break;
+        case UiScreen::Contents: pendingContentsBack=true;break;
+        case UiScreen::Bookmarks: pendingReaderBookmarksBack=true;break;
+        case UiScreen::ReadingSettings: pendingReadingSettingsBack=true;break;
+        case UiScreen::OrderedSelector: pendingOrderedSelectorBack=true;break;
+        case UiScreen::LocalLibrary: pendingLocalLibraryBack=true;break;
+        case UiScreen::Catalog: pendingCatalogBack=true;break;
+        case UiScreen::Search: pendingSearchBack=true;break;
+        case UiScreen::Favorites: pendingFavoritesBack=true;break;
+        case UiScreen::Download: pendingDownloadBack=true;break;
+        case UiScreen::BulkDownloadConfirm: pendingBulkDownloadBack=true;break;
+        case UiScreen::BookCard: pendingBookCardBack=true;break;
+        case UiScreen::Annotation: pendingAnnotationBack=true;break;
+        case UiScreen::TopLevel: pendingTopLevelTarget=TopLevelTab::Home;pendingTopLevelOpen=true;break;
+        default: break; // Home is the root; Back does not reopen it.
+    }
+}
+
+#include "battery_ui.inc"
+
 void emitInput(const char *button, const char *gesture, const char *source) {
     if (physicalInputs != nullptr && xTaskGetCurrentTaskHandle() != uiTaskHandle) {
         const QueuedInput event{button, gesture, millis()};
@@ -6760,6 +6803,12 @@ void emitInput(const char *button, const char *gesture, const char *source) {
         return;
     }
     lastActivityAt = millis();
+    if(batteryProtectionRequested)return;
+    if(batteryWarningVisible) {
+        if(!strcmp(button,"CENTER"))dismissBatteryWarning();
+        if(strcmp(button,"POWER"))return;
+        dismissBatteryWarning();
+    }
     if (!wifiTextEntry.load()) snprintf(lastInput, sizeof(lastInput), "%s %s", button, gesture);
     ++inputCount;
     if (!wifiTextEntry.load()) Serial.printf("EVENT %s %s source=%s count=%lu\n", button, gesture, source,
@@ -6772,23 +6821,26 @@ void emitInput(const char *button, const char *gesture, const char *source) {
         BookPreparation::cancel();
         return;
     }
-    if(collectionTextEntry.load()){inputCollectionName(button,gesture);return;}
-    if (wifiScreen() && !(strcmp(button, "CENTER") == 0 &&
-        strcmp(gesture, "DOUBLE") == 0 && !wifiTextEntry.load())) {
-        if (strcmp(gesture, "DOUBLE") != 0) inputWifiSettings(button, gesture);
-        return;
-    }
-    if (strcmp(gesture, "DOUBLE") == 0 &&
-        strcmp(button, "CENTER") == 0) {
+    if (!strcmp(button, "CENTER") && !strcmp(gesture, "LONG")) {
+        if (uiScreen == UiScreen::Sections) return;
         if (wifiScreen()) closeWifiSettings();
-        pendingTopLevelTarget = TopLevelTab::Home;
-        pendingTopLevelOpen = true;
-        if (BookPreparation::busy()) BookPreparation::cancel();
+        if (collectionTextEntry.load()) { collectionTextEntry=false; collectionKeyboard.wipe(); }
+        if (uiScreen == UiScreen::Reader || uiScreen == UiScreen::ReaderMenu ||
+            uiScreen == UiScreen::Contents || uiScreen == UiScreen::Bookmarks ||
+            uiScreen == UiScreen::ReadingSettings || uiScreen == UiScreen::OrderedSelector)
+            activeTopLevelTab = readerReturnTab;
+        if (uiScreen == UiScreen::DeviceSettings || uiScreen == UiScreen::Wifi)
+            activeTopLevelTab = TopLevelTab::OnDevice;
+        pendingTopLevelTarget = activeTopLevelTab;
+        pendingTabsOpen = pendingTopLevelOpen = true;
+        BookPreparation::cancel();
         if (AutomaticSync::busy()) AutomaticSync::cancel();
         return;
     }
+    if(collectionTextEntry.load()){inputCollectionName(button,gesture);return;}
+    if (wifiScreen()) { inputWifiSettings(button,gesture); return; }
     if (BookPreparation::busy()) {
-        if (strcmp(button, "CENTER") == 0 && strcmp(gesture, "LONG") == 0) {
+        if (strcmp(button, "CENTER") == 0 && strcmp(gesture, "DOUBLE") == 0) {
             BookPreparation::cancel();
             Serial.println("BOOK CANCEL requested=true");
         }
@@ -6799,6 +6851,7 @@ void emitInput(const char *button, const char *gesture, const char *source) {
         return;
     }
     if (handleTabNavigation(button, gesture)) return;
+    if (!strcmp(button,"CENTER") && !strcmp(gesture,"DOUBLE")) {queueBackAction();return;}
     if (handleSectionBackFocus(button, gesture)) return;
     if (strcmp(button, "CLEAN") == 0) {
         pendingPanelClean = true;
@@ -6998,77 +7051,11 @@ void emitInput(const char *button, const char *gesture, const char *source) {
             pendingTopLevelTarget = TopLevelTab::Home;
             pendingTopLevelOpen = true;
         }
-    } else if (strcmp(gesture, "LONG") == 0) {
-        if (uiScreen == UiScreen::Reader) {
-            if (strcmp(button, "UP") == 0) {
-                pendingChapterDelta = static_cast<int8_t>(
-                    max(-10, static_cast<int>(pendingChapterDelta) - 1));
-                pendingChapterNavigationAt = millis();
-            } else if (strcmp(button, "DOWN") == 0) {
-                pendingChapterDelta = static_cast<int8_t>(
-                    min(10, static_cast<int>(pendingChapterDelta) + 1));
-                pendingChapterNavigationAt = millis();
-            } else if (strcmp(button, "CENTER") == 0) {
-                pendingTopLevelTarget = readerReturnTab;
-                pendingTopLevelOpen = true;
-            }
-        } else if (uiScreen == UiScreen::Home ||
-                   uiScreen == UiScreen::LocalLibrary ||
-                   uiScreen == UiScreen::TopLevel ||
-                   uiScreen == UiScreen::Catalog ||
-                   uiScreen == UiScreen::Search ||
-                   uiScreen == UiScreen::Favorites) {
-            if (strcmp(button, "UP") == 0 ||
-                strcmp(button, "DOWN") == 0) {
-                const int8_t direction =
-                    strcmp(button, "UP") == 0 ? -1 : 1;
-                pendingTopLevelDelta = static_cast<int8_t>(
-                    max(-4, min(4, static_cast<int>(pendingTopLevelDelta) +
-                                      direction)));
-                pendingTopLevelNavigationAt = millis();
-            } else if (strcmp(button, "CENTER") == 0) {
-                if (uiScreen == UiScreen::Catalog) {
-                    pendingCatalogBack = true;
-                } else if (uiScreen == UiScreen::LocalLibrary) {
-                    pendingLocalLibraryBack = true;
-                } else if (uiScreen == UiScreen::Search) {
-                    pendingSearchBack = true;
-                } else if (uiScreen == UiScreen::Favorites) {
-                    pendingFavoritesBack = true;
-                } else if (activeTopLevelTab == TopLevelTab::Home) {
-                    Serial.println("HOME BACK BOUNDARY screen=home");
-                } else {
-                    pendingTopLevelTarget = TopLevelTab::Home;
-                    pendingTopLevelOpen = true;
-                }
-            }
-        } else if (uiScreen == UiScreen::Download &&
-                   strcmp(button, "CENTER") == 0) {
-            pendingDownloadBack = true;
-        } else if (uiScreen == UiScreen::BulkDownloadConfirm &&
-                   strcmp(button, "CENTER") == 0) {
-            pendingBulkDownloadBack = true;
-        } else if (uiScreen == UiScreen::BookCard &&
-                   strcmp(button, "CENTER") == 0) {
-            pendingBookCardBack = true;
-        } else if (uiScreen == UiScreen::ReaderMenu &&
-                   strcmp(button, "CENTER") == 0) {
-            pendingReaderMenuBack = true;
-        } else if (uiScreen == UiScreen::Contents &&
-                   strcmp(button, "CENTER") == 0) {
-            pendingContentsBack = true;
-        } else if (uiScreen == UiScreen::Bookmarks &&
-                   strcmp(button, "CENTER") == 0) {
-            pendingReaderBookmarksBack = true;
-        } else if (uiScreen == UiScreen::ReadingSettings &&
-                   strcmp(button, "CENTER") == 0) {
-            pendingReadingSettingsBack = true;
-        } else if (uiScreen == UiScreen::OrderedSelector &&
-                   strcmp(button, "CENTER") == 0) {
-            pendingOrderedSelectorBack = true;
-        } else if (uiScreen == UiScreen::Annotation &&
-                   strcmp(button, "CENTER") == 0) {
-            pendingAnnotationBack = true;
+    } else if (strcmp(gesture, "LONG") == 0 && verticalNavigation) {
+        const int8_t direction=!strcmp(button,"UP")?-1:1;
+        if(uiScreen==UiScreen::Reader) {
+            pendingChapterDelta=static_cast<int8_t>(max(-10,min(10,static_cast<int>(pendingChapterDelta)+direction)));
+            pendingChapterNavigationAt=millis();
         }
     }
 }
@@ -7097,7 +7084,10 @@ void saveSleepContext() {
     context.screen = static_cast<uint8_t>(uiScreen);
     context.activeTab = static_cast<uint8_t>(activeTopLevelTab);
     context.readerReturnTab = static_cast<uint8_t>(readerReturnTab);
-    if (uiScreen == UiScreen::Reader && readerSession.active) {
+    if (readerSession.active && (uiScreen == UiScreen::Reader || uiScreen == UiScreen::ReaderMenu ||
+        uiScreen == UiScreen::Contents || uiScreen == UiScreen::Bookmarks ||
+        uiScreen == UiScreen::ReadingSettings || uiScreen == UiScreen::OrderedSelector)) {
+        context.screen=static_cast<uint8_t>(UiScreen::Reader);
         snprintf(context.bookId, sizeof(context.bookId), "%s",
                  readerSession.bookId);
         context.pageCount = readerSession.pageCount;
@@ -7235,7 +7225,7 @@ bool displaySleepFrame(const char *reason) {
 
 bool restoreWakeState() {
     const esp_sleep_wakeup_cause_t wakeCause = esp_sleep_get_wakeup_cause();
-    if (wakeCause == ESP_SLEEP_WAKEUP_UNDEFINED) {
+    if (wakeCause == ESP_SLEEP_WAKEUP_UNDEFINED && !batteryResumeLoaded) {
         return false;
     }
 
@@ -7304,9 +7294,9 @@ void printPowerStatus() {
         static_cast<unsigned long>(idleBeforeLastCommand),
         static_cast<unsigned long>((activeReaderSettings.sleepMinutes * 60U * 1000U)),
         static_cast<unsigned>(kPowerPin),
-        kSleepLatching && digitalRead(kPowerPin) == LOW ? "high" : "low",
+        sleepSwitchLatching.load() && digitalRead(kPowerPin) == LOW ? "high" : "low",
         validSleepContext() ? "true" : "false",
-        kSleepLatching ? "latching" : "momentary", digitalRead(kPowerPin));
+        sleepSwitchLatching.load() ? "latching" : "momentary", digitalRead(kPowerPin));
 }
 
 void enterDeepSleep(const char *reason, uint32_t timerWakeSeconds) {
@@ -7332,9 +7322,9 @@ void enterDeepSleep(const char *reason, uint32_t timerWakeSeconds) {
     SD.end();
     displayRefresh.shutdown();
     pinMode(kPowerPin, INPUT_PULLUP);
-    const int wakeLevel = kSleepLatching && digitalRead(kPowerPin) == LOW ? 1 : 0;
+    const int wakeLevel = sleepSwitchLatching.load() && digitalRead(kPowerPin) == LOW ? 1 : 0;
     Serial.printf("POWER WAKE_ARM level=%d trigger=%d switch=%s\n",
-                  digitalRead(kPowerPin), wakeLevel, kSleepLatching ? "latching" : "momentary");
+                  digitalRead(kPowerPin), wakeLevel, sleepSwitchLatching.load() ? "latching" : "momentary");
     // EXT0 samples RTC IO during deep sleep. The digital-domain pull-up alone
     // does not keep this input HIGH: configure the RTC-domain pull explicitly.
     rtc_gpio_pulldown_dis(static_cast<gpio_num_t>(kPowerPin));
@@ -7356,6 +7346,8 @@ void processPowerAction() {
     pendingPowerSleep = false;
     enterDeepSleep("power-button");
 }
+
+#include "battery_shutdown.inc"
 
 bool uiActionPending() {
     return pendingPageDelta != 0 || pendingChapterDelta != 0 ||
@@ -7839,10 +7831,16 @@ bool handleFallbackWifiCommand(char *line) {
 }
 
 void handleSerialCommand(char *line) {
+    if ((batteryWarningVisible || batteryProtectionRequested) &&
+        strncmp(line,"INPUT ",6) && strcmp(line,"PING") && strcmp(line,"BATTERY STATUS") &&
+        strcmp(line,"POWER STATUS") && strcmp(line,"DIAG STATUS") && strcmp(line,"DISPLAY CAPTURE")) {
+        Serial.println("ERROR BATTERY_NOTICE_ACTIVE"); return;
+    }
     if (strcmp(line, "SETTINGS OPEN") == 0) { openWifiSettings(); return; }
     if (WifiSetup::active() && strncmp(line, "INPUT ", 6) != 0 &&
         strcmp(line, "PING") != 0 && strcmp(line, "SYNC STATUS") != 0 &&
         strcmp(line, "DIAG") != 0 && strcmp(line, "WIFI STATUS") != 0 &&
+        strcmp(line, "DISPLAY CAPTURE") != 0 && strncmp(line, "BATTERY PREVIEW ",16) != 0 &&
         strcmp(line, "SETTINGS CLOSE") != 0) {
         memset(line, 0, strlen(line));
         Serial.println("ERROR WIFI_SETTINGS_ACTIVE close-settings-first=true");
@@ -8322,6 +8320,15 @@ void handleSerialCommand(char *line) {
         }
     }
 
+    if (!strcmp(line,"BATTERY PREVIEW WARNING")) {
+        batteryWarningPending=true;Serial.println("BATTERY PREVIEW warning=queued");return;
+    }
+    if (!strcmp(line,"BATTERY PREVIEW CHARGE")) {
+        // Save the current frame so OK restores it; preview never sleeps or writes NVS.
+        if(!batteryUnderlay)batteryUnderlay=static_cast<uint8_t*>(heap_caps_malloc(kFramebufferBytes,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT));
+        if(batteryUnderlay) {memcpy(batteryUnderlay,framebuffer,kFramebufferBytes);batteryWarningVisible=paintBatteryNotice(true);}
+        Serial.println("BATTERY PREVIEW charge=true shutdown=false");return;
+    }
     if (strcmp(line, "PING") == 0) {
         Serial.printf("PONG %s %s\n", kFirmwareName, kFirmwareVersion);
     } else if (strcmp(line, "STORAGE STATUS") == 0) {
@@ -8676,7 +8683,7 @@ void pollButton(ButtonTracker &button) {
         button.stableLevel = button.rawLevel;
         if (&button == &centerButton) {
             // Handled below by OkGesture on every poll, including while held.
-        } else if (&button == &powerButton && kSleepLatching) {
+        } else if (&button == &powerButton && sleepSwitchLatching.load()) {
             // A latching switch changes state once; it has no click duration.
             emitInput("POWER", "LONG", "gpio-switch");
         } else if (button.stableLevel == LOW) {
@@ -8718,7 +8725,7 @@ void pollButton(ButtonTracker &button) {
     }
 
     if (&button == &centerButton) {
-        const auto event = button.okGesture.update(button.stableLevel == LOW, now, !wifiTextEntry.load() && !collectionTextEntry.load());
+        const auto event = button.okGesture.update(button.stableLevel == LOW, now);
         if (event != OkGesture::Event::None)
             emitInput("CENTER", event == OkGesture::Event::Short ? "SHORT" :
                 event == OkGesture::Event::Double ? "DOUBLE" : "LONG", "gpio");
@@ -8793,6 +8800,7 @@ void setup() {
         }
         readingSettingsSession.settings = activeReaderSettings;
     }
+    sleepSwitchLatching.store(activeReaderSettings.sleepLatching);
     diagnostics.rtcDetected = probeRtc();
 
     // The build places the large EPD buffer in PSRAM directly. Boot/wake must
@@ -8815,11 +8823,19 @@ void setup() {
     beginButton(centerButton);
     beginButton(powerButton);
     beginButton(cleanButton);
-    suppressPowerUntilRelease = !kSleepLatching &&
+    suppressPowerUntilRelease = !sleepSwitchLatching.load() &&
         esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0 &&
         powerButton.stableLevel == LOW;
     lastActivityAt = millis();
 
+    batteryResumeLoaded=readBatteryResume();
+    const bool plausibleBattery=diagnostics.batteryMillivolts>=2500 && diagnostics.batteryMillivolts<=4500;
+    if(plausibleBattery && ((batteryResumeLoaded && diagnostics.batteryPercent<=BatteryPolicy::ResumePercent) || diagnostics.batteryPercent<=BatteryPolicy::ProtectionPercent)) {
+        // Confirm a cold-boot low reading before opening books or starting workers.
+        measureBattery();measureBattery();
+        if(diagnostics.batteryPercent<=BatteryPolicy::ProtectionPercent || (batteryResumeLoaded && diagnostics.batteryPercent<=BatteryPolicy::ResumePercent))
+            enterBatteryProtection(batteryResumeLoaded);
+    }
     printDiagnostics();
     printStorageRecoveryStatus("boot");
     ProvisioningConfig bootConfiguration{};
@@ -8831,7 +8847,7 @@ void setup() {
                   provisioned ? "true" : "false",
                   static_cast<unsigned>(kProvisioningSchemaVersion));
     const bool wakeStateRestored = restoreWakeState();
-    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) {
+    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED && !wakeStateRestored) {
         // The exact H716 backend is now stable enough to draw one intentional
         // frame on cold boot.  Do not clear in DisplayRefreshController::begin:
         // that used to leave a reset device white because setup then preserved
@@ -8848,6 +8864,7 @@ void setup() {
                       wakeStateRestored ? "true" : "false",
                       static_cast<unsigned>(uiScreen));
     }
+    if(batteryResumeLoaded && wakeStateRestored)clearBatteryResume();
     Serial.println("READY USB commands: PING | DIAG STATUS | "
                    "STORAGE RECOVERY STATUS|RUN|TEST | "
                    "STORAGE MALFORMED TEST | "
@@ -8878,6 +8895,7 @@ void setup() {
 }
 
 void loop() {
+    pollBatteryTelemetry();
     pollSerial();
     if (inputTaskHandle != nullptr) {
         QueuedInput event{};
@@ -8895,6 +8913,8 @@ void loop() {
         pollButton(powerButton);
         pollButton(cleanButton);
     }
+    pollWifiSettings();
+    if(!batteryProtectionRequested && showPendingBatteryWarning()) {delay(2);return;}
     bool prepared = false, cancelled = false;
     if (BookPreparation::takeResult(prepared, cancelled)) {
         snprintf(operationNotice, sizeof(operationNotice), "%s",
@@ -8930,6 +8950,7 @@ void loop() {
         preparingBookId[0] = '\0';
         if (!pendingPowerSleep && !BookPreparation::busy()) AutomaticSync::setPaused(false);
     }
+    if(processBatteryProtection()) {delay(2);return;}
     if (BookPreparation::busy() || AutomaticSync::busy()) {
         // Worker exclusively owns SD parsing/writes; UI still handles cancel,
         // power and the loading indicator, without concurrent cache mutation.
@@ -8964,8 +8985,6 @@ void loop() {
         if (uiScreen == UiScreen::Home && !homeSession.loaded) displayHome(true, "auto-download");
         if (uiScreen == UiScreen::LocalLibrary && !localLibrarySession.loaded) displayLocalLibrary(true, "auto-download");
     }
-    pollBatteryTelemetry();
-    pollWifiSettings();
     processPanelCleanAction();
     processTopLevelActions();
     if (BookPreparation::busy() || AutomaticSync::busy()) { delay(2); return; }

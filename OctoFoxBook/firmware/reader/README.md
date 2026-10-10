@@ -1,6 +1,6 @@
 # AbyssBook reader firmware
 
-Early **0.21.0-alpha8** firmware for the non-touch LILYGO T5 e-Paper S3
+Early **0.21.0-alpha9** firmware for the non-touch LILYGO T5 e-Paper S3
 (4.7-inch H716 panel, 16 MB flash, 8 MB PSRAM).
 
 Home, Library, Search, Collections and book details share the bookish design: logo, visible
@@ -17,19 +17,41 @@ keeps its separate refresh policy.
 | --- | --- |
 | UP / DOWN | Move selection; turn pages while reading. Hold to repeat. |
 | OK | Open the selection; open the reading menu. |
-| Hold OK | Focus the tabs from content/reading screens; return one level in editors and dialogs. |
-| Double OK | Return Home, except in text entry: each click enters a character. |
+| Hold OK | Focus the current screen's owning tab, including from editors and dialogs. Fires after 800 ms while still held; release adds no action. |
+| Double OK | Return one level, including in text entry. From tab focus, restore the underlying section. |
 | Sleep | Deep sleep; press again to wake. Holding Sleep also enters deep sleep. |
 
-The currently fitted Sleep switch is **momentary**. For a future latching
-switch, compile with `-DABYSS_SLEEP_LATCHING=1`: changing its stable position
-enters deep sleep, and the opposite level wakes it. This optional configuration
-has not been physically accepted yet. UP=GPIO39, DOWN=GPIO48, OK=GPIO45,
+Choose **Library → Settings → Sleep → Sleep button type** for a momentary
+button (default) or a latching switch. The setting persists without rebuilding.
+For latching switches, changing the stable position enters deep sleep; changing
+it again wakes the reader. The current physical button is momentary; the latching
+hardware path still needs an actual-switch acceptance test. UP=GPIO39, DOWN=GPIO48, OK=GPIO45,
 Sleep=GPIO10; switches connect to GND. Do not hold GPIO45 at reset.
 
 There is no light-sleep mode. Manual sleep and the configurable idle timeout
 (30 minutes by default) both save the reading context and enter deep sleep. Waking restarts
 the processor and restores the context; the wake press is consumed.
+
+### Low-battery protection
+
+At an estimated **15%**, a dismissible warning appears over the current screen,
+including reading, settings and synchronization. OK dismisses it without acting
+on the screen underneath. It warns again after a recharge to at least 20% and a
+new discharge. At **8% or below**, three consecutive averaged samples trigger
+protection: cancel network work, wait for file writers, preserve reading context,
+show the charge screen, turn off the display circuitry and enter deep sleep.
+Telemetry continues during sync. Samples are taken every five seconds.
+
+Press Sleep after charging. A protected reader only resumes when its estimate
+is **above 12%**; otherwise it returns to protection sleep. Resume context is also
+stored in NVS to survive battery removal; page position and bookmarks are already
+persisted when changed. Percentages are voltage estimates, not a fuel gauge.
+
+**This is not a complete electrical power disconnect.** The H716 board cannot
+switch off its own main regulator in software and has no VBUS wake input.
+Connecting USB alone does not automatically wake this protection mode. True
+power-off with USB-start requires a hardware change. Battery protection circuitry
+is still necessary; firmware does not replace it.
 
 Wi-Fi starts for an explicitly requested synchronization or a scan/connection
 check in Settings. It stops when that operation finishes, fails or is cancelled.
@@ -60,8 +82,8 @@ Cyrillic or Latin letter, or a digit, matching title, author or series.
 
 Open **Library → Settings**. Every settings page has a visible **Back** row.
 Available sections are Reading (text size and line spacing), Screen (reading
-and interface cleanup intervals, clear now), Sleep (5/15/30/60 minutes),
-Language, Wi-Fi, Library connection and About.
+and interface cleanup intervals, clear now), Sleep (5/15/30/60 minutes and switch
+type), Language, Wi-Fi, Library connection, About and Keyboard languages.
 
 English is the default; Russian is available in **Language**. The selection
 persists across restarts. Book text, titles and personal collection names keep
@@ -81,8 +103,9 @@ it does not establish a server/account binding.
 
 The Collections tab contains a separate Favorites list and named collections.
 Use **Новая коллекция (New collection)** to enter a name on the reader, with
-Russian/English letters and symbols. Hold OK to leave character selection, then
-hold it again to cancel the editor. In a book card, Favorites toggles independently;
+any enabled keyboard layout and symbols. Double OK leaves character selection;
+double OK again cancels the editor. Holding OK goes directly to the owning tab.
+In a book card, Favorites toggles independently;
 **В коллекции (Collections)** lets a book belong to several collections.
 
 Explicit synchronization exchanges collections with the linked account on an
@@ -95,13 +118,20 @@ Changing the linked account requires resolving the old collection binding first;
 the reader refuses to upload one account's saved collection changes to another.
 
 UP/DOWN selects a keyboard row; OK enters that row. UP/DOWN then selects a
-character and OK inserts it. Hold OK to return to rows, then hold again to
-return to the network list. Rapid OK presses enter repeated characters while
-editing, without the double-click Home gesture. Lowercase, uppercase, numbers,
+character and OK inserts it. Double OK returns to rows, then double OK again
+returns to the network list. A single OK waits 350 ms for a possible second
+click; wait for the insertion before repeating a character. Lowercase, uppercase, numbers,
 all printable ASCII symbols, space, delete and password visibility are available.
-Passwords accept 8–63 printable ASCII characters or a 64-digit hexadecimal PSK.
+Passwords accept 8–63 UTF-8 bytes or a 64-digit hexadecimal PSK. The access point
+must use the same password bytes; Unicode normalization is not applied.
 
-The list offers Refresh and Hidden network (manual ASCII SSID, up to 32 bytes).
+**Keyboard languages** is independent of the interface language. English and
+Russian are initially enabled; German, French, Spanish, Portuguese and Italian
+can be added individually. English stays available. Select the EN/RU/etc. key
+in the fourth row and press OK to cycle through enabled layouts without losing
+the entered text. The same layouts work for collection names and Wi-Fi entry.
+
+The list offers Refresh and Hidden network (manual UTF-8 SSID, up to 32 bytes).
 Open networks need no password; leave the password blank for a hidden open
 network. WEP and enterprise authentication are explicitly unsupported.
 Exiting Settings or entering deep sleep cancels radio work and clears the draft.

@@ -1,4 +1,5 @@
 #include "reader_settings.h"
+#include "text_keyboard.h"
 #include "storage_recovery.h"
 #include "display_preferences.h"
 
@@ -77,7 +78,10 @@ bool ReaderSettingsStore::load(ReaderSettings &settings) {
     const unsigned sleep = document["sleep_minutes"] | 30U;
     const unsigned readingClear = document["reading_clear_every"] | 24U;
     const unsigned uiClear = document["ui_clear_every"] | 4U;
-    if (language > 1 || (sleep != 5 && sleep != 15 && sleep != 30 && sleep != 60) ||
+    const unsigned layouts = document["keyboard_layouts"] | 3U;
+    const unsigned switchType = document["sleep_switch"] | 0U;
+    if (language > 1 || switchType > 1 || !(layouts & 1U) || (layouts & ~TextKeyboard::AllLayouts) ||
+        (sleep != 5 && sleep != 15 && sleep != 30 && sleep != 60) ||
         (readingClear != 8 && readingClear != 12 && readingClear != 24) ||
         (uiClear != 1 && uiClear != 2 && uiClear != 4)) {
         setError(settings, "settings-invalid");
@@ -87,6 +91,8 @@ bool ReaderSettingsStore::load(ReaderSettings &settings) {
     settings.sleepMinutes = sleep;
     settings.readingClearEvery = readingClear;
     settings.uiClearEvery = uiClear;
+    settings.sleepLatching = switchType == 1;
+    settings.keyboardLayouts = layouts;
     apply(settings);
     return true;
 }
@@ -109,6 +115,8 @@ bool ReaderSettingsStore::save(const ReaderSettings &settings) {
     document["sleep_minutes"] = settings.sleepMinutes;
     document["reading_clear_every"] = settings.readingClearEvery;
     document["ui_clear_every"] = settings.uiClearEvery;
+    document["sleep_switch"] = settings.sleepLatching ? 1U : 0U;
+    document["keyboard_layouts"] = settings.keyboardLayouts;
     document["line_spacing"] =
         static_cast<uint8_t>(settings.lineSpacing);
     const bool written = serializeJsonPretty(document, output) > 0;

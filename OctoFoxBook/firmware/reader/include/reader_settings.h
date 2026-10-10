@@ -12,6 +12,8 @@ struct ReaderSettings {
     uint8_t sleepMinutes = 30;
     uint8_t readingClearEvery = 24;
     uint8_t uiClearEvery = 4;
+    bool sleepLatching = false;
+    uint16_t keyboardLayouts = 3; // English + Russian, independently of UI locale.
     char error[64]{};
 };
 

@@ -19,6 +19,8 @@ struct Library {bool loaded=false;TopLevelTab owner=TopLevelTab::OnDevice;LocalL
 struct Loaded {bool loaded=false;} homeSession,favoritesSession;
 TopLevelTab activeTopLevelTab=TopLevelTab::OnDevice;
 ReaderSettings activeReaderSettings;
+std::atomic<bool> sleepSwitchLatching{false};
+bool batteryWarningVisible=false;
 bool settingsSaveOk=true;
 bool ReaderSettingsStore::save(const ReaderSettings &) {return settingsSaveOk;}
 void ReaderSettingsStore::apply(const ReaderSettings &s) {I18n::language=s.language;}
@@ -67,11 +69,11 @@ int main() {
     input("DOWN");input("CENTER");assert(wifiPage==WifiPage::Reading);snapshot("reading-settings");
     input("DOWN");input("CENTER");assert(activeReaderSettings.textSize==ReaderTextSize::Large);
     settingsSaveOk=false;input("CENTER");assert(activeReaderSettings.textSize==ReaderTextSize::Large);settingsSaveOk=true;
-    input("CENTER","LONG");
+    input("CENTER","DOUBLE");
     for(int i=0;i<4;++i)input("DOWN");input("CENTER");assert(wifiPage==WifiPage::Language);snapshot("language");
     input("DOWN");input("DOWN");input("CENTER");assert(I18n::language==I18n::Language::Russian);snapshot("language-ru");
     input("UP");input("CENTER");assert(I18n::language==I18n::Language::English);
-    input("CENTER","LONG");
+    input("CENTER","DOUBLE");
     for(int i=0;i<5;++i)input("DOWN");
     input("CENTER");assert(WiFi.radio==WIFI_STA);snapshot("scan");
     WiFi.results={{"Home Wi-Fi",-45,WIFI_AUTH_WPA2_PSK},{"Guest Wi-Fi",-67,WIFI_AUTH_OPEN}};
@@ -79,10 +81,10 @@ int main() {
     input("DOWN");input("CENTER");assert(wifiPage==WifiPage::Password && wifiTextEntry);snapshot("keyboard");
     input("CENTER");input("CENTER");input("CENTER");
     assert(!strcmp(wifiKeyboard.value(),"qq"));snapshot("typing");
-    input("CENTER","LONG");assert(!wifiKeyboard.inside);
-    input("CENTER","LONG");assert(!wifiKeyboard.length() && wifiPage==WifiPage::Networks);
+    input("CENTER","DOUBLE");assert(!wifiKeyboard.inside);
+    input("CENTER","DOUBLE");assert(!wifiKeyboard.length() && wifiPage==WifiPage::Networks);
     input("UP");input("UP");input("CENTER");assert(wifiPage==WifiPage::Name);snapshot("hidden");
-    input("CENTER");input("CENTER");input("CENTER","LONG");input("UP");input("CENTER");
+    input("CENTER");input("CENTER");input("CENTER","DOUBLE");input("UP");input("CENTER");
     assert(wifiPage==WifiPage::Password && !strcmp(wifiDraft.ssid,"q"));
     // Deterministic test draft, never a real password.
     wifiKeyboard.reset("sample123",64);wifiKeyboard.row=5;input("CENTER");
@@ -91,7 +93,20 @@ int main() {
     input("CENTER");assert(wifiPage==WifiPage::Password && !strcmp(wifiKeyboard.value(),"sample123"));
     input("CENTER");WiFi.connection=WL_CONNECTED;pollWifiSettings();
     assert(wifiPage==WifiPage::Result && !wifiKeyboard.length() && !wifiDraft.password[0]);snapshot("success");
-    input("CENTER");assert(wifiPage==WifiPage::Settings);input("CENTER","LONG");
+    input("CENTER");assert(wifiPage==WifiPage::Settings);input("CENTER","DOUBLE");
     assert(uiScreen==UiScreen::LocalLibrary && !WifiSetup::active() && WiFi.radio==WIFI_OFF);
+    openWifiSettings();
+    wifiSetPage(WifiPage::Power);wifiSelection=2;
+    input("CENTER");assert(activeReaderSettings.sleepLatching && sleepSwitchLatching);
+    input("CENTER");assert(!activeReaderSettings.sleepLatching && !sleepSwitchLatching);
+    wifiSetPage(WifiPage::Keyboard);wifiSelection=3;
+    input("CENTER");assert(activeReaderSettings.keyboardLayouts==7);snapshot("keyboard-languages");
+    input("CENTER");assert(activeReaderSettings.keyboardLayouts==3);
+    wifiSelection=1;input("CENTER");assert(activeReaderSettings.keyboardLayouts==3);
+    wifiSetPage(WifiPage::Password);wifiKeyboard.configure(3);wifiKeyboard.layout=TextKeyboard::Russian;
+    wifiKeyboard.reset();paintWifiSettings();snapshot("keyboard-russian");
+    drawing.str("");drawing.clear();ReaderBookishCanvas canvas(nullptr);
+    BookishUI::batteryNotice(canvas,15,false);snapshot("battery-warning");
+    drawing.str("");drawing.clear();BookishUI::batteryNotice(canvas,8,true);snapshot("charge-required");
     std::cout<<"WIFI_UI_OK\n";
 }

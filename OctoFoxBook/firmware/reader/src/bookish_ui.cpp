@@ -3,6 +3,37 @@
 #include <stdio.h>
 
 namespace BookishUI {
+void batteryNotice(Canvas &c, unsigned percent, bool critical) {
+    if(critical) {
+        c.box(0,0,540,960,0,15,15);
+        c.logo(30,28);c.text(Font::Heading,"AbyssBook",87,55,360);
+        c.box(30,90,480,1,0,10,10);
+    } else {
+        c.box(24,244,492,462,14,0,15,3);
+    }
+    const int y=critical?254:282;
+    c.box(215,y,102,54,7,0,15,3);c.box(317,y+17,9,20,2,0,0);
+    c.box(223,y+8,8,38,2,0,0);
+    char charge[16]{};snprintf(charge,sizeof(charge),"%u%%",percent);
+    c.text(Font::Control,charge,253,y+36,60);
+    c.text(Font::Title,I18n::text(critical?"Time to recharge":"Battery running low",
+        critical?"Пора зарядиться":"Мало заряда"),48,y+114,444);
+    c.text(Font::Body,I18n::text("Connect a USB charger.","Подключите зарядку по USB."),48,y+163,444,4);
+    if(critical) {
+        c.text(Font::Body,I18n::text("Your reading progress is kept.","Позиция чтения сохранена."),48,y+204,444,4);
+        c.text(Font::Body,I18n::text("The next chapter can wait.","Следующая глава подождёт."),48,y+251,444,4);
+        c.box(48,771,444,1,0,10,10);
+        c.text(Font::Body,I18n::text("Charge, then press Sleep to return.","После зарядки нажмите кнопку сна."),48,816,444,4);
+    } else {
+        c.text(Font::Body,I18n::text("Please charge before continuing.","Пожалуйста, зарядите читалку."),48,y+204,444,4);
+        c.box(48,y+265,444,58,6,0,0);
+        c.text(Font::Control,I18n::text("OK — continue","OK — продолжить"),66,y+303,405,15,0);
+    }
+}
+}
+#include <stdio.h>
+
+namespace BookishUI {
 void header(Canvas &c, unsigned activeTab, int focus) {
     c.logo(30, 28);
     c.text(Font::Heading, "AbyssBook", 87, 55, 260);
@@ -64,7 +95,7 @@ void home(Canvas &c, const Home &v) {
     }
     c.text(Font::Small, v.notice, 30, 893, 460, 5);
     c.text(Font::Small, v.tabFocus >= 0 ? I18n::tr("UP / DOWN — вкладка · OK — открыть") :
-           I18n::tr("OK — открыть · удержать — вкладки · 2× OK — домой"), 42, 951, 468, 5);
+           I18n::tr("OK — открыть · удержать — вкладки · 2× OK — назад"), 42, 951, 468, 5);
 }
 
 void card(Canvas &c, const Card &v) {
@@ -132,6 +163,6 @@ void list(Canvas &c, const List &v) {
     c.text(Font::Control, v.tabFocus >= 0 ? I18n::tr("Выберите раздел") :
            v.backFocused ? I18n::tr("OK — назад") : I18n::tr("OK — открыть"), 30, 932, 355);
     c.text(Font::Body, v.navigationHint ? v.navigationHint : v.tabFocus >= 0 ? I18n::tr("UP / DOWN — вкладка · OK — открыть") :
-           I18n::tr("Удержать OK — вкладки · 2× OK — домой"), 30, 955, 480, 5);
+           I18n::tr("Удержать OK — вкладки · 2× OK — назад"), 30, 955, 480, 5);
 }
 }

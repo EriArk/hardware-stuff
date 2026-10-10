@@ -63,8 +63,13 @@ int main() {
         handleTabNavigation("DOWN","SHORT");
     }
     for(auto screen:{UiScreen::Wifi,UiScreen::OrderedSelector,UiScreen::ReaderMenu}) {
-        uiScreen=screen;assert(!handleTabNavigation("CENTER","LONG"));
+        uiScreen=screen;assert(handleTabNavigation("CENTER","LONG"));
+        assert(uiScreen==UiScreen::Sections);
     }
+    activeTopLevelTab=TopLevelTab::Favorites;uiScreen=UiScreen::Home;displaySections();
+    handleTabNavigation("UP","SHORT");
+    handleTabNavigation("CENTER","DOUBLE");
+    assert(opened==int(TopLevelTab::Favorites));
     assert(draws>10);
 }
 '''

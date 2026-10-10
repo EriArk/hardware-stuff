@@ -45,6 +45,11 @@ int main() {
     std::string hex(64,'a');assert(WifiCredentials::validPassword(hex.c_str(),false));
     hex[63]='z';assert(!WifiCredentials::validPassword(hex.c_str(),false));
     assert(!WifiCredentials::validPassword("password\n",false));
+    assert(WifiCredentials::validPassword("книга1234",false));
+    assert(WifiCredentials::validPassword("café12345",false));
+    assert(!WifiCredentials::validPassword("1234567\xc0\xaf",false));
+    assert(!WifiCredentials::validPassword("1234567\xd0",false));
+    assert(!WifiCredentials::validPassword("1234567\xed\xa0\x80",false));
     c=credential("open","");assert(connect(c,true));WiFi.connection=WL_CONNECTED;assert(poll());assertSaved("open");
     fakeMillis=0xfffff000;scan();fakeMillis+=18001;assert(poll());assert(state()==State::Failed && WiFi.radio==WIFI_OFF);
     scan();leave();assert(!active() && WiFi.radio==WIFI_OFF);assert(!connect(c,true));

@@ -46,9 +46,32 @@ int main() {
     assert(g.update(true,1300,true)==E::None);
     assert(g.update(false,1350,true)==E::Double); // Home restored outside editor.
     std::cout << "KEYBOARD_OK\n";
-    k.reset("",3);k.cyrillic=true;k.mode=4;k.inside=true;
+    k.reset("",3);k.configure(3);k.layout=TextKeyboard::Russian;k.mode=0;k.inside=true;
     assert(k.columns(0)==12);k.confirm();assert(std::string(k.value())=="й");
     assert(k.confirm()==TextKeyboard::Result::Full && k.length()==2);
     k.row=4;k.column=1;k.confirm();assert(k.length()==0);
-    k.reset();k.mode=5;k.inside=true;k.confirm();assert(std::string(k.value())=="Й");
+    k.reset();k.mode=1;k.inside=true;k.confirm();assert(std::string(k.value())=="Й");
+    // Every enabled layout and every codepoint survives insert/delete. A layout
+    // switch keeps the draft and cycles only through the user's enabled set.
+    k.configure(TextKeyboard::AllLayouts);
+    for(unsigned layout=0;layout<TextKeyboard::LayoutCount;++layout) {
+        k.layout=layout;
+        for(unsigned mode=0;mode<2;++mode) for(unsigned row=0;row<3;++row) {
+            k.mode=mode;
+            const unsigned count=k.columns(row);
+            for(unsigned col=0;col<count;++col) {
+                k.reset();k.mode=mode;k.row=row;k.column=col;k.inside=true;
+                char expected[5];k.symbol(row,col,expected);
+                assert(*expected && k.confirm()==TextKeyboard::Result::Changed);
+                assert(std::string(k.value())==expected);
+                k.row=4;k.column=1;k.confirm();assert(k.length()==0);
+            }
+        }
+    }
+    k.configure((1U<<TextKeyboard::English)|(1U<<TextKeyboard::Spanish));
+    k.layout=TextKeyboard::English;k.reset("draft");k.row=3;k.column=4;k.inside=true;
+    k.confirm();assert(k.layout==TextKeyboard::Spanish && std::string(k.value())=="draft");
+    k.confirm();assert(k.layout==TextKeyboard::English);
+    k.configure(0);assert(k.enabledLayouts==1);
+    k.reset("aй",2);assert(std::string(k.value())=="a");
 }

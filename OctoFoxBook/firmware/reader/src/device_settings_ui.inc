@@ -17,8 +17,9 @@ void deviceSettingsBack() {
 }
 unsigned deviceSettingsCount() {
     switch(wifiPage) {
-        case WifiPage::Settings: return 7;
-        case WifiPage::Reading: case WifiPage::Language: return 2;
+        case WifiPage::Settings: return 8;
+        case WifiPage::Reading: case WifiPage::Language: case WifiPage::Power: return 2;
+        case WifiPage::Keyboard: return TextKeyboard::LayoutCount;
         case WifiPage::Display: return 3;
         case WifiPage::About: return 2;
         default: return 1;
@@ -29,8 +30,8 @@ void paintDeviceSettings(ReaderBookishCanvas &c) {
     v.title=deviceText("Settings", "Настройки");
     v.subtitle=deviceText("Make yourself at home.", "Устройтесь поудобнее.");
     v.back=deviceText("< Back", "< Назад"); v.backFocused=wifiSelection==0;
-    v.navigationHint=deviceText("UP / DOWN — select · Hold OK — back", "UP / DOWN — выбор · Удержать OK — назад");
-    const char *names[7]{}; const char *details[7]{}; char values[4][96]{};
+    v.navigationHint=deviceText("Double OK — back · Hold OK — tabs", "Двойной OK — назад · Удержать — вкладки");
+    const char *names[8]{}; const char *details[8]{}; char values[4][96]{};
     const auto &s=activeReaderSettings;
     if(wifiPage==WifiPage::Settings) {
         names[0]=deviceText("Reading","Чтение"); details[0]=deviceText("Text size and line spacing","Размер текста и интервал");
@@ -40,6 +41,7 @@ void paintDeviceSettings(ReaderBookishCanvas &c) {
         names[4]="Wi-Fi"; details[4]=deviceText("Choose a network and password","Выбор сети и ввод пароля");
         names[5]=deviceText("Library connection","Подключение к библиотеке"); details[5]=deviceText("Server and device pairing","Сервер и привязка устройства");
         names[6]=deviceText("About this reader","Об устройстве"); details[6]="AbyssBook";
+        names[7]=deviceText("Keyboard languages","Языки клавиатуры"); details[7]=deviceText("Choose layouts for typing","Раскладки для ввода текста");
     } else if(wifiPage==WifiPage::Reading) {
         v.title=deviceText("Reading","Чтение");
         names[0]=deviceText("Text size","Размер текста");
@@ -60,6 +62,16 @@ void paintDeviceSettings(ReaderBookishCanvas &c) {
         v.title=deviceText("Sleep","Сон"); names[0]=deviceText("Sleep after inactivity","Сон при бездействии");
         snprintf(values[0],sizeof(values[0]),deviceText("%u minutes","%u минут"),s.sleepMinutes); details[0]=values[0];
         v.subtitle=deviceText("Deep sleep. Wi-Fi stays off.","Глубокий сон. Wi-Fi выключен.");
+        names[1]=deviceText("Sleep button type","Тип кнопки сна");
+        details[1]=s.sleepLatching ? deviceText("Latching switch","С фиксацией") : deviceText("Momentary button","Без фиксации");
+    } else if(wifiPage==WifiPage::Keyboard) {
+        v.title=deviceText("Keyboard languages","Языки клавиатуры");
+        v.subtitle=deviceText("Switch layouts with the EN / RU key.","Переключение — клавиша EN / RU при вводе.");
+        for(unsigned i=0;i<TextKeyboard::LayoutCount;++i) {
+            names[i]=TextKeyboard::layoutName(i);
+            details[i]=i==0 ? deviceText("Always available","Всегда доступен") :
+                (s.keyboardLayouts & (1U<<i)) ? deviceText("Enabled","Включён") : deviceText("Disabled","Выключен");
+        }
     } else if(wifiPage==WifiPage::Language) {
         v.title=deviceText("Language","Язык"); names[0]="English"; names[1]="Русский";
         details[static_cast<unsigned>(s.language)]=deviceText("Selected","Выбран");
@@ -90,7 +102,7 @@ void paintDeviceSettings(ReaderBookishCanvas &c) {
 }
 bool inputDeviceSettings(const char *button,const char *gesture) {
     if(!deviceSettingsPage())return false;
-    const bool ok=!strcmp(button,"CENTER"), back=ok && !strcmp(gesture,"LONG");
+    const bool ok=!strcmp(button,"CENTER"), back=ok && !strcmp(gesture,"DOUBLE");
     if(back || (ok && !strcmp(gesture,"SHORT") && wifiSelection==0)) {
         const bool exiting=wifiPage==WifiPage::Settings;deviceSettingsBack();
         if(!exiting)paintWifiSettings(); return true;
@@ -100,7 +112,7 @@ bool inputDeviceSettings(const char *button,const char *gesture) {
         const unsigned n=deviceSettingsCount()+1;
         wifiSelection=(wifiSelection+(!strcmp(button,"UP")?n-1:1))%n;
     } else if(wifiPage==WifiPage::Settings) {
-        const WifiPage pages[]={WifiPage::Settings,WifiPage::Reading,WifiPage::Display,WifiPage::Power,WifiPage::Language,WifiPage::Networks,WifiPage::Library,WifiPage::About};
+        const WifiPage pages[]={WifiPage::Settings,WifiPage::Reading,WifiPage::Display,WifiPage::Power,WifiPage::Language,WifiPage::Networks,WifiPage::Library,WifiPage::About,WifiPage::Keyboard};
         if(wifiSelection==5){wifiBeginScan();return true;}
         wifiSetPage(pages[wifiSelection]);wifiSelection=0;
     } else {
@@ -113,11 +125,18 @@ bool inputDeviceSettings(const char *button,const char *gesture) {
             if(wifiSelection==1){candidate.readingClearEvery=candidate.readingClearEvery==8?12:candidate.readingClearEvery==12?24:8;changed=true;}
             else if(wifiSelection==2){candidate.uiClearEvery=candidate.uiClearEvery==1?2:candidate.uiClearEvery==2?4:1;changed=true;}
             else scheduleGhostCleanup("settings-clean");
-        } else if(wifiPage==WifiPage::Power) {candidate.sleepMinutes=candidate.sleepMinutes==5?15:candidate.sleepMinutes==15?30:candidate.sleepMinutes==30?60:5;changed=true;}
+        } else if(wifiPage==WifiPage::Power) {
+            if(wifiSelection==1) candidate.sleepMinutes=candidate.sleepMinutes==5?15:candidate.sleepMinutes==15?30:candidate.sleepMinutes==30?60:5;
+            else candidate.sleepLatching=!candidate.sleepLatching;
+            changed=true;
+        } else if(wifiPage==WifiPage::Keyboard && wifiSelection>1) {
+            candidate.keyboardLayouts ^= 1U << (wifiSelection-1); changed=true;
+        }
         else if(wifiPage==WifiPage::Language) {candidate.language=static_cast<I18n::Language>(wifiSelection-1);changed=true;}
         if(changed) {
             if(ReaderSettingsStore::save(candidate)) {
                 activeReaderSettings=candidate;ReaderSettingsStore::apply(candidate);
+                sleepSwitchLatching.store(candidate.sleepLatching);
                 scheduleGhostCleanup("settings-changed");homeSession.loaded=false;localLibrarySession.loaded=false;favoritesSession.loaded=false;
             } else wifiNotice=deviceText("Could not save. Check your SD card.","Не сохранено. Проверьте SD-карту.");
         }

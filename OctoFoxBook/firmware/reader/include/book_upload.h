@@ -17,6 +17,7 @@ public:
                const char *expectedSha256, Print &output);
     void poll(Stream &input, Print &output);
     bool active() const;
+    void cancel(Print &output) { if(active_) fail("cancelled-low-battery",output); }
 
     static bool validBookId(const char *bookId);
     static bool bookPath(const char *bookId, char *target, size_t capacity);

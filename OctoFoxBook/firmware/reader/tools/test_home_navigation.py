@@ -74,6 +74,7 @@ def main() -> int:
             before = step("READER STATUS", "READER STATUS")[-1]
             step("INPUT CENTER SHORT", "READER MENU READY")
             assert "screen=12" in step("TAB STATUS", "TAB STATUS")[-1]
+            step("INPUT CENTER DOUBLE", "READER PAGE COMPLETE")
             step("INPUT CENTER DOUBLE", "HOME OPEN COMPLETE")
             step("INPUT CENTER LONG", "SECTIONS OPEN COMPLETE")
             step("INPUT DOWN SHORT", "SECTIONS OPEN COMPLETE")
@@ -92,7 +93,7 @@ def main() -> int:
             after = step("READER STATUS", "READER STATUS")[-1]
             assert re.search(r"page=(\d+/\d+)", before)[1] == re.search(r"page=(\d+/\d+)", after)[1]
             step("INPUT CENTER DOUBLE", "HOME OPEN COMPLETE")
-            # Double OK also wins while focus is on the tabs.
+            # Back from tab focus restores its underlying Home owner.
             step("INPUT CENTER LONG", "SECTIONS OPEN COMPLETE")
             step("INPUT CENTER DOUBLE", "HOME OPEN COMPLETE")
             # Reaching the header by UP must acquire actual tab focus.

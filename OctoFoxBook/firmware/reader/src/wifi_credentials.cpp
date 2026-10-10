@@ -29,7 +29,18 @@ bool validPassword(const char *password, bool open) {
     for (size_t i = 0; i < n; ++i) {
         const unsigned char c = password[i];
         if (n == 64) { if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) return false; }
-        else if (c < 32 || c > 126) return false;
+        else if (c < 32 || c == 127) return false;
+        else if (c >= 128) {
+            // The driver derives the PSK from the supplied bytes. Accept valid
+            // UTF-8 from the multilingual keyboard without normalizing it.
+            unsigned remaining=c>=0xc2 && c<=0xdf?1:c>=0xe0 && c<=0xef?2:c>=0xf0 && c<=0xf4?3:0;
+            if(!remaining || i+remaining>=n)return false;
+            const unsigned char second=password[i+1];
+            if((c==0xe0 && second<0xa0)||(c==0xed && second>=0xa0)||
+               (c==0xf0 && second<0x90)||(c==0xf4 && second>=0x90)||
+               (c==0xc2 && second<0xa0))return false;
+            while(remaining--) {if((static_cast<unsigned char>(password[++i])&0xc0)!=0x80)return false;}
+        }
     }
     return true;
 }
