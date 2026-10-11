@@ -2,9 +2,11 @@
 
 OctoFox Book brings together the AbyssBook e-ink reader, a self-hosted library and the portable Companion app. Historical model filenames remain unchanged for version traceability.
 
+[Состояние проекта](PROJECT_STATUS.md) · [История изменений для постов и сайта](CHANGELOG.md)
+
 ## Release candidate downloads
 
-[Download OctoFox Book 0.9.0-rc.2](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.9.0-rc.2): server setup, portable Companion, AbyssBook RC firmware, source and case files.
+[Download OctoFox Book 0.9.0-rc.3](https://github.com/EriArk/hardware-stuff/releases/tag/octofox-v0.9.0-rc.3): server setup, portable Companion, AbyssBook RC firmware, source and case files.
 
 - [Library and server](library/): books, reading, narration, accounts, collections, backups and reader synchronization.
 - [Companion](companion/): find a server, open its administration panel and pair an AbyssBook by USB.
