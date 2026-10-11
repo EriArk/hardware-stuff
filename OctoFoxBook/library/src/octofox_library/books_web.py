@@ -1,7 +1,7 @@
 """Personal mobile library and durable, account-scoped reader delivery queue.
 
-BookLore OPDS remains the source of books and credentials. Only catalogue
-metadata, reading positions and delivery state are stored here, never passwords.
+BookLore authenticates library accounts. Personal uploads, reading state and
+external catalog connections and import jobs are stored in the local data volume.
 """
 
 from __future__ import annotations
@@ -47,6 +47,7 @@ from octofox_library.web_catalog import (
 )
 from octofox_library.web_collections import COLLECTIONS, collection_filter
 from octofox_library.web_uploads import UploadsMixin
+from octofox_library.web_external import ExternalCatalogs
 from octofox_library.web_personal_collections import PersonalCollectionsMixin
 from octofox_library.web_reader_collections import ReaderCollectionsMixin
 from octofox_library.web_reader_state import ReaderStateMixin
@@ -351,6 +352,7 @@ class LibraryWeb(ReaderStateMixin, ReaderCollectionsMixin, UploadsMixin, Persona
         self.discovery = DesktopDiscovery(self)
         self.network = NetworkSettings(self)
         self.companion = Companion(self, upstream)
+        self.external = ExternalCatalogs(self)
 
     @contextmanager
     def db(self):
@@ -1316,6 +1318,8 @@ class WebHandler(BaseHTTPRequestHandler):
             "/companion-backups.js",
             "/connection-check.js",
             "/ui-language.js",
+            "/external-catalogs.js",
+            "/external-catalogs.css",
         }:
             name = "index.html" if path == "/" else path[1:]
             mime = {
@@ -1429,6 +1433,29 @@ class WebHandler(BaseHTTPRequestHandler):
                 },
             )
         token, session = self.session()
+        if path.startswith('/reader-api/external/'):
+            self.app.throttle('external:' + session.owner, 240)
+            external = self.app.external
+            catalog = query.get('catalog', [''])[0]
+            identity = query.get('id', [''])[0]
+            if path == '/reader-api/external/catalogs':
+                return self.send(200, external.catalogs(session.owner) if get else external.save(session.owner, self.body()))
+            if get and path == '/reader-api/external/browse':
+                return self.send(200, external.browse(session.owner, catalog, query.get('url', [''])[0], query.get('q', [''])[0]))
+            if get and path == '/reader-api/external/cover':
+                data, mime = external.cover(session.owner, catalog, identity)
+                return self.send(200, data, mime)
+            if path == '/reader-api/external/downloads':
+                if get:
+                    return self.send(200, external.jobs(session.owner))
+                data = self.body()
+                return self.send(202, external.enqueue(session.owner, str(data.get('catalog', '')), str(data.get('item', ''))))
+            if not get and path == '/reader-api/external/remove':
+                return self.send(200, external.remove(session.owner, str(self.body().get('catalog', ''))))
+            if not get and path == '/reader-api/external/action':
+                data = self.body()
+                return self.send(200, external.action(session.owner, str(data.get('id', '')), str(data.get('action', ''))))
+            raise WebError(404, 'Not found.')
         if get and path == "/reader-api/speech":
             self.app.speech.warm_library(session)
             return self.send(200, self.app.speech.info(session.owner))
@@ -1640,13 +1667,19 @@ def main():
     )
     app.speech.start()
     app.discovery.start()
-    WebServer(
+    app.external.start()
+    server = WebServer(
         (
             os.environ.get("OCTOFOX_BIND", "0.0.0.0"),
             int(os.environ.get("OCTOFOX_PORT", "8080")),
         ),
         app,
-    ).serve_forever()
+    )
+    try:
+        server.serve_forever()
+    finally:
+        app.external.stop()
+        server.server_close()
 
 
 if __name__ == "__main__":

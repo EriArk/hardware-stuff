@@ -25,7 +25,9 @@
   <script src="/page-voice.js?v=5" defer></script>
   <script src="/bookmarks.js?v=1" defer></script>
   <script src="/personal-library.js?v=3" defer></script>
-  <script src="/app.js?v=42" defer></script>
+  <link rel="stylesheet" href="/external-catalogs.css?v=1" />
+  <script src="/external-catalogs.js?v=1" defer></script>
+  <script src="/app.js?v=43" defer></script>
     <title>OctoFox Library</title>
   </head>
   <body>
@@ -186,6 +188,8 @@
             <svg><use href="#i-device" /></svg>Моя читалка <span>07</span>
           </button>
 
+          <button data-view="external" class="nav-item"><svg><use href="#i-book" /></svg>Внешние каталоги</button>
+          <button data-view="downloads" class="nav-item"><svg style="transform:rotate(180deg)"><use href="#i-upload" /></svg>Загрузки <span id="externalCount"></span></button>
         </nav>
         <div class="drawer-footer">
           <label class="language-choice">Language<select class="ui-language" aria-label="Interface language"><option value="ru">Русский</option><option value="en">English</option></select></label>
@@ -194,6 +198,35 @@
         </div>
       </aside>
 
+      <main id="externalScreen" class="page-shell" hidden>
+        <header class="external-heading"><div><p class="eyebrow">Новые истории</p><h1>Внешние каталоги</h1>
+          <p class="lead">Отмечайте книги на любых страницах. Мы скачаем их в фоне и добавим в вашу библиотеку.</p></div>
+          <a id="externalQueueLink" class="secondary" href="#downloads">Загрузки</a></header>
+        <div id="externalSources"></div>
+        <p id="externalNoSources" class="external-empty">Подключите свой OPDS-каталог или начните с бесплатных английских книг.</p>
+        <button id="externalGutenberg" class="secondary">Попробовать Project Gutenberg</button>
+        <details id="externalAdd"><summary>Подключить каталог</summary>
+          <form id="externalAddForm">
+            <label>Название<input name="name" required maxlength="100" autocomplete="off" /></label>
+            <label>Адрес OPDS<input name="url" type="url" required maxlength="4096" placeholder="https://example.org/opds" /></label>
+            <label>Логин каталога (необязательно)<input name="username" maxlength="200" autocomplete="off" /></label>
+            <label>Пароль каталога<input name="password" type="password" maxlength="512" autocomplete="new-password" /></label>
+            <p id="externalAddStatus" class="external-wide" role="status"></p>
+            <button type="submit" class="primary">Подключить</button>
+          </form>
+        </details>
+        <section id="externalBrowser" hidden>
+          <div class="external-actions"><button id="externalBack" class="text-button">← Назад</button><button id="externalRoot" class="text-button">Начало каталога</button></div>
+          <h2 id="externalTitle"></h2>
+          <form id="externalSearchForm"><input id="externalQuery" aria-label="Поиск в каталоге" placeholder="Найти книгу или автора" maxlength="200" required /><button class="secondary" type="submit">Найти</button></form>
+          <p id="externalStatus" role="status"></p><div id="externalItems"></div><nav id="externalPaging" aria-label="Страницы каталога"></nav>
+        </section>
+      </main>
+      <main id="downloadsScreen" class="page-shell" hidden>
+        <header class="external-heading"><div><p class="eyebrow">Из каталогов — на вашу полку</p><h1>Загрузки</h1>
+          <p class="lead">Загрузка продолжится, даже если закрыть страницу.</p></div><a href="#external" class="secondary">Открыть каталоги</a></header>
+        <div id="externalJobs"></div>
+      </main>
       <main id="collectionsScreen" class="page-shell" hidden>
         <header class="collections-heading"><h1>Подборки</h1><p>Истории под настроение</p></header>
         <div id="collectionCards" class="collection-grid"></div>

@@ -1,5 +1,34 @@
 # OctoFox Library
 
+## External OPDS catalogs
+
+Open **External catalogs** in the Library menu, choose **Connect a catalog**,
+and enter its name and OPDS URL. Optional catalog credentials are separate from
+your Library account. **Try Project Gutenberg** fills in a free English catalog;
+press **Connect** to add it.
+
+Browse sections, search (when offered by the catalog), and move between pages.
+Press **Download** on any book to add it to the server's queue immediately.
+Selections survive page changes and browser closure. **Downloads** shows the
+transfer percentage when the source reports its size, otherwise bytes received.
+You can cancel a pending transfer or retry a failed one. Completed books appear
+in **My library** and can be opened, collected, favorited and read as usual.
+Removing a completed entry from Downloads does not remove its book.
+
+Supported: OPDS 1.x Atom navigation/acquisition feeds, OpenSearch, public direct
+EPUB, FB2 and single-book FB2 ZIP downloads. Paid, loan and DRM acquisition flows
+and OPDS 2 JSON are not supported. File and account upload limits also apply to
+catalog imports (16 MiB per source file). Identical file contents are deduplicated
+within an account. Interrupted jobs restart after a server restart.
+
+Catalog connections and downloads belong to the signed-in account. Disconnecting
+a catalog cancels its pending transfers while keeping imported books. Catalog
+passwords require HTTPS and are stored in the private runtime database so jobs
+can continue without the browser. Protect the data volume and its backups;
+credentials are never returned by the catalog API. Remote fetching accepts public
+Internet addresses only, rechecks every redirect and does not forward credentials
+to other origins. Local-network OPDS servers are not supported in this version.
+
 Личная веб-библиотека: загрузка FB2 и EPUB, поиск, коллекции, чтение, закладки и серверная озвучка. Открывается в браузере на компьютере, планшете и телефоне.
 
 **Релиз-кандидат перед версией 1.0.** Работают библиотека, первоначальная настройка и управление читателями через Companion. Companion также сохраняет сетевые адреса, помогает настроить внешний доступ и проверяет подключение через QR-код. Интерфейс доступен на русском и английском. Привязка AbyssBook по USB проверена на Windows с физической читалкой; проверены загрузка книги, двусторонний обмен позицией чтения и получение закладки с сайта. Аккаунты и общий каталог обслуживает BookLore.

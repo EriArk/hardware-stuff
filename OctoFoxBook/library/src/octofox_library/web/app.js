@@ -10,6 +10,8 @@ const esc = (text) =>
   );
 const icon = (name) => `<svg aria-hidden="true"><use href="#i-${name}"/></svg>`;
 const views = {
+  external: "Внешние каталоги",
+  downloads: "Загрузки",
   personal: "Моя библиотека",
   library: "Все книги",
   recent: "Новинки",
@@ -60,6 +62,8 @@ const state = {
   },
 };
 let toastTimer, searchTimer, positionTimer, browseTimer;
+const externalCatalogs = window.ExternalCatalogs?.({api, session: () => state.csrf,
+  onChange: () => refreshPersonalLibrary(), openBook: id => openBook(id), toast});
 let releaseBookDownload = () => {};
 let readerVoice = null;
 let serverSpeechInfo = {available: true, voice: 'eugene', voices: [
@@ -112,6 +116,7 @@ function task(fn) {
 }
 function showLogin() {
   readerScreenAwake.setActive(false);
+  externalCatalogs?.reset();
   closePersonalSort();
   $("uploadDialog").close();
   personalLibrary?.reset();
@@ -147,6 +152,7 @@ async function enter(me) {
   $("loginScreen").hidden = true;
   $("appScreen").hidden = false;
   $("password").value = "";
+  externalCatalogs?.start();
   await navigate(
     views[location.hash.slice(1)] ? location.hash.slice(1) : "personal",
   );
@@ -333,11 +339,17 @@ async function navigate(view, context = {}) {
   document
     .querySelectorAll("[data-view]")
     .forEach((e) => e.classList.toggle("active", e.dataset.view === (view.startsWith("collection-") ? "collections" : view)));
-  $("libraryScreen").hidden = ["queue", "collections"].includes(view) || !!directoryKinds[view];
+  $("libraryScreen").hidden = ["queue", "collections", "external", "downloads"].includes(view) || !!directoryKinds[view];
+  $("externalScreen").hidden = view !== 'external';
+  $("downloadsScreen").hidden = view !== 'downloads';
   $("collectionsScreen").hidden = view !== "collections";
   $("collectionBack").hidden = !view.startsWith("collection-");
   $("browseScreen").hidden = !directoryKinds[view];
   $("queueScreen").hidden = view !== "queue";
+  if (['external', 'downloads'].includes(view)) {
+    await externalCatalogs?.enter(view);
+    return;
+  }
   if (view === "collections") {
     await loadCollections();
     return;
