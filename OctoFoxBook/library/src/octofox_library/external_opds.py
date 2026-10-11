@@ -175,11 +175,18 @@ def parse_feed(data, url):
                     and l.get('rel', 'subsection') in ('subsection', 'alternate', 'http://opds-spec.org/acquisition')), '')
         partial = any(l.get('rel') == 'alternate' and 'application/atom+xml' in l.get('type', '') for l in ls)
         # Gutenberg exposes each publication as a one-book navigation feed.
-        partial = partial or (urlsplit(nav).hostname in ('www.gutenberg.org', 'm.gutenberg.org')
-                              and bool(re.fullmatch(r'/ebooks/\d+\.opds', urlsplit(nav).path)))
+        gutenberg = (urlsplit(url).hostname in ('www.gutenberg.org', 'm.gutenberg.org')
+                    and urlsplit(nav).hostname in ('www.gutenberg.org', 'm.gutenberg.org')
+                    and bool(re.fullmatch(r'/ebooks/\d+\.opds', urlsplit(nav).path)))
+        partial = partial or gutenberg
+        author = ', '.join(text(a, 'name') for a in entry.findall(ATOM + 'author'))
+        listing_author = text(entry, 'content') if gutenberg else ''
+        # Authorless Gutenberg entries sometimes put a download count here.
+        if not author and not re.fullmatch(r'[\d,\s]+ downloads?', listing_author):
+            author = listing_author
         items.append({'identity': text(entry, 'id') or nav or (downloads[0]['url'] if downloads else text(entry, 'title')),
                       'title': text(entry, 'title') or 'Untitled',
-                      'author': ', '.join(text(a, 'name') for a in entry.findall(ATOM + 'author')),
+                      'author': author,
                       'summary': re.sub('<[^>]+>', '', text(entry, 'summary') or text(entry, 'content'))[:600],
                       'downloads': downloads, 'navigate': nav, 'detail': nav if partial else '',
                       'cover': next((l['href'] for l in ls if l.get('rel') == 'http://opds-spec.org/image/thumbnail'), '')})

@@ -502,7 +502,13 @@
     "Скачать": "Download",
     "Скачивается": "Downloading",
     "Следующая страница →": "Next page →",
-    "Убрать из списка": "Remove from list"
+    "Убрать из списка": "Remove from list",
+    "Источники книг": "Book sources",
+    "Источники": "Sources",
+    "К книгам →": "Browse books →",
+    "Подключите свой OPDS-каталог — его книги появятся в общей библиотеке.": "Connect an OPDS catalog to see its books in your library.",
+    "Выберите книги для скачивания в общей библиотеке.": "Choose books to download from All books.",
+    "Загружаем книги из каталогов…": "Loading books from catalogs…"
   },
   "messages": {
     "Не удалось определить состояние библиотеки.": "Could not determine the library status.",

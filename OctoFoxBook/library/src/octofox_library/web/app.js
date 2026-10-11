@@ -63,7 +63,8 @@ const state = {
 };
 let toastTimer, searchTimer, positionTimer, browseTimer;
 const externalCatalogs = window.ExternalCatalogs?.({api, session: () => state.csrf,
-  onChange: () => refreshPersonalLibrary(), openBook: id => openBook(id), toast});
+  onChange: () => refreshPersonalLibrary(), onSourcesChanged: () => loadCatalog().catch(e => toast(e.message)),
+  openBook: id => openBook(id), toast, cover, bindCovers, esc});
 let releaseBookDownload = () => {};
 let readerVoice = null;
 let serverSpeechInfo = {available: true, voice: 'eugene', voices: [
@@ -316,6 +317,11 @@ function catalogContext() {
 }
 async function navigate(view, context = {}) {
   closePersonalSort();
+  if (view === "external") view = "library";
+  externalCatalogs?.invalidate();
+  $("openExternalSources").hidden = view !== "library";
+  $("externalSections").hidden = true;
+  $("externalShelfStatus").hidden = true;
   $("personalSortButton").hidden = view !== 'personal';
   $("uploadDialog").close();
   state.request++;
@@ -340,13 +346,12 @@ async function navigate(view, context = {}) {
     .querySelectorAll("[data-view]")
     .forEach((e) => e.classList.toggle("active", e.dataset.view === (view.startsWith("collection-") ? "collections" : view)));
   $("libraryScreen").hidden = ["queue", "collections", "external", "downloads"].includes(view) || !!directoryKinds[view];
-  $("externalScreen").hidden = view !== 'external';
   $("downloadsScreen").hidden = view !== 'downloads';
   $("collectionsScreen").hidden = view !== "collections";
   $("collectionBack").hidden = !view.startsWith("collection-");
   $("browseScreen").hidden = !directoryKinds[view];
   $("queueScreen").hidden = view !== "queue";
-  if (['external', 'downloads'].includes(view)) {
+  if (view === 'downloads') {
     await externalCatalogs?.enter(view);
     return;
   }
@@ -520,8 +525,11 @@ async function loadCatalog(append = false) {
     $("resultCount").textContent = `${result.total.toLocaleString("ru")} книг`;
     renderFilters();
     const fragment = document.createDocumentFragment();
+    const visibleBooks = new Set(Array.from($("bookGrid").children).map(e => e.dataset.localBook));
     for (const book of result.books) {
+      if (visibleBooks.has(String(book.id))) continue;
       const tile = document.createElement("button");
+      Object.assign(tile.dataset, {localBook:String(book.id), title:book.title, author:book.author});
       tile.className = readingTileClass(state.view, append, fragment.childElementCount);
       tile.setAttribute(
         "aria-label",
@@ -552,6 +560,27 @@ async function loadCatalog(append = false) {
           ? '<div class="empty-state">Здесь будут твои книги.<br>Загрузи свои книги в формате FB2 или EPUB.<br><button id="emptyUpload" class="primary">Загрузить книги</button><br><a href="#library" class="text-button">Перейти в каталог →</a></div>'
           : '<div class="empty-state">На этой полке пока пусто.<br>Попробуй изменить фильтры или выбрать другую полку.</div>';
     if ($("emptyUpload")) $("emptyUpload").onclick = () => $("openUpload").click();
+    if (state.view === "library") {
+      const remoteMore = await externalCatalogs?.shelf(append, $("bookGrid"), {
+        query:$("searchInput").value.trim(), filters:state.filters, scope:$("searchScope").value,
+        alive:() => request === state.request,
+      });
+      if (request !== state.request) return;
+      $("loadMore").hidden = !result.more && !remoteMore;
+      const remoteCount = $("bookGrid").querySelectorAll('[data-publication]:not([data-local-book])').length;
+      if (remoteCount || remoteMore) {
+        const count = (result.total + remoteCount).toLocaleString("ru") + (remoteMore ? '+' : '');
+        $("bookCount").textContent = count; $("resultCount").textContent = `${count} книг`;
+      }
+      const sort = $("sortFilter").value;
+      if (['title','title_desc','author'].includes(sort)) {
+        const field = sort === 'author' ? 'author' : 'title';
+        Array.from($("bookGrid").querySelectorAll('.book-tile')).sort((a,b) =>
+          String(a.dataset[field]).localeCompare(String(b.dataset[field])) * (sort === 'title_desc' ? -1 : 1)
+        ).forEach(tile => $("bookGrid").append(tile));
+      }
+    }
+
   } catch (e) {
     if (request !== state.request) return;
     $("catalogStatus").textContent = e.message;

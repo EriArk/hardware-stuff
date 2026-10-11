@@ -78,6 +78,29 @@ class ExternalTests(unittest.TestCase):
         self.assertNotIn('private', serialized)
         self.assertNotIn('authorization', serialized)
 
+    def test_import_identity_survives_queue_clear_and_restart(self):
+        job = self.ext.enqueue('alice', self.source, self.item)['id']
+        self.ext.run_one()
+        book = self.ext.jobs('alice')['downloads'][0]['book']
+        self.ext.action('alice', job, 'clear')
+        restored = ExternalCatalogs(self.app)
+        restored.fetcher = self.ext.fetcher
+        self.assertEqual(restored.jobs('alice')['downloads'], [])
+        self.assertEqual(restored.browse('alice', self.source)['items'][0]['book'], book)
+        with patch.object(self.app, 'ensure_index'):
+            self.assertEqual([b['id'] for b in self.app.catalog(Session('alice','','',0), {})['books']], [book])
+        other = restored.save('bob', {'name':'Test', 'url':ROOT})['id']
+        self.assertEqual(restored.browse('bob', other)['items'][0]['book'], '')
+
+    def test_existing_complete_jobs_backfill_import_identity(self):
+        self.ext.enqueue('alice', self.source, self.item)
+        self.ext.run_one()
+        with self.app.db() as db:
+            db.execute('DELETE FROM external_imports')
+        restored = ExternalCatalogs(self.app)
+        restored.fetcher = self.ext.fetcher
+        self.assertTrue(restored.browse('alice', self.source)['items'][0]['book'])
+
     def test_cancel_retry_failure_and_catalog_disconnect(self):
         job = self.ext.enqueue('alice', self.source, self.item)['id']
         self.ext.action('alice', job, 'cancel')
@@ -165,6 +188,16 @@ class ParserTests(unittest.TestCase):
     def test_search_template(self):
         data = b'<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/"><Url type="application/atom+xml" template="/search?q={searchTerms}&amp;lang={language?}"/></OpenSearchDescription>'
         self.assertEqual(search_url(data, ROOT, 'Alice & Bob'), 'https://catalog.example/search?q=Alice%20%26%20Bob&lang=')
+
+    def test_gutenberg_listing_content_is_author_only_on_known_provider(self):
+        data = b'''<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Pride and Prejudice</title>
+          <content type="text">Jane Austen</content>
+          <link type="application/atom+xml" rel="subsection" href="https://www.gutenberg.org/ebooks/1342.opds"/>
+          </entry></feed>'''
+        self.assertEqual(parse_feed(data, 'https://www.gutenberg.org/ebooks/search.opds/')['items'][0]['author'], 'Jane Austen')
+        self.assertEqual(parse_feed(data, ROOT)['items'][0]['author'], '')
+        count = data.replace(b'Jane Austen', b'100122 downloads')
+        self.assertEqual(parse_feed(count, 'https://www.gutenberg.org/ebooks/search.opds/')['items'][0]['author'], '')
 
     def test_gutenberg_search_uses_current_https_host(self):
         data = b'<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/"><Url type="application/atom+xml" template="http://m.gutenberg.org/ebooks/search.opds/?query={searchTerms}"/></OpenSearchDescription>'

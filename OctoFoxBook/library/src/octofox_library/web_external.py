@@ -41,6 +41,12 @@ class ExternalCatalogs:
                     book TEXT DEFAULT '', error TEXT DEFAULT '', created REAL, updated REAL,
                     UNIQUE(owner,catalog,item));
                 CREATE INDEX IF NOT EXISTS external_jobs_owner ON external_downloads(owner,created);
+                CREATE TABLE IF NOT EXISTS external_imports (
+                    owner TEXT, catalog TEXT, item TEXT, book TEXT,
+                    PRIMARY KEY(owner,catalog,item));
+                CREATE INDEX IF NOT EXISTS external_imports_book ON external_imports(owner,book);
+                INSERT OR IGNORE INTO external_imports
+                    SELECT owner,catalog,item,book FROM external_downloads WHERE state='complete' AND book!='';
             ''')
 
     def start(self):
@@ -135,7 +141,12 @@ class ExternalCatalogs:
             db.execute('DELETE FROM external_items WHERE owner=? AND updated<?', (owner, time.time() - 30 * 86400))
             db.execute('DELETE FROM external_items WHERE rowid IN (SELECT rowid FROM external_items WHERE owner=? ORDER BY updated DESC LIMIT -1 OFFSET 10000)', (owner,))
         page['search'] = bool(page['search'])
+        with self.app.db() as db:
+            imported = dict(db.execute('''SELECT e.item,e.book FROM external_imports e
+                JOIN uploaded_books u ON u.owner=e.owner AND u.book=e.book
+                WHERE e.owner=? AND e.catalog=?''', (owner, identity)).fetchall())
         for item in page['items']:
+            item['book'] = imported.get(item['id'], '')
             item['available'] = bool(item['downloads'] or item['detail'])
             item['formats'] = list(dict.fromkeys(x['format'] for x in item.pop('downloads')))
             item['cover'] = bool(item['cover'])
@@ -250,6 +261,8 @@ class ExternalCatalogs:
                 result = self.app.upload_book(job['owner'], payload)
                 with self.app.db() as db:
                     db.execute("UPDATE external_downloads SET state='complete',book=?,error='',updated=? WHERE id=?", (str(result['id']), time.time(), job['id']))
+                    db.execute('INSERT OR REPLACE INTO external_imports VALUES (?,?,?,?)',
+                               (job['owner'], job['catalog'], job['item'], str(result['id'])))
         except Cancelled:
             with self.app.db() as db:
                 db.execute("UPDATE external_downloads SET state='queued',received=0,total=0 WHERE id=? AND state='downloading'", (job['id'],))

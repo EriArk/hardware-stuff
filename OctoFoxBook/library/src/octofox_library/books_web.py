@@ -762,7 +762,8 @@ class LibraryWeb(ReaderStateMixin, ReaderCollectionsMixin, UploadsMixin, Persona
             params.extend(values)
         arrivals = query.get("new", [""])[0] == "1"
         if not personal_collection and query.get("personal", [""])[0] != "1" and not query.get("shelf", [""])[0]:
-            conditions.append("NOT EXISTS (SELECT 1 FROM uploaded_books u WHERE u.owner=b.owner AND u.book=b.id)")
+            conditions.append("(NOT EXISTS (SELECT 1 FROM uploaded_books u WHERE u.owner=b.owner AND u.book=b.id) "
+                              "OR EXISTS (SELECT 1 FROM external_imports e WHERE e.owner=b.owner AND e.book=b.id))")
         if arrivals:
             # BookLore insertion IDs are stable across metadata edits. Select
             # the latest 100 BEFORE filtering and pagination, per account.
@@ -901,7 +902,8 @@ class LibraryWeb(ReaderStateMixin, ReaderCollectionsMixin, UploadsMixin, Persona
         categories = (
             GENRE_CATEGORIES if kind == "genre" else TAG_CATEGORIES if kind == "tag" else {}
         )
-        shared = " AND NOT EXISTS (SELECT 1 FROM uploaded_books u WHERE u.owner=book_facets.owner AND u.book=book_facets.book)"
+        shared = (" AND (NOT EXISTS (SELECT 1 FROM uploaded_books u WHERE u.owner=book_facets.owner AND u.book=book_facets.book) "
+                  "OR EXISTS (SELECT 1 FROM external_imports e WHERE e.owner=book_facets.owner AND e.book=book_facets.book))")
         with self.db() as db:
             groups = [
                 {"value": r[0], "label": localization.taxonomy(categories.get(r[0], r[0]), locale), "count": r[1], "terms": r[2]}

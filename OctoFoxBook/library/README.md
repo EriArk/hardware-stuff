@@ -2,18 +2,25 @@
 
 ## External OPDS catalogs
 
-Open **External catalogs** in the Library menu, choose **Connect a catalog**,
+Open **All books → Sources**, choose **Connect a catalog**,
 and enter its name and OPDS URL. Optional catalog credentials are separate from
-your Library account. **Try Project Gutenberg** fills in a free English catalog;
+your Library account. **Project Gutenberg · English** fills in a free English catalog;
 press **Connect** to add it.
 
-Browse sections, search (when offered by the catalog), and move between pages.
-Press **Download** on any book to add it to the server's queue immediately.
+Connected catalogs appear together in **All books**, using the same cover grid.
+Browse sections, search (when offered by the catalog), and use **More books**
+to load the next pages. Press **↓** on a cover, or **Download** in its card,
+to add the book to the server's queue immediately.
 Selections survive page changes and browser closure. **Downloads** shows the
 transfer percentage when the source reports its size, otherwise bytes received.
 You can cancel a pending transfer or retry a failed one. Completed books appear
-in **My library** and can be opened, collected, favorited and read as usual.
-Removing a completed entry from Downloads does not remove its book.
+in **My library** and remain in **All books** as a single, openable book.
+They can be collected, favorited and read as usual. Removing a completed entry
+from Downloads does not remove its book or make a duplicate catalog card.
+
+Catalog pages load on demand; a **+** beside the count means more remote books
+are available. Title/author ordering applies to the loaded remote results.
+Search and metadata filters depend on the information each catalog supplies.
 
 Supported: OPDS 1.x Atom navigation/acquisition feeds, OpenSearch, public direct
 EPUB, FB2 and single-book FB2 ZIP downloads. Paid, loan and DRM acquisition flows
