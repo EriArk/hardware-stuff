@@ -14,6 +14,70 @@ def source(name):
 
 
 class SyncRegressionTests(unittest.TestCase):
+    def test_request_cleanup_preserves_session_until_cancel_or_end(self):
+        compiler = shutil.which("g++")
+        if not compiler:
+            self.skipTest("g++ required")
+        network = source("network_service.cpp")
+        cleanup = "void NetworkService::releaseRequestNetwork()" + network.split(
+            "void NetworkService::releaseRequestNetwork()", 1)[1].split(
+            "NetworkStatus NetworkService::status()", 1)[0]
+        harness = r'''
+#include <cassert>
+namespace AutomaticSync {
+bool owner=true, cancelled=false;
+bool ownsNetworkSession() { return owner; }
+bool cancelRequested() { return cancelled; }
+}
+struct NetworkService {
+    bool radio=true;
+    unsigned disconnects=0;
+    void disconnect() { radio=false; ++disconnects; }
+    void releaseRequestNetwork();
+};
+''' + cleanup + r'''
+int main() {
+    NetworkService network;
+    // Book, cover, receipt, metadata: all share association.
+    for(int i=0;i<12;++i)network.releaseRequestNetwork();
+    assert(network.radio && network.disconnects==0);
+    AutomaticSync::cancelled=true;
+    network.releaseRequestNetwork();
+    assert(!network.radio && network.disconnects==1);
+    AutomaticSync::cancelled=false;
+    network.radio=true;
+    AutomaticSync::owner=false;
+    network.releaseRequestNetwork();
+    assert(!network.radio && network.disconnects==2);
+    AutomaticSync::owner=true;
+    network.radio=true;
+    network.disconnect(); // The worker always ends the manual session.
+    assert(!network.radio && network.disconnects==3);
+}
+'''
+        with tempfile.TemporaryDirectory(prefix="reader-radio-session-") as directory:
+            cpp = Path(directory) / "session.cpp"
+            binary = Path(directory) / "session.exe"
+            cpp.write_text(harness, encoding="utf-8")
+            built = subprocess.run([compiler, "-std=c++17", "-Wall", "-Wextra",
+                                    str(cpp), "-o", str(binary)],
+                                   capture_output=True, text=True)
+            self.assertEqual(built.returncode, 0, built.stderr)
+            subprocess.run([str(binary)], check=True, timeout=10)
+        # Actual transfer paths must use session-aware cleanup, not kill radio.
+        for name, next_name in (
+            ("fetchOpds", "downloadFb2"),
+            ("downloadFb2", "downloadCover"),
+            ("downloadCover", "probeRoot"),
+        ):
+            transfer = network.split(f"NetworkService::{name}(", 1)[1].split(
+                f"NetworkService::{next_name}(", 1)[0]
+            self.assertNotIn("disconnect();", transfer)
+            self.assertIn("releaseRequestNetwork();", transfer)
+            self.assertIn("connect(connection, max(timeoutMs, ReaderSyncPolicy::kWifiAttemptMs))", transfer)
+        worker = source("automatic_sync.cpp")
+        self.assertIn("network.disconnect();", worker)
+
     def test_actual_connect_with_slow_home_fallback_failure_and_cancel(self):
         compiler = shutil.which("g++")
         if not compiler:

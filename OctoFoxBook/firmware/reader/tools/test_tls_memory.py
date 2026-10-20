@@ -89,7 +89,7 @@ int main() {
         for end in ends:
             self.assertTrue(network[end.end():].lstrip().startswith("client.stop();"))
         begin_failure = network.split('setError(result.error, sizeof(result.error), "http-begin-failed");', 1)[1].split("return false;", 1)[0]
-        self.assertLess(begin_failure.index("client.stop();"), begin_failure.index("disconnect();"))
+        self.assertLess(begin_failure.index("client.stop();"), begin_failure.index("releaseRequestNetwork();"))
 
 
 if __name__ == "__main__":

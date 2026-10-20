@@ -387,6 +387,15 @@ void NetworkService::disconnect() {
     lastStatus_.rssi = 0;
 }
 
+void NetworkService::releaseRequestNetwork() {
+    // A book, cover and acknowledgement belong to one manual session. Cycling
+    // the driver after each file needlessly repeats association/DHCP and can
+    // strand an otherwise completed download before its acknowledgement.
+    if (!AutomaticSync::ownsNetworkSession() || AutomaticSync::cancelRequested()) {
+        disconnect();
+    }
+}
+
 NetworkStatus NetworkService::status() {
     NetworkStatus result = lastStatus_;
     char error[64]{};
@@ -506,6 +515,7 @@ bool NetworkService::syncRequest(const char *path, const char *json,
         : ReaderSyncPolicy::httpError(result.httpCode);
     http.end();
     client.stop();
+    releaseRequestNetwork();
     return ok;
 }
 
@@ -542,10 +552,10 @@ bool NetworkService::fetchOpds(const char *url, String &body,
     }
 
     NetworkStatus connection{};
-    if (!connect(connection, timeoutMs)) {
+    if (!connect(connection, max(timeoutMs, ReaderSyncPolicy::kWifiAttemptMs))) {
         setError(result.error, sizeof(result.error), connection.error);
         result.durationMs = millis() - startedAt;
-        disconnect();
+        releaseRequestNetwork();
         return false;
     }
 
@@ -570,7 +580,7 @@ bool NetworkService::fetchOpds(const char *url, String &body,
         setError(result.error, sizeof(result.error), "http-begin-failed");
         result.durationMs = millis() - startedAt;
         client.stop();
-        disconnect();
+        releaseRequestNetwork();
         return false;
     }
     http.setAuthorization(configuration_.opdsUsername,
@@ -606,7 +616,7 @@ bool NetworkService::fetchOpds(const char *url, String &body,
         http.end();
         client.stop();
         result.durationMs = millis() - startedAt;
-        disconnect();
+        releaseRequestNetwork();
         return false;
     }
 
@@ -616,7 +626,7 @@ bool NetworkService::fetchOpds(const char *url, String &body,
         http.end();
         client.stop();
         result.durationMs = millis() - startedAt;
-        disconnect();
+        releaseRequestNetwork();
         return false;
     }
     body = http.getString();
@@ -634,7 +644,7 @@ bool NetworkService::fetchOpds(const char *url, String &body,
     http.end();
     client.stop();
     result.durationMs = millis() - startedAt;
-    disconnect();
+    releaseRequestNetwork();
     return result.ok;
 }
 
@@ -676,10 +686,10 @@ bool NetworkService::downloadFb2(const char *url, const char *bookId,
         return false;
     }
     NetworkStatus connection{};
-    if (!connect(connection, timeoutMs)) {
+    if (!connect(connection, max(timeoutMs, ReaderSyncPolicy::kWifiAttemptMs))) {
         setError(result.error, sizeof(result.error), connection.error);
         result.durationMs = millis() - startedAt;
-        disconnect();
+        releaseRequestNetwork();
         return false;
     }
 
@@ -704,7 +714,7 @@ bool NetworkService::downloadFb2(const char *url, const char *bookId,
         client.stop();
         SD.remove(partialPath);
         result.durationMs = millis() - startedAt;
-        disconnect();
+        releaseRequestNetwork();
         return false;
     };
 
@@ -880,7 +890,7 @@ bool NetworkService::downloadFb2(const char *url, const char *bookId,
     http.end();
     client.stop();
     result.durationMs = millis() - startedAt;
-    disconnect();
+    releaseRequestNetwork();
     return true;
 }
 
@@ -920,10 +930,10 @@ bool NetworkService::downloadCover(const char *url, const char *bookId,
         return false;
     }
     NetworkStatus connection{};
-    if (!connect(connection, timeoutMs)) {
+    if (!connect(connection, max(timeoutMs, ReaderSyncPolicy::kWifiAttemptMs))) {
         setError(result.error, sizeof(result.error), connection.error);
         result.durationMs = millis() - startedAt;
-        disconnect();
+        releaseRequestNetwork();
         return false;
     }
 
@@ -944,7 +954,7 @@ bool NetworkService::downloadCover(const char *url, const char *bookId,
         client.stop();
         SD.remove(partialPath);
         result.durationMs = millis() - startedAt;
-        disconnect();
+        releaseRequestNetwork();
         return false;
     };
     if (!http.begin(client, url)) {
@@ -1077,7 +1087,7 @@ bool NetworkService::downloadCover(const char *url, const char *bookId,
     http.end();
     client.stop();
     result.durationMs = millis() - startedAt;
-    disconnect();
+    releaseRequestNetwork();
     return true;
 }
 

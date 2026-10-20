@@ -81,6 +81,9 @@ public:
     static bool verifiedLocalDigest(const char *bookId, char digest[65]);
 
 private:
+    // Close each HTTP/TLS socket, but keep association for the sync owner.
+    // The worker explicitly disconnects once the whole pass has ended.
+    void releaseRequestNetwork();
     bool loadConfiguration(char *error, size_t errorCapacity);
     bool synchronizeTime(char *error, size_t errorCapacity,
                          uint32_t timeoutMs = 15000);
